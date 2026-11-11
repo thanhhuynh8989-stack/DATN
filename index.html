@@ -8,11 +8,10 @@
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body class="bg-light">
-    <!-- KHUNG TỔNG FLEXBOX BẰNG MÀN HÌNH (SỬ DỤNG DVH DĨNH CHẮC ĐÁY MÀN HÌNH DI ĐỘNG) -->
     <div class="app-container">
         
         <!-- TIÊU ĐỀ -->
-        <h4 class="text-center fw-bold text-primary mb-1 setup-section app-title">PHẦN MỀM XUẤT HỒ SƠ & BẢNG ĐIỂM HỘI ĐỒNG ĐATN</h4>
+        <h4 class="text-center fw-bold text-primary mb-1 setup-section app-title">PHẦN MỀM XUẤT HỒ SƠ & BẢNG ĐIỂM HỘI ĐỒNG</h4>
 
         <!-- KHU VỰC 1: SETUP THÔNG TIN & TẢI FILE EXCEL -->
         <div class="card mb-1 shadow-sm border-0 setup-section">
@@ -82,10 +81,19 @@
             </div>
         </div>
 
-        <!-- KHU VỰC 2: WORKSPACE 3 CỘT (HỖ TRỢ VUỐT TRÊN MOBILE) -->
+        <!-- THANH CHUYỂN TAB DÀNH RIÊNG CHO MOBILE DỌC -->
+        <div class="mobile-tab-nav d-md-none mb-1 setup-section">
+            <div class="btn-group w-100 shadow-sm" role="group">
+                <button type="button" class="btn btn-outline-success btn-sm fw-bold active" id="tab-btn-sv">📋 SV Chờ</button>
+                <button type="button" class="btn btn-outline-dark btn-sm fw-bold" id="tab-btn-hd">🏛️ Hội Đồng</button>
+                <button type="button" class="btn btn-outline-info btn-sm fw-bold" id="tab-btn-gv">👨‍🏫 Giảng Viên</button>
+            </div>
+        </div>
+
+        <!-- KHU VỰC 2: WORKSPACE 3 CỘT (TỰ ĐỘNG CHUYỂN TAB VỪA MÀN HÌNH DI ĐỘNG) -->
         <div class="row workspace-row">
             <!-- Cột Trái: Sinh Viên -->
-            <div class="col-md-3 h-100">
+            <div class="col-md-3 h-100 mobile-col active" id="col-sv">
                 <div class="card shadow-sm column-card">
                     <div class="card-header bg-success text-white fw-bold py-2 text-center">
                         📋 SINH VIÊN CHỜ PHÂN CÔNG
@@ -97,10 +105,10 @@
             </div>
 
             <!-- Cột Giữa: Không Gian Hội Đồng -->
-            <div class="col-md-6 h-100">
+            <div class="col-md-6 h-100 mobile-col" id="col-hd">
                 <div class="card shadow-sm column-card">
                     <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center py-1">
-                        <span>🏛️ KHU VỰC PHÂN BỔ HỘI ĐỒNG</span>
+                        <span>🏛️ KHU VỰC HỘI ĐỒNG</span>
                         <button class="btn btn-primary btn-sm fw-bold" id="btn-add-hd">+ TẠO HỘI ĐỒNG</button>
                     </div>
                     <div class="card-body bg-secondary bg-opacity-10" id="workspace-hd">
@@ -110,7 +118,7 @@
             </div>
 
             <!-- Cột Phải: Giảng Viên -->
-            <div class="col-md-3 h-100">
+            <div class="col-md-3 h-100 mobile-col" id="col-gv">
                 <div class="card shadow-sm column-card">
                     <div class="card-header bg-info text-white fw-bold py-2 text-center">
                         👨‍🏫 KHO GIẢNG VIÊN
@@ -122,10 +130,10 @@
             </div>
         </div>
 
-        <!-- KHU VỰC 3: CỐ ĐỊNH ĐÁY MÀN HÌNH (LUÔN HIỂN THỊ ĐỦ NÚT BẤM) -->
+        <!-- KHU VỰC 3: CỐ ĐỊNH ĐÁY MÀN HÌNH -->
         <div class="text-center footer-section shadow-sm">
-            <button class="btn btn-warning fw-bold px-4 shadow-sm" id="btn-nhap-diem">📝 NHẬP ĐIỂM TRỰC TIẾP</button>
-            <button class="btn btn-danger fw-bold px-5 ms-md-3 shadow-sm" id="btn-export">🚀 TẠO HỒ SƠ (.ZIP) & BẢNG ĐIỂM (.XLSX)</button>
+            <button class="btn btn-warning fw-bold shadow-sm" id="btn-nhap-diem">📝 NHẬP ĐIỂM TRỰC TIẾP</button>
+            <button class="btn btn-danger fw-bold shadow-sm ms-md-3" id="btn-export">🚀 TẠO HỒ SƠ (.ZIP) & BẢNG ĐIỂM (.XLSX)</button>
         </div>
     </div>
 
