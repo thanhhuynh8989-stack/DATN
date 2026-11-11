@@ -1,17 +1,61 @@
-body { font-size: 0.9rem; }
+/* css/styles.css */
+body {
+    font-size: 0.88rem;
+}
+
+/* Thẻ card cố định tiêu đề và cuộn riêng phần thân */
+.column-container {
+    display: flex;
+    flex-direction: column;
+    height: 75vh;
+}
+
+.column-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+}
+
+/* Tùy chỉnh thẻ item kéo thả */
 .card-item {
-    background: white; border: 1px solid #dee2e6; border-radius: 4px;
-    padding: 8px; margin-bottom: 8px; cursor: grab; font-size: 0.85rem;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: all 0.2s;
+    cursor: grab;
+    user-select: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
-.card-item:hover { border-color: #0d6efd; box-shadow: 0 2px 5px rgba(13,110,253,0.2); }
+
+.card-item:active {
+    cursor: grabbing;
+}
+
+.card-item:hover {
+    border-color: #0d6efd !important;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1) !important;
+}
+
+/* Ô thả giảng viên & sinh viên */
 .dropzone-gv {
-    min-height: 40px; border: 1px dashed #adb5bd; border-radius: 4px;
-    background: #f8f9fa; padding: 4px; margin-bottom: 6px;
+    background-color: #f8f9fa;
 }
+
 .dropzone-sv {
-    min-height: 120px; border: 1px dashed #adb5bd; border-radius: 4px;
-    background: #ffffff; padding: 6px;
+    background-color: #f8f9fa;
 }
-.sortable-ghost { opacity: 0.4; background: #e2e3e5; }
-.box-hoidong { background: white; border: 2px solid #dee2e6; border-radius: 8px; margin-bottom: 15px; }
+
+/* Tùy chỉnh thanh cuộn đẹp mắt */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #999;
+}
