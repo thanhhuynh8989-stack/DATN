@@ -17,13 +17,12 @@ export function initGlobalSortables() {
     }
 }
 
-// Export hàm 2: Tạo Box Hội Đồng mới (Dùng input time có mũi tên tăng/giảm giờ phút)
+// Export hàm 2: Tạo Box Hội Đồng mới
 export function createHoiDongBox(titleText = null, initDate = '', initTime = '17:00', initRoom = '') {
     hoidongCount++;
     const hdTitle = titleText || `Hội Đồng ${hoidongCount}`;
     const boxId = `hd-box-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-    // Chuẩn hóa format giờ HH:mm cho <input type="time">
     let formattedTime = initTime;
     if (initTime && initTime.includes('h')) {
         const parts = initTime.split('h');
@@ -37,10 +36,7 @@ export function createHoiDongBox(titleText = null, initDate = '', initTime = '17
             <div class="d-flex gap-2 mb-2 bg-light p-2 rounded align-items-center flex-wrap">
                 <input type="text" class="form-control form-control-sm fw-bold hd-title" value="${hdTitle}" placeholder="Số/Tên HĐ" style="width: 110px;">
                 <input type="date" class="form-control form-control-sm hd-date" value="${initDate}" style="width: 125px;" title="Ngày bảo vệ">
-                
-                <!-- KHUNG CHỌN GIỜ:PHÚT (Nhập số hoặc bấm mũi tên tăng giảm) -->
                 <input type="time" class="form-control form-control-sm hd-time" value="${formattedTime || '17:00'}" style="width: 110px;" title="Giờ:Phút bảo vệ">
-
                 <input type="text" class="form-control form-control-sm hd-room" value="${initRoom}" placeholder="Phòng (C120)" style="width: 105px;">
                 <select class="form-select form-select-sm hd-location" style="width: 150px;">
                     <option value="120 Hoàng Minh Thảo">120 Hoàng Minh Thảo</option>
@@ -70,86 +66,89 @@ export function createHoiDongBox(titleText = null, initDate = '', initTime = '17
     workspace.insertAdjacentHTML('beforeend', boxHTML);
     const boxEl = document.getElementById(boxId);
 
-    // Sự kiện Xóa Box
     boxEl.querySelector('.btn-delete-hd')?.addEventListener('click', () => boxEl.remove());
 
     attachSortableToHoiDong(boxId);
     return boxId;
 }
 
-// Export hàm 3: Bóc tách file Excel Hội đồng và tự động điền giờ phút
-export function renderHoidongFromExcel(rows) {
+// Export hàm 3: Bóc tách file Excel Hội đồng, đổ thông tin đầy đủ & XÓA SV ĐÃ PHÂN CÔNG KHỎI KHO CHỜ
+export function renderHoidongFromExcel(parsedHoidongs) {
     const workspace = document.getElementById('workspace-hd');
     if (!workspace) return;
     workspace.innerHTML = '';
     hoidongCount = 0;
 
-    let defaultTime = "17:00", defaultDate = "", defaultRoom = "";
+    Object.keys(parsedHoidongs).forEach(hdKey => {
+        const hd = parsedHoidongs[hdKey];
+        const formattedDate = formatDateToInput(hd.ngayBV);
+        const boxId = createHoiDongBox(hd.soHD, formattedDate, '17:00', '');
 
-    // Dò tìm Thời gian bảo vệ từ các dòng tiêu đề file Excel
-    for (let i = 0; i < Math.min(rows.length, 7); i++) {
-        const rowStr = (rows[i] || []).join(' ');
-        if (rowStr.includes('Thời gian bảo vệ')) {
-            const timeMatch = rowStr.match(/(\d{1,2})h(\d{2})?/);
-            if (timeMatch) {
-                const hh = timeMatch[1].padStart(2, '0');
-                const mm = (timeMatch[2] || '00').padStart(2, '0');
-                defaultTime = `${hh}:${mm}`;
-            }
-            
-            const dayMatch = rowStr.match(/ngày\s+(\d{1,2})\s+tháng\s+(\d{1,2})\s+năm\s+(\d{4})/);
-            if (dayMatch) {
-                const d = dayMatch[1].padStart(2, '0');
-                const m = dayMatch[2].padStart(2, '0');
-                const y = dayMatch[3];
-                defaultDate = `${y}-${m}-${d}`;
-            }
-            break;
-        }
-    }
+        const boxEl = document.getElementById(boxId);
+        if (!boxEl) return;
 
-    let currentBoxId = null;
-    let currentHDNum = null;
-
-    rows.forEach((row, idx) => {
-        if (idx < 7 || !row) return;
-
-        const hdVal = String(row[0] || '').trim();
-        const maGV = String(row[1] || '').trim();
-        const hoTenGV = String(row[2] || '').trim();
-        const chucDanh = String(row[5] || '').trim();
-
-        if (hdVal && hdVal !== currentHDNum && !isNaN(hdVal)) {
-            currentHDNum = hdVal;
-            currentBoxId = createHoiDongBox(`Hội Đồng ${hdVal}`, defaultDate, defaultTime, defaultRoom);
-        }
-
-        if (currentBoxId && hoTenGV && chucDanh) {
-            const box = document.getElementById(currentBoxId);
+        // 1. Render Giảng viên vào đúng chức danh theo Mã GV
+        hd.thanhVien.forEach(gv => {
             let roleName = "";
-            if (chucDanh.includes("Chủ tịch")) roleName = "Chủ tịch";
-            else if (chucDanh.includes("Phản biện")) roleName = "Phản biện";
-            else if (chucDanh.includes("Thư ký")) roleName = "Thư ký";
+            if (gv.chucDanh.includes("Chủ tịch")) roleName = "Chủ tịch";
+            else if (gv.chucDanh.includes("Phản biện")) roleName = "Phản biện";
+            else if (gv.chucDanh.includes("Thư ký")) roleName = "Thư ký";
 
             if (roleName) {
-                const zone = box.querySelector(`.dropzone-gv[data-role="${roleName}"]`);
+                const zone = boxEl.querySelector(`.dropzone-gv[data-role="${roleName}"]`);
                 if (zone) {
                     zone.innerHTML = `
-                        <div class="card-item bg-light border-info p-1 rounded shadow-sm" data-id="${maGV}" data-name="${hoTenGV}">
-                            <div class="fw-bold text-dark small">${hoTenGV}</div>
+                        <div class="card-item bg-light border-info p-1 rounded shadow-sm" data-id="${gv.maGV}" data-name="${gv.hoTenGV}">
+                            <div class="fw-bold text-dark small">${gv.hoTenGV}</div>
+                            <div class="text-muted text-truncate" style="font-size: 0.75rem;">${gv.donVi || ''} - Mã: ${gv.maGV}</div>
                         </div>
                     `;
                 }
             }
-        }
+        });
+
+        // 2. Render Sinh viên & XÓA KHỎI KHO CHỜ THEO MÃ SV (maSV)
+        const svDropzone = boxEl.querySelector('.dropzone-sv');
+        hd.sinhViens.forEach(sv => {
+            // Ưu tiên đối chiếu lấy dữ liệu đầy đủ từ Kho Sinh viên nếu có sẵn
+            const poolItem = document.querySelector(`#pool-sv .card-item[data-id="${sv.maSV}"]`);
+            
+            const hoTen = poolItem ? poolItem.getAttribute('data-name') : (sv.hoTenSV || sv.hoTen);
+            const lop = poolItem ? poolItem.getAttribute('data-lop') : (sv.lop || '');
+            const deTai = poolItem ? poolItem.getAttribute('data-detai') : (sv.deTai || '');
+            const gvhd = poolItem ? poolItem.getAttribute('data-gvhd') : '';
+
+            const svHTML = `
+                <div class="card-item mb-2 p-2 border rounded bg-white shadow-sm" 
+                     data-id="${sv.maSV}" data-name="${hoTen}" data-lop="${lop}" data-detai="${deTai}" data-gvhd="${gvhd}">
+                    <div class="fw-bold text-primary">${hoTen} (${sv.maSV})</div>
+                    <div class="text-muted small">Lớp: ${lop} | GVHD: <span class="fw-bold text-dark">${gvhd || 'Chưa rõ'}</span></div>
+                    <div class="text-dark small text-truncate" title="${deTai}">Đề tài: ${deTai}</div>
+                </div>`;
+            
+            svDropzone?.insertAdjacentHTML('beforeend', svHTML);
+
+            // GẮN CỜ ĐÃ PHÂN CÔNG: Xóa thẻ SV khỏi Cột 1 (Kho chờ) theo Mã SV (maSV)
+            if (poolItem) {
+                poolItem.remove();
+            }
+        });
     });
+}
+
+function formatDateToInput(dateStr) {
+    if (!dateStr) return '';
+    if (dateStr.includes('/')) {
+        const p = dateStr.split('/');
+        if (p.length === 3) return `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
+    }
+    return dateStr;
 }
 
 function attachSortableToHoiDong(boxId) {
     const box = document.getElementById(boxId);
     if (!box) return;
 
-    // Kéo thả Sinh Viên & Kiểm tra Ràng buộc GVHD
     Sortable.create(box.querySelector('.dropzone-sv'), {
         group: 'sinhvien',
         animation: 150,
@@ -166,7 +165,6 @@ function attachSortableToHoiDong(boxId) {
         }
     });
 
-    // Kéo thả Giảng Viên & Kiểm tra các Ràng buộc trùng lặp
     box.querySelectorAll('.dropzone-gv').forEach(zone => {
         Sortable.create(zone, {
             group: 'giangvien',
