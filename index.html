@@ -4,19 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hệ Thống Quản Lý Hội Đồng ĐATN</title>
-    <!-- Mạng nội bộ: Dùng file CSS tải về sẵn -->
     <link rel="stylesheet" href="lib/bootstrap.min.css">
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body class="bg-light">
-    <div class="container-fluid py-3">
-        <h3 class="mb-3 text-center fw-bold text-primary">PHẦN MỀM XUẤT HỒ SƠ & BẢNG ĐIỂM HỘI ĐỒNG ĐATN</h3>
+    <!-- KHUNG TỔNG FLEXBOX BẰNG MÀN HÌNH -->
+    <div class="app-container">
+        
+        <!-- TIÊU ĐỀ -->
+        <h4 class="text-center fw-bold text-primary mb-2 setup-section">PHẦN MỀM XUẤT HỒ SƠ & BẢNG ĐIỂM HỘI ĐỒNG ĐATN</h4>
 
         <!-- KHU VỰC 1: SETUP & TẢI FILE -->
-        <div class="card mb-3 shadow-sm border-0">
-            <div class="card-body row g-3 align-items-end">
+        <div class="card mb-1 shadow-sm border-0 setup-section">
+            <div class="card-body row g-2 align-items-end p-2">
                 <div class="col-md-2">
-                    <label class="fw-bold">Khoa:</label>
+                    <label class="fw-bold small">Khoa:</label>
                     <select id="khoa-select" class="form-select form-select-sm">
                         <option value="Khoa Điện - Điện tử">Điện - Điện tử</option>
                         <option value="Khoa Môi trường & KHTN">Môi trường & KHTN</option>
@@ -24,46 +26,42 @@
                     </select>
                 </div>
         
-                <!-- File 1: SV & Đề tài -->
                 <div class="col-md-3">
                     <div class="d-flex justify-content-between align-items-center mb-1">
-                        <label class="fw-bold m-0">Danh sách SV & Đề tài:</label>
+                        <label class="fw-bold small m-0">Danh sách SV & Đề tài:</label>
                         <a href="./sample_files/Mau_Danh_Sach_SV.xlsx" download class="badge bg-secondary text-decoration-none">📥 File mẫu</a>
                     </div>
                     <input type="file" id="upload-sv" class="form-control form-control-sm" accept=".xlsx, .xls">
                 </div>
         
-                <!-- File 2: Giảng viên -->
                 <div class="col-md-3">
                     <div class="d-flex justify-content-between align-items-center mb-1">
-                        <label class="fw-bold m-0">Danh sách Giảng viên:</label>
+                        <label class="fw-bold small m-0">Danh sách Giảng viên:</label>
                         <a href="./sample_files/Mau_Danh_Sach_GV.xlsx" download class="badge bg-secondary text-decoration-none">📥 File mẫu</a>
                     </div>
                     <input type="file" id="upload-gv" class="form-control form-control-sm" accept=".xlsx, .xls">
                 </div>
         
-                <!-- File 3: Hội đồng (Tùy chọn) -->
                 <div class="col-md-2">
                     <div class="d-flex justify-content-between align-items-center mb-1">
-                        <label class="fw-bold m-0">DS Hội Đồng:</label>
+                        <label class="fw-bold small m-0">DS Hội Đồng:</label>
                         <a href="./sample_files/Mau_Danh_Sach_HD.xlsx" download class="badge bg-secondary text-decoration-none">📥 File mẫu</a>
                     </div>
                     <input type="file" id="upload-hd" class="form-control form-control-sm" accept=".xlsx, .xls">
                 </div>
         
-                <!-- NÚT NẠP DỮ LIỆU EXCEL -->
                 <div class="col-md-2">
                     <button class="btn btn-success btn-sm w-100 fw-bold" id="btn-read-files">⚡ NẠP DỮ LIỆU EXCEL</button>
                 </div>
             </div>
         </div>
 
-        <!-- KHU VỰC 2: WORKSPACE 3 CỘT (CỐ ĐỊNH TIÊU ĐỀ, CUỘN ĐỘC LẬP) -->
+        <!-- KHU VỰC 2: WORKSPACE 3 CỘT (TỰ ĐỘNG CO GIÃN THEO DIỆN TÍCH CÒN LẠI) -->
         <div class="row workspace-row">
             <!-- Cột Trái: Sinh Viên -->
             <div class="col-md-3 h-100">
                 <div class="card shadow-sm column-card">
-                    <div class="card-header bg-success text-white fw-bold">
+                    <div class="card-header bg-success text-white fw-bold py-2">
                         SINH VIÊN CHỜ PHÂN CÔNG
                     </div>
                     <div class="card-body" id="pool-sv">
@@ -75,7 +73,7 @@
             <!-- Cột Giữa: Không Gian Hội Đồng -->
             <div class="col-md-6 h-100">
                 <div class="card shadow-sm column-card">
-                    <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center">
+                    <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center py-1">
                         <span>KHU VỰC PHÂN BỔ HỘI ĐỒNG</span>
                         <button class="btn btn-primary btn-sm fw-bold" id="btn-add-hd">+ TẠO HỘI ĐỒNG</button>
                     </div>
@@ -88,7 +86,7 @@
             <!-- Cột Phải: Giảng Viên -->
             <div class="col-md-3 h-100">
                 <div class="card shadow-sm column-card">
-                    <div class="card-header bg-info text-white fw-bold">
+                    <div class="card-header bg-info text-white fw-bold py-2">
                         KHO GIẢNG VIÊN
                     </div>
                     <div class="card-body" id="pool-gv">
@@ -98,8 +96,8 @@
             </div>
         </div>
 
-        <!-- KHU VỰC 3: THANH NÚT BẤM XUẤT FILE & NHẬP ĐIỂM -->
-        <div class="text-center py-3 bg-white border-top mt-2 shadow-sm rounded">
+        <!-- KHU VỰC 3: CỐ ĐỊNH Ở ĐÁY MÀN HÌNH -->
+        <div class="text-center footer-section shadow-sm">
             <button class="btn btn-warning fw-bold px-4 shadow-sm" id="btn-nhap-diem">📝 NHẬP ĐIỂM TRỰC TIẾP</button>
             <button class="btn btn-danger fw-bold px-5 ms-3 shadow-sm" id="btn-export">🚀 TẠO HỒ SƠ (.ZIP) & BẢNG ĐIỂM (.XLSX)</button>
         </div>
@@ -109,7 +107,7 @@
     <div class="modal fade" id="modalNhapDiem" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content">
-                <div class="modal-header bg-warning text-dark">
+                <div class="modal-header bg-warning text-dark py-2">
                     <h5 class="modal-title fw-bold">📝 BẢNG NHẬP ĐIỂM TRỰC TIẾP HỘI ĐỒNG</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
@@ -129,20 +127,19 @@
                                 </tr>
                             </thead>
                             <tbody id="tbody-nhap-diem">
-                                <!-- Render danh sách SV đã phân công vào đây -->
+                                <!-- Render SV vào đây -->
                             </tbody>
                         </table>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
-                    <button type="button" class="btn btn-success fw-bold" id="btn-save-diem">Lưu Điểm</button>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Đóng</button>
+                    <button type="button" class="btn btn-success btn-sm fw-bold" id="btn-save-diem">Lưu Điểm</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Khai báo thư viện mạng nội bộ -->
     <script src="lib/bootstrap.bundle.min.js"></script>
     <script src="lib/Sortable.min.js"></script>
     <script src="lib/xlsx.full.min.js"></script>
@@ -152,8 +149,6 @@
     <script src="lib/pizzip-utils.min.js"></script>
     <script src="lib/docxtemplater.js"></script>
     <script src="lib/FileSaver.min.js"></script>
-
-    <!-- Code Logic Chính (ES Module) -->
     <script type="module" src="js/main.js"></script>
 </body>
 </html>
