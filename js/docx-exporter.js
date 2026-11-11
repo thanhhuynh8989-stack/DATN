@@ -1,9 +1,11 @@
 // js/docx-exporter.js
 import { templates } from './templates.js';
+import { buildExcelReportWorkbook, buildDSDBWorkbook } from './excel-exporter.js';
 
-export async function exportWordZIP(exportData) {
+export async function exportWordZIP(exportData, meta = {}) {
     const zip = new JSZip();
 
+    // 1. Tạo các thư mục Hồ sơ Word cho từng Sinh viên
     exportData.forEach(data => {
         const svFolder = zip.folder(`${data.ma_sv} - ${data.ho_ten}`);
         
@@ -29,7 +31,7 @@ export async function exportWordZIP(exportData) {
                 const doc = new window.docxtemplater(new PizZip(templateBinary), { 
                     paragraphLoop: true, 
                     linebreaks: true,
-                    delimiters: { start: '{{', end: '}}' } // Đảm bảo nhận diện chuẩn {{ tag }}
+                    delimiters: { start: '{{', end: '}}' }
                 });
                 
                 doc.render(context);
@@ -37,7 +39,6 @@ export async function exportWordZIP(exportData) {
                 svFolder.file(fileName, outBlob);
             } catch (error) {
                 console.error(`Lỗi render file ${fileName}:`, error);
-                throw new Error(`File template ${fileName} bị lỗi cú pháp tag {{ }}. Vui lòng kiểm tra lại file Word!`);
             }
         };
 
@@ -49,6 +50,22 @@ export async function exportWordZIP(exportData) {
         renderWord(templates.phieuHD, '4c_Phieu_HD_ThuKy.docx');
     });
 
+    // 2. TỰ ĐỘNG ĐÓNG GÓI 2 FILE EXCEL VÀO TRỰC TIẾP THƯ MỤC GỐC CỦA FILE ZIP
+    try {
+        // File Excel 1: Bảng điểm tổng hợp HĐ
+        const excelReportWB = await buildExcelReportWorkbook(exportData, meta);
+        const bufferReport = await excelReportWB.xlsx.writeBuffer();
+        zip.file("Bang_Diem_Tong_Hop_DATN.xlsx", bufferReport);
+
+        // File Excel 2: Danh sách Hội đồng đã lập
+        const excelDSDBWB = await buildDSDBWorkbook(exportData, meta);
+        const bufferDSDB = await excelDSDBWB.xlsx.writeBuffer();
+        zip.file("Danh_Sach_Hoi_Dong_Da_Lap.xlsx", bufferDSDB);
+    } catch (e) {
+        console.error("Lỗi đóng gói file Excel vào ZIP:", e);
+    }
+
+    // 3. Tải về file ZIP tổng hợp
     const zipContent = await zip.generateAsync({ type: "blob" });
-    saveAs(zipContent, "Ho_So_Tot_Nghiep_DATN.zip");
+    saveAs(zipContent, "Ho_So_Va_Bang_Diem_Hoi_Dong_DATN.zip");
 }
