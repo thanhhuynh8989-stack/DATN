@@ -3,20 +3,22 @@ html, body {
     height: 100%;
     margin: 0;
     padding: 0;
-    overflow: hidden; /* Cố định không cho trượt nguyên trang */
+    overflow: hidden;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     font-size: 0.88rem;
     background-color: #f8f9fa;
 }
 
-/* Khung ứng dụng co giãn theo dynamic viewport height (dvh) */
+/* KHUNG TỔNG CO GIÃN 100% ĐỘ RỘNG VÀ CHUYỂN ĐỔI THEO DVH */
 .app-container {
     display: flex;
     flex-direction: column;
     height: 100vh;
-    height: 100dvh; /* Giúp chuẩn 100% màn hình điện thoại */
+    height: 100dvh;
     padding: 8px 12px;
     box-sizing: border-box;
+    width: 100%;
+    overflow-x: hidden;
 }
 
 .setup-section {
@@ -26,8 +28,8 @@ html, body {
 .workspace-row {
     flex: 1 1 auto;
     min-height: 0;
-    margin-top: 5px;
-    margin-bottom: 5px;
+    margin-top: 4px;
+    margin-bottom: 4px;
 }
 
 .column-card {
@@ -44,7 +46,6 @@ html, body {
     flex-shrink: 0;
     z-index: 10;
     font-size: 0.85rem;
-    letter-spacing: 0.5px;
 }
 
 .column-card > .card-body {
@@ -55,7 +56,7 @@ html, body {
     padding: 8px;
 }
 
-/* FOOTER CỐ ĐỊNH CHẮC CHẮN Ở ĐÁY MÀN HÌNH ĐIỆN THOẠI */
+/* FOOTER CỐ ĐỊNH ÔM ĐÁY MÀN HÌNH */
 .footer-section {
     flex-shrink: 0;
     padding: 8px;
@@ -66,7 +67,7 @@ html, body {
     z-index: 1000;
 }
 
-/* Thẻ sinh viên & giảng viên */
+/* CARD KÉO THẢ */
 .card-item {
     cursor: grab;
     user-select: none;
@@ -74,38 +75,28 @@ html, body {
     border-radius: 6px;
 }
 
-.card-item:active {
-    cursor: grabbing;
-}
-
-/* TỐI ƯU RIÊNG CHO MÀN HÌNH ĐIỆN THOẠI (Mobile Responsive Rules) */
+/* ĐIỀU CHỈNH CHUẨN RIÊNG CHO ĐIỆN THOẠI ĐẶT DỌC (< 768px) */
 @media (max-width: 767.98px) {
     .app-container {
-        padding: 5px 8px;
+        padding: 4px 6px;
     }
 
-    /* Thu gọn tiêu đề trên mobile */
     .app-title {
-        font-size: 1rem !important;
-        margin-bottom: 4px !important;
+        font-size: 0.95rem !important;
+        margin-bottom: 2px !important;
     }
 
-    /* Đổi vùng Workspace thành cuộn ngang dạng Tabs/Cards dễ xem */
-    .workspace-row {
-        display: flex;
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        scroll-snap-type: x mandatory;
-        gap: 8px;
+    /* Đổi 3 cột thành ẩn/hiện dạng Tab */
+    .mobile-col {
+        display: none !important;
+        width: 100% !important;
     }
 
-    .workspace-row > div {
-        flex: 0 0 88%;
-        scroll-snap-align: start;
-        height: 100%;
+    .mobile-col.active {
+        display: block !important;
     }
 
-    /* Giao diện nút bấm Footer trên điện thoại cực đẹp */
+    /* Giao diện nút Footer bám đáy cực đẹp */
     .footer-section {
         display: flex;
         gap: 6px;
@@ -114,14 +105,11 @@ html, body {
 
     .footer-section .btn {
         flex: 1;
-        font-size: 0.78rem !important;
+        font-size: 0.75rem !important;
         padding: 8px 4px !important;
         margin: 0 !important;
         white-space: nowrap;
         border-radius: 6px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
     }
 }
 
