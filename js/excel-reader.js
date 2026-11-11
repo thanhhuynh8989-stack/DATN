@@ -72,3 +72,60 @@ export function parseGiangVienRows(rows) {
     });
     return result;
 }
+
+// BỔ SUNG: Bóc tách file Excel Danh sách Hội đồng (10 Cột đầy đủ thông tin)
+export function parseHoiDongRows(rows) {
+    const hoidongs = {};
+    let currentHD = null;
+
+    rows.forEach((row, idx) => {
+        if (idx < 1 || !row || row.length === 0) return;
+
+        const colA = String(row[0] || '').trim();      // HỘI ĐỒNG (1, 2, 3...)
+        const maGV = String(row[1] || '').trim();      // MÃ SỐ GV
+        const hoTenGV = String(row[2] || '').trim();   // HỌ VÀ TÊN GV
+        const donVi = String(row[3] || '').trim();     // ĐƠN VỊ CÔNG TÁC
+        const ngayBV = String(row[4] || '').trim();    // NGÀY BẢO VỆ
+        const chucDanh = String(row[5] || '').trim();  // CHỨC DANH
+        const deTai = String(row[6] || '').trim();     // TÊN ĐỀ TÀI ĐỒ ÁN
+        const maSV = String(row[7] || '').trim();      // MÃ SỐ SV
+        const hoTenSV = String(row[8] || '').trim();   // HỌ VÀ TÊN SV
+        const lop = String(row[9] || '').trim();       // LỚP
+
+        // Bỏ qua dòng tiêu đề
+        if (colA.toUpperCase().includes('HỘI ĐỒNG') || maGV.toUpperCase().includes('MÃ')) return;
+
+        if (colA && !isNaN(colA)) {
+            currentHD = colA;
+        }
+
+        if (currentHD) {
+            if (!hoidongs[currentHD]) {
+                hoidongs[currentHD] = {
+                    soHD: `Hội Đồng ${currentHD}`,
+                    ngayBV: ngayBV,
+                    thanhVien: [],
+                    sinhViens: []
+                };
+            }
+
+            // Lưu thông tin Giảng viên theo Mã GV
+            if (maGV && hoTenGV) {
+                const existGV = hoidongs[currentHD].thanhVien.find(g => g.maGV === maGV);
+                if (!existGV) {
+                    hoidongs[currentHD].thanhVien.push({ maGV, hoTenGV, donVi, chucDanh });
+                }
+            }
+
+            // Lưu thông tin Sinh viên theo Mã SV
+            if (maSV) {
+                const existSV = hoidongs[currentHD].sinhViens.find(s => s.maSV === maSV);
+                if (!existSV) {
+                    hoidongs[currentHD].sinhViens.push({ maSV, hoTenSV, lop, deTai });
+                }
+            }
+        }
+    });
+
+    return hoidongs;
+}
