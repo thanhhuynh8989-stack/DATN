@@ -1,39 +1,65 @@
 /* css/styles.css */
-body {
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden; /* Cố định trang chính, không cuộn trang web */
     font-size: 0.88rem;
-    overflow: hidden; /* Bỏ cuộn trang web chính */
 }
 
-/* Ép khung 3 cột có chiều cao cố định */
+/* Khung tổng xếp theo chiều dọc Flexbox */
+.app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    padding: 10px 15px;
+    box-sizing: border-box;
+}
+
+/* Phần Setup ở trên cùng */
+.setup-section {
+    flex-shrink: 0;
+}
+
+/* Phần Workspace 3 cột co giãn ở giữa */
 .workspace-row {
-    height: calc(100vh - 160px); /* Tự động tính chiều cao trừ đi phần Setup ở trên */
-    min-height: 500px;
+    flex: 1 1 auto;
+    min-height: 0; /* BẮT BUỘC: Giúp flexbox không bị tràn chiều cao */
+    margin-top: 5px;
+    margin-bottom: 5px;
 }
 
-/* Thẻ Card chứa từng cột */
+/* Cấu trúc thẻ Card từng cột */
 .column-card {
     display: flex;
     flex-direction: column;
     height: 100%;
-    min-height: 0; /* BẮT BUỘC: Để flexbox con không bị đẩy giãn quá chiều cao cha */
+    min-height: 0;
     border: none;
 }
 
-/* Header cố định ở đỉnh cột */
 .column-card > .card-header {
-    flex-shrink: 0; /* Cố định tiêu đề, không cho co dãn */
+    flex-shrink: 0; /* Tiêu đề cột luôn cố định ở đỉnh */
     z-index: 10;
 }
 
-/* Thân cột cho phép cuộn riêng biệt */
 .column-card > .card-body {
     flex: 1 1 auto;
-    overflow-y: auto !important; /* Bắt buộc hiện thanh cuộn riêng khi vượt quá chiều cao */
-    min-height: 0; /* BẮT BUỘC */
+    overflow-y: auto !important; /* Chỉ cuộn nội dung bên trong cột */
+    min-height: 0;
     padding: 8px;
 }
 
-/* Tùy chỉnh thẻ item kéo thả */
+/* Thanh nút bấm cố định ở ĐÁY màn hình */
+.footer-section {
+    flex-shrink: 0;
+    padding: 8px 0;
+    background: #ffffff;
+    border-top: 1px solid #dee2e6;
+    border-radius: 6px;
+}
+
+/* Item kéo thả */
 .card-item {
     cursor: grab;
     user-select: none;
@@ -49,30 +75,18 @@ body {
     box-shadow: 0 4px 8px rgba(0,0,0,0.1) !important;
 }
 
-/* Ô thả giảng viên & sinh viên trong Box Hội Đồng */
-.dropzone-gv {
-    background-color: #f8f9fa;
-}
-
-.dropzone-sv {
-    background-color: #ffffff;
-}
-
-/* Tùy chỉnh thanh cuộn đẹp mắt */
+/* Thanh cuộn nhỏ gọn */
 ::-webkit-scrollbar {
     width: 6px;
 }
-
 ::-webkit-scrollbar-track {
     background: #f1f1f1;
     border-radius: 4px;
 }
-
 ::-webkit-scrollbar-thumb {
     background: #ccc;
     border-radius: 4px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
     background: #999;
 }
