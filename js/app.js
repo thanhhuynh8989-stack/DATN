@@ -26,6 +26,108 @@ document.addEventListener("DOMContentLoaded", async () => {
     initGlobalSortables();
 });
 
+// Sự kiện khi bấm nút "⚡ NẠP DỮ LIỆU EXCEL"
+document.getElementById('btn-read-files').addEventListener('click', async () => {
+    const fileSV = document.getElementById('upload-sv').files[0];
+    const fileGV = document.getElementById('upload-gv').files[0];
+    const fileHD = document.getElementById('upload-hd').files[0];
+
+    if (!fileSV && !fileGV && !fileHD) {
+        alert("Vui lòng chọn ít nhất 1 file Excel để nạp dữ liệu!");
+        return;
+    }
+
+    // 1. ĐỌC FILE SINH VIÊN & ĐỀ TÀI
+    if (fileSV) {
+        const dataSV = await readExcelFile(fileSV);
+        renderSinhVienPool(dataSV);
+    }
+
+    // 2. ĐỌC FILE GIẢNG VIÊN
+    if (fileGV) {
+        const dataGV = await readExcelFile(fileGV);
+        renderGiangVienPool(dataGV);
+    }
+
+    // 3. ĐỌC FILE HỘI ĐỒNG (NẾU CÓ)
+    if (fileHD) {
+        const dataHD = await readExcelFile(fileHD);
+        renderHoidongFromExcel(dataHD);
+    }
+
+    alert("✅ Nạp dữ liệu Excel thành công!");
+});
+
+// Hàm dùng chung đọc file Excel bằng SheetJS (xlsx.full.min.js)
+function readExcelFile(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheet = workbook.SheetNames[0];
+            const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheet], { header: 1 });
+            resolve(jsonData);
+        };
+        reader.onerror = (error) => reject(error);
+        reader.readAsArrayBuffer(file);
+    });
+}
+
+// Render Thẻ Sinh Viên vào cột trái
+function renderSinhVienPool(rows) {
+    const poolSV = document.getElementById('pool-sv');
+    poolSV.innerHTML = ''; // Clear danh sách cũ
+
+    // Giả định dữ liệu dòng từ index 8 trở đi (hoặc tự dò header)
+    // Cột: STT (0), MSSV (1), Họ Lót (2), Tên (3), Lớp (4), Đề Tài (5), GVHD (6)
+    rows.forEach((row, idx) => {
+        if (idx < 1 || !row[1]) return; // Bỏ qua header hoặc dòng trống
+
+        const maSV = row[1] || '';
+        const hoLot = row[2] || '';
+        const ten = row[3] || '';
+        const hoTen = `${hoLot} ${ten}`.trim();
+        const lop = row[4] || '';
+        const deTai = row[5] || '';
+        const gvhd = row[6] || '';
+
+        if (!maSV) return;
+
+        const svCard = `
+            <div class="card-item" data-id="${maSV}" data-name="${hoTen}" data-lop="${lop}" data-detai="${deTai}" data-gvhd="${gvhd}">
+                <div class="fw-bold text-primary">${hoTen} (${maSV})</div>
+                <div class="text-muted small">Lớp: ${lop} | GVHD: ${gvhd}</div>
+                <div class="text-dark small text-truncate" title="${deTai}">Đề tài: ${deTai}</div>
+            </div>
+        `;
+        poolSV.insertAdjacentHTML('beforeend', svCard);
+    });
+}
+
+// Render Thẻ Giảng Viên vào cột phải
+function renderGiangVienPool(rows) {
+    const poolGV = document.getElementById('pool-gv');
+    poolGV.innerHTML = ''; // Clear cũ
+
+    rows.forEach((row, idx) => {
+        if (idx < 1 || !row[0]) return; // Bỏ qua header
+        const maGV = row[0] || `GV_${idx}`;
+        const hoTenGV = row[1] || '';
+        const donVi = row[2] || 'Đại học Duy Tân';
+
+        if (!hoTenGV) return;
+
+        const gvCard = `
+            <div class="card-item bg-light border-info" data-id="${maGV}" data-name="${hoTenGV}">
+                <div class="fw-bold text-dark">${hoTenGV}</div>
+                <div class="text-muted small">${donVi} - Mã: ${maGV}</div>
+            </div>
+        `;
+        poolGV.insertAdjacentHTML('beforeend', gvCard);
+    });
+}
+
 // ==========================================
 // 2. KHỞI TẠO KÉO THẢ & RÀNG BUỘC LOGIC (DRAG & DROP)
 // ==========================================
