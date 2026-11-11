@@ -1,9 +1,8 @@
 // js/main.js
 import { loadTemplatesSilently } from './templates.js';
-import { readExcelFile, parseSinhVienRows, parseGiangVienRows } from './excel-reader.js';
+import { readExcelFile, parseSinhVienRows, parseGiangVienRows, parseHoiDongRows } from './excel-reader.js';
 import { initGlobalSortables, createHoiDongBox, renderHoidongFromExcel } from './hoidong-manager.js';
 import { exportWordZIP } from './docx-exporter.js';
-import { exportExcelReport } from './excel-exporter.js';
 
 document.addEventListener("DOMContentLoaded", async () => {
     try {
@@ -14,44 +13,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     initGlobalSortables();
     bindEvents();
-});
-
-// Bổ sung vào hàm bindEvents() trong file js/main.js
-
-// 4. Sự kiện Nhập Điểm Trực Tiếp
-const btnNhapDiem = document.getElementById('btn-nhap-diem');
-btnNhapDiem?.addEventListener('click', () => {
-    const khoaSelect = document.getElementById('khoa-select');
-    const khoa = khoaSelect ? khoaSelect.value : 'Khoa';
-    const exportData = collectExportData(khoa);
-
-    if (exportData.length === 0) {
-        return alert("Vui lòng phân công sinh viên vào Hội đồng trước khi nhập điểm!");
-    }
-
-    const tbody = document.getElementById('tbody-nhap-diem');
-    if (!tbody) return;
-    tbody.innerHTML = '';
-
-    exportData.forEach((sv, idx) => {
-        const tr = `
-            <tr>
-                <td>${idx + 1}</td>
-                <td class="fw-bold">${sv.ma_sv}</td>
-                <td class="text-start">${sv.ho_ten}</td>
-                <td><span class="badge bg-info text-dark">${sv.so_hd}</span></td>
-                <td><input type="number" step="0.1" min="0" max="10" class="form-control form-control-sm text-center input-diem-gvhd" data-masv="${sv.ma_sv}" placeholder="0.0"></td>
-                <td><input type="number" step="0.1" min="0" max="10" class="form-control form-control-sm text-center input-diem-ct" data-masv="${sv.ma_sv}" placeholder="0.0"></td>
-                <td><input type="number" step="0.1" min="0" max="10" class="form-control form-control-sm text-center input-diem-pb" data-masv="${sv.ma_sv}" placeholder="0.0"></td>
-                <td><input type="number" step="0.1" min="0" max="10" class="form-control form-control-sm text-center input-diem-tk" data-masv="${sv.ma_sv}" placeholder="0.0"></td>
-            </tr>
-        `;
-        tbody.insertAdjacentHTML('beforeend', tr);
-    });
-
-    // Mở Bootstrap Modal
-    const modalDiem = new bootstrap.Modal(document.getElementById('modalNhapDiem'));
-    modalDiem.show();
 });
 
 function bindEvents() {
@@ -79,7 +40,8 @@ function bindEvents() {
             }
             if (fileHD) {
                 const rows = await readExcelFile(fileHD);
-                renderHoidongFromExcel(rows);
+                const parsedHoidongs = parseHoiDongRows(rows);
+                renderHoidongFromExcel(parsedHoidongs);
             }
             alert("✅ Nạp dữ liệu Excel thành công!");
         } catch (err) {
@@ -94,18 +56,81 @@ function bindEvents() {
         createHoiDongBox();
     });
 
-    // 3. Sự kiện Xuất File Word & Excel
+    // 3. Sự kiện Mở Modal Nhập Điểm Trực Tiếp
+    const btnNhapDiem = document.getElementById('btn-nhap-diem');
+    btnNhapDiem?.addEventListener('click', () => {
+        const meta = getSetupMetadata();
+        const exportData = collectExportData(meta);
+
+        if (exportData.length === 0) {
+            return alert("Vui lòng phân công sinh viên vào Hội đồng trước khi nhập điểm!");
+        }
+
+        const tbody = document.getElementById('tbody-nhap-diem');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        exportData.forEach((sv, idx) => {
+            const tr = `
+                <tr>
+                    <td>${idx + 1}</td>
+                    <td class="fw-bold">${sv.ma_sv}</td>
+                    <td class="text-start">${sv.ho_ten}</td>
+                    <td><span class="badge bg-info text-dark">${sv.so_hd}</span></td>
+                    <td><input type="number" step="0.1" min="0" max="10" class="form-control form-control-sm text-center input-diem-gvhd" data-masv="${sv.ma_sv}" value="${sv.diem_gvhd || ''}" placeholder="0.0"></td>
+                    <td><input type="number" step="0.1" min="0" max="10" class="form-control form-control-sm text-center input-diem-ct" data-masv="${sv.ma_sv}" value="${sv.diem_ct || ''}" placeholder="0.0"></td>
+                    <td><input type="number" step="0.1" min="0" max="10" class="form-control form-control-sm text-center input-diem-pb" data-masv="${sv.ma_sv}" value="${sv.diem_pb || ''}" placeholder="0.0"></td>
+                    <td><input type="number" step="0.1" min="0" max="10" class="form-control form-control-sm text-center input-diem-tk" data-masv="${sv.ma_sv}" value="${sv.diem_tk || ''}" placeholder="0.0"></td>
+                </tr>
+            `;
+            tbody.insertAdjacentHTML('beforeend', tr);
+        });
+
+        const modalDiem = new bootstrap.Modal(document.getElementById('modalNhapDiem'));
+        modalDiem.show();
+    });
+
+    // 4. Sự kiện Nút "Lưu Điểm" trong Modal
+    const btnSaveDiem = document.getElementById('btn-save-diem');
+    btnSaveDiem?.addEventListener('click', () => {
+        document.querySelectorAll('#tbody-nhap-diem tr').forEach(tr => {
+            const maSV = tr.querySelector('.input-diem-gvhd')?.getAttribute('data-masv');
+            if (!maSV) return;
+
+            const diemGVHD = tr.querySelector('.input-diem-gvhd')?.value || '';
+            const diemCT = tr.querySelector('.input-diem-ct')?.value || '';
+            const diemPB = tr.querySelector('.input-diem-pb')?.value || '';
+            const diemTK = tr.querySelector('.input-diem-tk')?.value || '';
+
+            // Lưu điểm trực tiếp vào thuộc tính của thẻ Sinh viên trong DOM
+            const svCard = document.querySelector(`.dropzone-sv .card-item[data-id="${maSV}"]`);
+            if (svCard) {
+                svCard.setAttribute('data-diem-gvhd', diemGVHD);
+                svCard.setAttribute('data-diem-ct', diemCT);
+                svCard.setAttribute('data-diem-pb', diemPB);
+                svCard.setAttribute('data-diem-tk', diemTK);
+            }
+        });
+
+        // Đóng Modal
+        const modalEl = document.getElementById('modalNhapDiem');
+        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+        modalInstance?.hide();
+
+        alert("✅ Đã lưu điểm trực tiếp thành công!");
+    });
+
+    // 5. Sự kiện Xuất File Word & 2 File Excel (.ZIP)
     const btnExport = document.getElementById('btn-export');
     btnExport?.addEventListener('click', async () => {
         const meta = getSetupMetadata();
         const exportData = collectExportData(meta);
-    
+
         if (exportData.length === 0) {
             return alert("Chưa có sinh viên nào được phân công vào Hội đồng!");
         }
-    
+
         try {
-            // Xuất trọn bộ file Word + 2 file Excel nằm gọn trong 1 file ZIP
             await exportWordZIP(exportData, meta);
             alert("🎉 Đã xuất thành công gói Hồ sơ Word & 2 file Excel (Bảng điểm + DS Hội đồng)!");
         } catch (err) {
@@ -164,10 +189,17 @@ function collectExportData(meta) {
         const room = box.querySelector('.hd-room')?.value || '';
         const location = box.querySelector('.hd-location')?.value || '';
 
-        const getGV = (role) => {
+        const getGVInfo = (role) => {
             const el = box.querySelector(`.dropzone-gv[data-role="${role}"] .card-item`);
-            return el ? el.getAttribute('data-name') : '';
+            return {
+                name: el ? el.getAttribute('data-name') : '',
+                id: el ? el.getAttribute('data-id') : ''
+            };
         };
+
+        const ct = getGVInfo('Chủ tịch');
+        const pb = getGVInfo('Phản biện');
+        const tk = getGVInfo('Thư ký');
 
         let formattedDate = dateStr;
         if (dateStr.includes('-')) {
@@ -177,20 +209,25 @@ function collectExportData(meta) {
 
         box.querySelectorAll('.dropzone-sv .card-item').forEach(svEl => {
             exportData.push({
-                khoa: meta.khoa, 
-                so_hd: hdName, 
-                ngay: formattedDate, 
-                gio: time, 
-                phong: room, 
+                khoa: meta.khoa || 'Khoa',
+                so_hd: hdName,
+                ngay: formattedDate,
+                gio: time,
+                phong: room,
                 dia_diem: location,
-                chu_tich: getGV('Chủ tịch'), 
-                phan_bien: getGV('Phản biện'), 
-                thu_ky: getGV('Thư ký'),
-                ma_sv: svEl.getAttribute('data-id'), 
+                chu_tich: ct.name, chu_tich_id: ct.id,
+                phan_bien: pb.name, phan_bien_id: pb.id,
+                thu_ky: tk.name, thu_ky_id: tk.id,
+                ma_sv: svEl.getAttribute('data-id'),
                 ho_ten: svEl.getAttribute('data-name'),
-                de_tai: svEl.getAttribute('data-detai'), 
+                de_tai: svEl.getAttribute('data-detai'),
                 lop: svEl.getAttribute('data-lop'),
-                gvhd: svEl.getAttribute('data-gvhd')
+                gvhd: svEl.getAttribute('data-gvhd'),
+                // Lấy thêm điểm vừa nhập từ thuộc tính HTML (nếu có)
+                diem_gvhd: svEl.getAttribute('data-diem-gvhd') || '',
+                diem_ct: svEl.getAttribute('data-diem-ct') || '',
+                diem_pb: svEl.getAttribute('data-diem-pb') || '',
+                diem_tk: svEl.getAttribute('data-diem-tk') || ''
             });
         });
     });
