@@ -2,6 +2,7 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hệ Thống Quản Lý Hội Đồng ĐATN</title>
     <!-- Mạng nội bộ: Dùng file CSS tải về sẵn -->
     <link rel="stylesheet" href="lib/bootstrap.min.css">
@@ -72,8 +73,10 @@
             <!-- Cột Giữa: Không Gian Hội Đồng -->
             <div class="col-md-6 h-100 d-flex flex-column">
                 <div class="card shadow-sm flex-fill border-0">
-                    <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between">
+                    <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center">
                         <span>KHU VỰC PHÂN BỔ HỘI ĐỒNG</span>
+                        <!-- ĐÃ BỔ SUNG NÚT TẠO HỘI ĐỒNG BỊ THIẾU -->
+                        <button class="btn btn-primary btn-sm fw-bold" id="btn-add-hd">+ TẠO HỘI ĐỒNG</button>
                     </div>
                     <div class="card-body p-2 overflow-auto bg-secondary bg-opacity-10" id="workspace-hd">
                         <!-- Các Hội đồng render vào đây -->
@@ -109,7 +112,7 @@
     <script src="lib/docxtemplater.js"></script>
     <script src="lib/FileSaver.min.js"></script>
 
-    <!-- Code Logic Chính -->
+    <!-- Code Logic Chính (ES Module) -->
     <script type="module" src="js/main.js"></script>
 </body>
 </html>
