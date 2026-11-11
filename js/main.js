@@ -97,9 +97,8 @@ function bindEvents() {
     // 3. Sự kiện Xuất File Word & Excel
     const btnExport = document.getElementById('btn-export');
     btnExport?.addEventListener('click', async () => {
-        const khoaSelect = document.getElementById('khoa-select');
-        const khoa = khoaSelect ? khoaSelect.value : 'Khoa';
-        const exportData = collectExportData(khoa);
+        const meta = getSetupMetadata();
+        const exportData = collectExportData(meta);
 
         if (exportData.length === 0) {
             return alert("Chưa có sinh viên nào được phân công vào Hội đồng!");
@@ -107,13 +106,23 @@ function bindEvents() {
 
         try {
             await exportWordZIP(exportData);
-            await exportExcelReport(exportData);
+            await exportExcelReport(exportData, meta);
             alert("🎉 Xuất Hồ sơ Word (.ZIP) và Bảng điểm Excel thành công!");
         } catch (err) {
             console.error("Lỗi xuất file:", err);
             alert("Có lỗi xuất file: " + err.message);
         }
     });
+}
+
+function getSetupMetadata() {
+    return {
+        khoa: document.getElementById('khoa-select')?.value || 'Khoa Công nghệ Thực phẩm',
+        dotThang: document.getElementById('dot-thang')?.value || '6',
+        namCham: document.getElementById('nam-cham')?.value || '2026',
+        soQD: document.getElementById('so-qd')?.value || '2071/QĐ-ĐHĐT',
+        ngayKyQD: document.getElementById('ngay-ky-qd')?.value || '5/8/2026'
+    };
 }
 
 function renderSinhVienPool(svList) {
@@ -146,7 +155,7 @@ function renderGiangVienPool(gvList) {
     });
 }
 
-function collectExportData(khoa) {
+function collectExportData(meta) {
     const exportData = [];
     document.querySelectorAll('.box-hoidong').forEach(box => {
         const hdName = box.querySelector('.hd-title')?.value || 'Hội Đồng';
@@ -168,7 +177,7 @@ function collectExportData(khoa) {
 
         box.querySelectorAll('.dropzone-sv .card-item').forEach(svEl => {
             exportData.push({
-                khoa, 
+                khoa: meta.khoa, 
                 so_hd: hdName, 
                 ngay: formattedDate, 
                 gio: time, 
