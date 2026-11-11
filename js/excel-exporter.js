@@ -11,7 +11,7 @@ export async function exportExcelReport(exportData, meta = {}) {
     saveAs(blob, "Bang_Diem_Tong_Hop_DATN.xlsx");
 }
 
-// 1. TẠO WORKBOOK BẢNG ĐIỂM TỔNG HỢP (TÁCH SHEET THEO BUỔI + PHÒNG + CƠ SỞ)
+// 1. WORKBOOK BẢNG ĐIỂM TỔNG HỢP (TÁCH SHEET THEO BUỔI + PHÒNG + CƠ SỞ)
 export async function buildExcelReportWorkbook(exportData, meta = {}) {
     const workbook = new ExcelJS.Workbook();
     const sheetsMap = {};
@@ -26,7 +26,6 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
         return "Tối";
     };
 
-    // Phân loại nhóm và tách Sheet
     exportData.forEach(item => {
         let nganh = meta.khoa || "CÔNG NGHỆ THỰC PHẨM";
         if (item.lop && item.lop.includes("CTP")) nganh = "CÔNG NGHỆ THỰC PHẨM";
@@ -35,7 +34,6 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
         const phong = item.phong || 'Phong';
         const coSo = item.dia_diem || 'CoSo';
         
-        // Tên Sheet chuẩn tối đa 31 ký tự: "Sáng_P111_120HMT"
         const sheetNameClean = `${buoi}_P${grpKeyClean(phong)}_${grpKeyClean(coSo)}`.substring(0, 30);
 
         if (!sheetsMap[sheetNameClean]) {
@@ -55,7 +53,6 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
 
     const thinBorder = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
 
-    // Duyệt vẽ từng Sheet
     Object.keys(sheetsMap).forEach(sheetKey => {
         const sheetData = sheetsMap[sheetKey];
         const ws = workbook.addWorksheet(sheetData.sheetName, { views: [{ showGridLines: true }] });
@@ -64,7 +61,7 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
         Object.keys(sheetData.hoidongs).forEach((hdKey) => {
             const grp = sheetData.hoidongs[hdKey];
 
-            // --- HEADER DÒNG 1 -> 5 CHUẨN XÁC VỊ TRÍ TỪNG CỘT ---
+            // HEADER DÒNG 1 -> 5
             ws.mergeCells(`A${currentRow}:C${currentRow}`);
             ws.getCell(`A${currentRow}`).value = 'BỘ GIÁO DỤC VÀ ĐÀO TẠO';
             ws.getCell(`A${currentRow}`).font = { name: 'Times New Roman', size: 10, bold: true };
@@ -93,19 +90,16 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
             const soQDStr = meta.soQD || '2071/QĐ-ĐHĐT';
             const ngayKyQDStr = meta.ngayKyQD || '5/8/2026';
 
-            // Dòng 3: Đợt đặt ô D3, Năm đặt đúng ô I3
             ws.getCell(`D${currentRow+2}`).value = `Đợt:            Tháng ${dotThangStr}`;
             ws.getCell(`D${currentRow+2}`).font = { name: 'Times New Roman', size: 11 };
             ws.getCell(`I${currentRow+2}`).value = `Năm : ${namChamStr}`;
             ws.getCell(`I${currentRow+2}`).font = { name: 'Times New Roman', size: 11, bold: true };
 
-            // Dòng 4: QĐ đặt ô D4, ký ngày đặt đúng ô H4
             ws.getCell(`D${currentRow+3}`).value = `Hội đồng bảo vệ kèm theo Quyết định số  ${soQDStr}`;
             ws.getCell(`D${currentRow+3}`).font = { name: 'Times New Roman', size: 11, bold: true };
             ws.getCell(`H${currentRow+3}`).value = `ký ngày    ${ngayKyQDStr}`;
             ws.getCell(`H${currentRow+3}`).font = { name: 'Times New Roman', size: 11 };
 
-            // Dòng 5: Thời gian đặt ô D5, Địa điểm đặt đúng ô I5
             ws.getCell(`D${currentRow+4}`).value = `Thời gian:  ${grp.gio || '17:00'} ngày ${grp.ngay || '11/11/2026'}`;
             ws.getCell(`D${currentRow+4}`).font = { name: 'Times New Roman', size: 11, bold: true };
 
@@ -114,7 +108,6 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
 
             currentRow += 6;
 
-            // --- TIÊU ĐỀ BẢNG (Dòng 7 & 8) ---
             const hRow1 = currentRow;
             const hRow2 = currentRow + 1;
 
@@ -160,7 +153,6 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
             currentRow += 2;
             const startStudentRow = currentRow;
 
-            // --- ĐỔ DỮ LIỆU SINH VIÊN (3 DÒNG / SV) ---
             grp.students.forEach((sv, svIdx) => {
                 const startR = currentRow;
                 const endR = startR + 2;
@@ -283,13 +275,14 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
     return workbook;
 }
 
-// 2. TẠO WORKBOOK DANH SÁCH HỘI ĐỒNG ĐÃ LẬP (XUẤT CHUẨN MÃ GV VÀ ĐƠN VỊ CÔNG TÁC)
+// 2. WORKBOOK DANH SÁCH HỘI ĐỒNG ĐÃ LẬP (KHỚP 100% MẪU GỒM CẢ GIẢNG VIÊN VÀ SINH VIÊN)
 export async function buildDSDBWorkbook(exportData, meta = {}) {
     const workbook = new ExcelJS.Workbook();
     const ws = workbook.addWorksheet("DS_Hoi_Dong_Da_Lap", { views: [{ showGridLines: true }] });
 
     const thinBorder = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
 
+    // Gom nhóm dữ liệu theo từng Hội đồng (Bao gồm danh sách Sinh viên)
     const hdGroups = {};
     exportData.forEach(item => {
         const key = item.so_hd || 'Hội Đồng';
@@ -305,11 +298,14 @@ export async function buildDSDBWorkbook(exportData, meta = {}) {
                 thuKy: item.thu_ky,
                 chuTichID: item.chu_tich_id || '',
                 phanBienID: item.phan_bien_id || '',
-                thuKyID: item.thu_ky_id || ''
+                thuKyID: item.thu_ky_id || '',
+                students: []
             };
         }
+        hdGroups[key].students.push(item);
     });
 
+    // HEADER QUỐC HIỆU (Dòng 1 -> 3)
     ws.mergeCells('A1:C1'); ws.getCell('A1').value = 'BỘ GIÁO DỤC VÀ ĐÀO TẠO';
     ws.mergeCells('A2:C2'); ws.getCell('A2').value = 'ĐẠI HỌC DUY TÂN';
     ws.mergeCells('A3:C3'); ws.getCell('A3').value = (meta.khoa || 'KHOA MÔI TRƯỜNG & KHTN').toUpperCase();
@@ -318,7 +314,7 @@ export async function buildDSDBWorkbook(exportData, meta = {}) {
         ws.getCell(c).alignment = { horizontal: 'center' };
     });
 
-    ws.mergeCells('D1:G1');
+    ws.mergeCells('D1:J1');
     ws.getCell('D1').value = 'DANH SÁCH HỘI ĐỒNG BẢO VỆ ĐỒ ÁN TỐT NGHIỆP ĐÃ LẬP';
     ws.getCell('D1').font = { name: 'Times New Roman', size: 13, bold: true };
     ws.getCell('D1').alignment = { horizontal: 'left', vertical: 'middle' };
@@ -329,7 +325,12 @@ export async function buildDSDBWorkbook(exportData, meta = {}) {
     ws.getCell('D3').value = `Quyết định số: ${meta.soQD || '2071/QĐ-ĐHĐT'} ký ngày ${meta.ngayKyQD || '5/12/2026'}`;
     ws.getCell('D3').font = { name: 'Times New Roman', size: 11, bold: true };
 
-    const headers = ["STT", "HỘI ĐỒNG", "MÃ GV", "HỌ VÀ TÊN GIẢNG VIÊN", "ĐƠN VỊ CÔNG TÁC", "CHỨC DANH HỘI ĐỒNG", "THỜI GIAN & ĐỊA ĐIỂM BẢO VỆ"];
+    // HEADER TIÊU ĐỀ BẢNG 10 CỘT CHUẨN (Dòng 5)
+    const headers = [
+        "HỘI ĐỒNG", "MÃ SỐ GV", "HỌ VÀ TÊN", "ĐƠN VỊ CÔNG TÁC", "NGÀY BẢO VỆ", 
+        "CHỨC DANH", "TÊN ĐỀ TÀI ĐỒ ÁN TỐT NGHIỆP", "MÃ SỐ SV", "HỌ VÀ TÊN", "LỚP"
+    ];
+    
     headers.forEach((h, idx) => {
         const cell = ws.getCell(5, idx + 1);
         cell.value = h;
@@ -340,51 +341,83 @@ export async function buildDSDBWorkbook(exportData, meta = {}) {
     });
 
     let rowIdx = 6;
-    let stt = 1;
+    let hdIndex = 1;
 
+    // DUYỆT XUẤT TỪNG HỘI ĐỒNG VỚI ĐẦY ĐỦ 10 CỘT GIẢNG VIÊN VÀ SINH VIÊN
     Object.keys(hdGroups).forEach(hdKey => {
         const hd = hdGroups[hdKey];
-        const members = [
-            { role: 'Chủ tịch HĐ', name: hd.chuTich, id: hd.chuTichID },
-            { role: 'Ủy viên Phản biện', name: hd.phanBien, id: hd.phanBienID },
-            { role: 'Ủy viên Thư ký', name: hd.thuKy, id: hd.thuKyID }
+        const gvMembers = [
+            { role: 'Chủ tịch', name: hd.chuTich, id: hd.chuTichID },
+            { role: 'Phản biện', name: hd.phanBien, id: hd.phanBienID },
+            { role: 'Thư ký', name: hd.thuKy, id: hd.thuKyID }
         ];
 
+        // Chiều cao khối HĐ lấy số lượng dòng lớn hơn giữa 3 Giảng viên và danh sách Sinh viên
+        const totalRows = Math.max(3, hd.students.length);
         const startR = rowIdx;
-        members.forEach((m, mIdx) => {
-            const r = rowIdx + mIdx;
-            ws.getCell(`C${r}`).value = m.id || `GV_${stt}_${mIdx+1}`;
-            ws.getCell(`D${r}`).value = m.name || '';
-            ws.getCell(`E${r}`).value = 'Đại học Duy Tân';
-            ws.getCell(`F${r}`).value = m.role;
+        const endR = startR + totalRows - 1;
 
-            for (let c = 1; c <= 7; c++) {
+        for (let offset = 0; offset < totalRows; offset++) {
+            const r = startR + offset;
+
+            // Ghi dữ liệu 3 Giảng viên (Cột B, C, D, F)
+            if (offset < 3) {
+                const gv = gvMembers[offset];
+                ws.getCell(`B${r}`).value = gv.id || `GV_${hdIndex}_${offset+1}`;
+                ws.getCell(`C${r}`).value = gv.name || '';
+                ws.getCell(`D${r}`).value = 'Đại học Duy Tân';
+                ws.getCell(`F${r}`).value = gv.role;
+            }
+
+            // Ghi dữ liệu Sinh viên (Cột G, H, I, J)
+            if (offset < hd.students.length) {
+                const sv = hd.students[offset];
+                ws.getCell(`G${r}`).value = sv.de_tai || '';
+                ws.getCell(`H${r}`).value = sv.ma_sv || '';
+                ws.getCell(`I${r}`).value = sv.ho_ten || '';
+                ws.getCell(`J${r}`).value = sv.lop || '';
+            }
+
+            // Căn chỉnh & Border cho toàn bộ ô dòng dữ liệu
+            for (let c = 1; c <= 10; c++) {
                 const cell = ws.getCell(r, c);
                 cell.border = thinBorder;
                 cell.font = { name: 'Times New Roman', size: 10 };
-                if (c === 4 || c === 5) cell.alignment = { horizontal: 'left', vertical: 'middle' };
-                else cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                if (c === 3 || c === 4 || c === 7 || c === 9) {
+                    cell.alignment = { horizontal: 'left', vertical: 'middle' };
+                } else {
+                    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                }
             }
-        });
+        }
 
-        const endR = startR + 2;
-        ws.mergeCells(`A${startR}:A${endR}`); ws.getCell(`A${startR}`).value = stt;
-        ws.mergeCells(`B${startR}:B${endR}`); ws.getCell(`B${startR}`).value = hd.soHD;
-        ws.mergeCells(`G${startR}:G${endR}`); 
-        ws.getCell(`G${startR}`).value = `${hd.gio || '17:00'} ngày ${hd.ngay || ''}\nPhòng ${hd.phong || ''}, ${hd.diaDiem || ''}`;
-        ws.getCell(`G${startR}`).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        // Merge Cột A (HỘI ĐỒNG) và Cột E (NGÀY BẢO VỆ) cho nguyên khối HĐ
+        ws.mergeCells(`A${startR}:A${endR}`);
+        const cellA = ws.getCell(`A${startR}`);
+        cellA.value = hdIndex; // Hoặc hd.soHD
+        cellA.font = { name: 'Times New Roman', size: 11, bold: true };
+        cellA.alignment = { horizontal: 'center', vertical: 'middle' };
 
-        rowIdx += 3;
-        stt++;
+        ws.mergeCells(`E${startR}:E${endR}`);
+        const cellE = ws.getCell(`E${startR}`);
+        cellE.value = `${hd.gio || '17:00'} ngày ${hd.ngay || ''}\nPhòng ${hd.phong || ''}, ${hd.diaDiem || ''}`;
+        cellE.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+
+        rowIdx += totalRows;
+        hdIndex++;
     });
 
-    ws.getColumn(1).width = 6;
-    ws.getColumn(2).width = 15;
-    ws.getColumn(3).width = 14;
-    ws.getColumn(4).width = 25;
-    ws.getColumn(5).width = 22;
-    ws.getColumn(6).width = 20;
-    ws.getColumn(7).width = 32;
+    // Độ rộng các cột khớp file mẫu
+    ws.getColumn(1).width = 10;  // HỘI ĐỒNG
+    ws.getColumn(2).width = 14;  // MÃ SỐ GV
+    ws.getColumn(3).width = 24;  // HỌ VÀ TÊN GV
+    ws.getColumn(4).width = 22;  // ĐƠN VỊ CÔNG TÁC
+    ws.getColumn(5).width = 24;  // NGÀY BẢO VỆ
+    ws.getColumn(6).width = 15;  // CHỨC DANH
+    ws.getColumn(7).width = 35;  // TÊN ĐỀ TÀI ĐỒ ÁN TỐT NGHIỆP
+    ws.getColumn(8).width = 14;  // MÃ SỐ SV
+    ws.getColumn(9).width = 24;  // HỌ VÀ TÊN SV
+    ws.getColumn(10).width = 12; // LỚP
 
     return workbook;
 }
