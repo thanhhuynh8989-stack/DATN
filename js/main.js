@@ -10,7 +10,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         await loadTemplatesSilently();
     } catch (e) {
         console.error("Lỗi tải template Word:", e);
-        alert("Lỗi tải file Word template. Hãy kiểm tra lại đường dẫn thư mục ./templates/!");
     }
 
     initGlobalSortables();
@@ -18,7 +17,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 function bindEvents() {
-    // 1. Sự kiện Nạp dữ liệu Excel (SV, GV và HĐ)
+    // 1. Sự kiện Nạp dữ liệu Excel
     const btnReadFiles = document.getElementById('btn-read-files');
     btnReadFiles?.addEventListener('click', async () => {
         const fileSV = document.getElementById('upload-sv')?.files[0];
@@ -51,13 +50,13 @@ function bindEvents() {
         }
     });
 
-    // 2. Sự kiện Tạo Hội Đồng mới thủ công
+    // 2. Sự kiện Tạo Hội Đồng
     const btnAddHD = document.getElementById('btn-add-hd');
     btnAddHD?.addEventListener('click', () => {
         createHoiDongBox();
     });
 
-    // 3. Sự kiện Xuất File Word (.ZIP) và Excel (.XLSX)
+    // 3. Sự kiện Xuất File Word & Excel
     const btnExport = document.getElementById('btn-export');
     btnExport?.addEventListener('click', async () => {
         const khoaSelect = document.getElementById('khoa-select');
