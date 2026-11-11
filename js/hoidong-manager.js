@@ -70,13 +70,78 @@ export function createHoiDongBox(titleText = null, initDate = '', initTime = '',
     return boxId;
 }
 
+// Export hàm 3: Bóc tách file Excel Hội đồng và tạo danh sách Hội đồng
+export function renderHoidongFromExcel(rows) {
+    const workspace = document.getElementById('workspace-hd');
+    if (!workspace) return;
+    workspace.innerHTML = '';
+    hoidongCount = 0;
+
+    let defaultTime = "", defaultDate = "", defaultRoom = "";
+
+    // Bóc tách Thời gian bảo vệ từ các dòng tiêu đề file Excel
+    for (let i = 0; i < Math.min(rows.length, 7); i++) {
+        const rowStr = (rows[i] || []).join(' ');
+        if (rowStr.includes('Thời gian bảo vệ')) {
+            const timeMatch = rowStr.match(/(\d{1,2}h\d{2})/);
+            if (timeMatch) defaultTime = timeMatch[1];
+            
+            const dayMatch = rowStr.match(/ngày\s+(\d{1,2})\s+tháng\s+(\d{1,2})\s+năm\s+(\d{4})/);
+            if (dayMatch) {
+                const d = dayMatch[1].padStart(2, '0');
+                const m = dayMatch[2].padStart(2, '0');
+                const y = dayMatch[3];
+                defaultDate = `${y}-${m}-${d}`;
+            }
+            break;
+        }
+    }
+
+    let currentBoxId = null;
+    let currentHDNum = null;
+
+    rows.forEach((row, idx) => {
+        if (idx < 7 || !row) return;
+
+        const hdVal = String(row[0] || '').trim();
+        const maGV = String(row[1] || '').trim();
+        const hoTenGV = String(row[2] || '').trim();
+        const chucDanh = String(row[5] || '').trim();
+
+        if (hdVal && hdVal !== currentHDNum && !isNaN(hdVal)) {
+            currentHDNum = hdVal;
+            currentBoxId = createHoiDongBox(`Hội Đồng ${hdVal}`, defaultDate, defaultTime, defaultRoom);
+        }
+
+        if (currentBoxId && hoTenGV && chucDanh) {
+            const box = document.getElementById(currentBoxId);
+            let roleName = "";
+            if (chucDanh.includes("Chủ tịch")) roleName = "Chủ tịch";
+            else if (chucDanh.includes("Phản biện")) roleName = "Phản biện";
+            else if (chucDanh.includes("Thư ký")) roleName = "Thư ký";
+
+            if (roleName) {
+                const zone = box.querySelector(`.dropzone-gv[data-role="${roleName}"]`);
+                if (zone) {
+                    zone.innerHTML = `
+                        <div class="card-item bg-light border-info p-1 rounded" data-id="${maGV}" data-name="${hoTenGV}">
+                            <div class="fw-bold text-dark small">${hoTenGV}</div>
+                        </div>
+                    `;
+                }
+            }
+        }
+    });
+}
+
 function attachSortableToHoiDong(boxId) {
     const box = document.getElementById(boxId);
     if (!box) return;
 
-    // Kéo thả Sinh Viên
+    // Kéo thả Sinh Viên & Kiểm tra Ràng buộc GVHD
     Sortable.create(box.querySelector('.dropzone-sv'), {
-        group: 'sinhvien', animation: 150,
+        group: 'sinhvien',
+        animation: 150,
         onAdd: function (evt) {
             const svCard = evt.item;
             const svName = svCard.getAttribute('data-name');
@@ -90,10 +155,11 @@ function attachSortableToHoiDong(boxId) {
         }
     });
 
-    // Kéo thả Giảng Viên
+    // Kéo thả Giảng Viên & Kiểm tra các Ràng buộc trùng lặp
     box.querySelectorAll('.dropzone-gv').forEach(zone => {
         Sortable.create(zone, {
-            group: 'giangvien', animation: 150,
+            group: 'giangvien',
+            animation: 150,
             onAdd: function (evt) {
                 const item = evt.item;
                 const gvId = item.getAttribute('data-id');
