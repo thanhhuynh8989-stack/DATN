@@ -1,6 +1,5 @@
-// js/excel-exporter.js (Thêm hàm generateDSDBWorkbook và cập nhật exportExcelReport)
+// js/excel-exporter.js
 
-// Hàm 1: Xuất Bảng điểm tổng hợp (Giữ nguyên logic chuẩn đã sửa)
 export async function exportExcelReport(exportData, meta = {}) {
     if (typeof ExcelJS === 'undefined') {
         alert("Thiếu thư viện ExcelJS từ lib/exceljs.min.js");
@@ -12,7 +11,7 @@ export async function exportExcelReport(exportData, meta = {}) {
     saveAs(blob, "Bang_Diem_Tong_Hop_DATN.xlsx");
 }
 
-// Hàm 2: Tạo đối tượng Workbook của Bảng điểm tổng hợp (Phục vụ nén chung vào ZIP)
+// 1. TẠO WORKBOOK BẢNG ĐIỂM TỔNG HỢP (TÁCH SHEET THEO BUỔI + PHÒNG + CƠ SỞ)
 export async function buildExcelReportWorkbook(exportData, meta = {}) {
     const workbook = new ExcelJS.Workbook();
     const sheetsMap = {};
@@ -27,17 +26,17 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
         return "Tối";
     };
 
+    // Phân loại nhóm và tách Sheet
     exportData.forEach(item => {
         let nganh = meta.khoa || "CÔNG NGHỆ THỰC PHẨM";
-        if (item.lop.includes("CTP")) nganh = "CÔNG NGHỆ THỰC PHẨM";
-        else if (item.lop.includes("EKD") || item.lop.includes("KTD")) nganh = "KỸ THUẬT ĐIỆN";
-        else if (item.lop.includes("EDK")) nganh = "KỸ THUẬT ĐIỀU KHIỂN & TỰ ĐỘNG HÓA";
-        else if (item.lop.includes("EDT")) nganh = "ĐIỆN TỰ ĐỘNG";
+        if (item.lop && item.lop.includes("CTP")) nganh = "CÔNG NGHỆ THỰC PHẨM";
 
         const buoi = getBuoi(item.gio);
         const phong = item.phong || 'Phong';
         const coSo = item.dia_diem || 'CoSo';
-        const sheetNameClean = `${buoi}_P.${grpKeyClean(phong)}_${grpKeyClean(coSo)}`.substring(0, 30);
+        
+        // Tên Sheet chuẩn tối đa 31 ký tự: "Sáng_P111_120HMT"
+        const sheetNameClean = `${buoi}_P${grpKeyClean(phong)}_${grpKeyClean(coSo)}`.substring(0, 30);
 
         if (!sheetsMap[sheetNameClean]) {
             sheetsMap[sheetNameClean] = { sheetName: sheetNameClean, hoidongs: {} };
@@ -56,6 +55,7 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
 
     const thinBorder = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
 
+    // Duyệt vẽ từng Sheet
     Object.keys(sheetsMap).forEach(sheetKey => {
         const sheetData = sheetsMap[sheetKey];
         const ws = workbook.addWorksheet(sheetData.sheetName, { views: [{ showGridLines: true }] });
@@ -64,6 +64,7 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
         Object.keys(sheetData.hoidongs).forEach((hdKey) => {
             const grp = sheetData.hoidongs[hdKey];
 
+            // --- HEADER DÒNG 1 -> 5 CHUẨN XÁC VỊ TRÍ TỪNG CỘT ---
             ws.mergeCells(`A${currentRow}:C${currentRow}`);
             ws.getCell(`A${currentRow}`).value = 'BỘ GIÁO DỤC VÀ ĐÀO TẠO';
             ws.getCell(`A${currentRow}`).font = { name: 'Times New Roman', size: 10, bold: true };
@@ -92,24 +93,28 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
             const soQDStr = meta.soQD || '2071/QĐ-ĐHĐT';
             const ngayKyQDStr = meta.ngayKyQD || '5/8/2026';
 
+            // Dòng 3: Đợt đặt ô D3, Năm đặt đúng ô I3
             ws.getCell(`D${currentRow+2}`).value = `Đợt:            Tháng ${dotThangStr}`;
             ws.getCell(`D${currentRow+2}`).font = { name: 'Times New Roman', size: 11 };
-            ws.getCell(`F${currentRow+2}`).value = `Năm : ${namChamStr}`;
-            ws.getCell(`F${currentRow+2}`).font = { name: 'Times New Roman', size: 11, bold: true };
+            ws.getCell(`I${currentRow+2}`).value = `Năm : ${namChamStr}`;
+            ws.getCell(`I${currentRow+2}`).font = { name: 'Times New Roman', size: 11, bold: true };
 
+            // Dòng 4: QĐ đặt ô D4, ký ngày đặt đúng ô H4
             ws.getCell(`D${currentRow+3}`).value = `Hội đồng bảo vệ kèm theo Quyết định số  ${soQDStr}`;
             ws.getCell(`D${currentRow+3}`).font = { name: 'Times New Roman', size: 11, bold: true };
-            ws.getCell(`F${currentRow+3}`).value = `ký ngày    ${ngayKyQDStr}`;
-            ws.getCell(`F${currentRow+3}`).font = { name: 'Times New Roman', size: 11 };
+            ws.getCell(`H${currentRow+3}`).value = `ký ngày    ${ngayKyQDStr}`;
+            ws.getCell(`H${currentRow+3}`).font = { name: 'Times New Roman', size: 11 };
 
-            ws.getCell(`D${currentRow+4}`).value = `Thời gian:  ${grp.gio || '15h30'} ngày ${grp.ngay || '17/05/2026'}`;
+            // Dòng 5: Thời gian đặt ô D5, Địa điểm đặt đúng ô I5
+            ws.getCell(`D${currentRow+4}`).value = `Thời gian:  ${grp.gio || '17:00'} ngày ${grp.ngay || '11/11/2026'}`;
             ws.getCell(`D${currentRow+4}`).font = { name: 'Times New Roman', size: 11, bold: true };
 
-            ws.getCell(`F${currentRow+4}`).value = `Địa điểm: Phòng ${grp.phong || '403'}, cơ sở ${grp.diaDiem || 'K7/25 Quang Trung'}`;
-            ws.getCell(`F${currentRow+4}`).font = { name: 'Times New Roman', size: 11, bold: true };
+            ws.getCell(`I${currentRow+4}`).value = `Địa điểm: Phòng ${grp.phong || '111'}, cơ sở ${grp.diaDiem || '120 Hoàng Minh Thảo'}`;
+            ws.getCell(`I${currentRow+4}`).font = { name: 'Times New Roman', size: 11, bold: true };
 
             currentRow += 6;
 
+            // --- TIÊU ĐỀ BẢNG (Dòng 7 & 8) ---
             const hRow1 = currentRow;
             const hRow2 = currentRow + 1;
 
@@ -155,6 +160,7 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
             currentRow += 2;
             const startStudentRow = currentRow;
 
+            // --- ĐỔ DỮ LIỆU SINH VIÊN (3 DÒNG / SV) ---
             grp.students.forEach((sv, svIdx) => {
                 const startR = currentRow;
                 const endR = startR + 2;
@@ -240,7 +246,7 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
 
             currentRow += 1;
             ws.mergeCells(`A${currentRow}:C${currentRow}`);
-            ws.getCell(`A${currentRow}`).value = 'TRƯỜNG KHOA';
+            ws.getCell(`A${currentRow}`).value = 'TRƯỞNG KHOA';
             ws.getCell(`A${currentRow}`).font = { name: 'Times New Roman', size: 10, bold: true };
             ws.getCell(`A${currentRow}`).alignment = { horizontal: 'center' };
 
@@ -277,14 +283,13 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
     return workbook;
 }
 
-// Hàm 3: HÀM MỚI - TẠO EXCEL DANH SÁCH HỘI ĐỒNG ĐÃ LẬP ACCORDING TO FORM
+// 2. TẠO WORKBOOK DANH SÁCH HỘI ĐỒNG ĐÃ LẬP (XUẤT CHUẨN MÃ GV VÀ ĐƠN VỊ CÔNG TÁC)
 export async function buildDSDBWorkbook(exportData, meta = {}) {
     const workbook = new ExcelJS.Workbook();
     const ws = workbook.addWorksheet("DS_Hoi_Dong_Da_Lap", { views: [{ showGridLines: true }] });
 
     const thinBorder = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
 
-    // Gom dữ liệu theo từng Hội đồng
     const hdGroups = {};
     exportData.forEach(item => {
         const key = item.so_hd || 'Hội Đồng';
@@ -297,32 +302,33 @@ export async function buildDSDBWorkbook(exportData, meta = {}) {
                 diaDiem: item.dia_diem,
                 chuTich: item.chu_tich,
                 phanBien: item.phan_bien,
-                thuKy: item.thu_ky
+                thuKy: item.thu_ky,
+                chuTichID: item.chu_tich_id || '',
+                phanBienID: item.phan_bien_id || '',
+                thuKyID: item.thu_ky_id || ''
             };
         }
     });
 
-    // Header Quốc hiệu
     ws.mergeCells('A1:C1'); ws.getCell('A1').value = 'BỘ GIÁO DỤC VÀ ĐÀO TẠO';
     ws.mergeCells('A2:C2'); ws.getCell('A2').value = 'ĐẠI HỌC DUY TÂN';
-    ws.mergeCells('A3:C3'); ws.getCell('A3').value = (meta.khoa || 'TRƯỜNG CÔNG NGHỆ VÀ KỸ THUẬT').toUpperCase();
+    ws.mergeCells('A3:C3'); ws.getCell('A3').value = (meta.khoa || 'KHOA MÔI TRƯỜNG & KHTN').toUpperCase();
     ['A1', 'A2', 'A3'].forEach(c => {
         ws.getCell(c).font = { name: 'Times New Roman', size: 10, bold: true };
         ws.getCell(c).alignment = { horizontal: 'center' };
     });
 
-    ws.mergeCells('D1:F1');
+    ws.mergeCells('D1:G1');
     ws.getCell('D1').value = 'DANH SÁCH HỘI ĐỒNG BẢO VỆ ĐỒ ÁN TỐT NGHIỆP ĐÃ LẬP';
     ws.getCell('D1').font = { name: 'Times New Roman', size: 13, bold: true };
     ws.getCell('D1').alignment = { horizontal: 'left', vertical: 'middle' };
 
-    ws.getCell('D2').value = `Đợt: Tháng ${meta.dotThang || '6'} / Năm ${meta.namCham || '2026'}`;
+    ws.getCell('D2').value = `Đợt: Tháng ${meta.dotThang || '12'} / Năm ${meta.namCham || '2026'}`;
     ws.getCell('D2').font = { name: 'Times New Roman', size: 11, italic: true };
 
-    ws.getCell('D3').value = `Quyết định số: ${meta.soQD || '2071/QĐ-ĐHĐT'} ký ngày ${meta.ngayKyQD || '5/8/2026'}`;
+    ws.getCell('D3').value = `Quyết định số: ${meta.soQD || '2071/QĐ-ĐHĐT'} ký ngày ${meta.ngayKyQD || '5/12/2026'}`;
     ws.getCell('D3').font = { name: 'Times New Roman', size: 11, bold: true };
 
-    // Tiêu đề Bảng (Dòng 5)
     const headers = ["STT", "HỘI ĐỒNG", "MÃ GV", "HỌ VÀ TÊN GIẢNG VIÊN", "ĐƠN VỊ CÔNG TÁC", "CHỨC DANH HỘI ĐỒNG", "THỜI GIAN & ĐỊA ĐIỂM BẢO VỆ"];
     headers.forEach((h, idx) => {
         const cell = ws.getCell(5, idx + 1);
@@ -339,15 +345,15 @@ export async function buildDSDBWorkbook(exportData, meta = {}) {
     Object.keys(hdGroups).forEach(hdKey => {
         const hd = hdGroups[hdKey];
         const members = [
-            { role: 'Chủ tịch HĐ', name: hd.chuTich },
-            { role: 'Ủy viên Phản biện', name: hd.phanBien },
-            { role: 'Ủy viên Thư ký', name: hd.thuKy }
+            { role: 'Chủ tịch HĐ', name: hd.chuTich, id: hd.chuTichID },
+            { role: 'Ủy viên Phản biện', name: hd.phanBien, id: hd.phanBienID },
+            { role: 'Ủy viên Thư ký', name: hd.thuKy, id: hd.thuKyID }
         ];
 
         const startR = rowIdx;
         members.forEach((m, mIdx) => {
             const r = rowIdx + mIdx;
-            ws.getCell(`C${r}`).value = `GV_${stt}_${mIdx+1}`;
+            ws.getCell(`C${r}`).value = m.id || `GV_${stt}_${mIdx+1}`;
             ws.getCell(`D${r}`).value = m.name || '';
             ws.getCell(`E${r}`).value = 'Đại học Duy Tân';
             ws.getCell(`F${r}`).value = m.role;
@@ -365,7 +371,7 @@ export async function buildDSDBWorkbook(exportData, meta = {}) {
         ws.mergeCells(`A${startR}:A${endR}`); ws.getCell(`A${startR}`).value = stt;
         ws.mergeCells(`B${startR}:B${endR}`); ws.getCell(`B${startR}`).value = hd.soHD;
         ws.mergeCells(`G${startR}:G${endR}`); 
-        ws.getCell(`G${startR}`).value = `${hd.gio || ''} ngày ${hd.ngay || ''}\nPhòng ${hd.phong || ''}, ${hd.diaDiem || ''}`;
+        ws.getCell(`G${startR}`).value = `${hd.gio || '17:00'} ngày ${hd.ngay || ''}\nPhòng ${hd.phong || ''}, ${hd.diaDiem || ''}`;
         ws.getCell(`G${startR}`).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
 
         rowIdx += 3;
@@ -374,7 +380,7 @@ export async function buildDSDBWorkbook(exportData, meta = {}) {
 
     ws.getColumn(1).width = 6;
     ws.getColumn(2).width = 15;
-    ws.getColumn(3).width = 12;
+    ws.getColumn(3).width = 14;
     ws.getColumn(4).width = 25;
     ws.getColumn(5).width = 22;
     ws.getColumn(6).width = 20;
