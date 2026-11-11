@@ -99,15 +99,15 @@ function bindEvents() {
     btnExport?.addEventListener('click', async () => {
         const meta = getSetupMetadata();
         const exportData = collectExportData(meta);
-
+    
         if (exportData.length === 0) {
             return alert("Chưa có sinh viên nào được phân công vào Hội đồng!");
         }
-
+    
         try {
-            await exportWordZIP(exportData);
-            await exportExcelReport(exportData, meta);
-            alert("🎉 Xuất Hồ sơ Word (.ZIP) và Bảng điểm Excel thành công!");
+            // Xuất trọn bộ file Word + 2 file Excel nằm gọn trong 1 file ZIP
+            await exportWordZIP(exportData, meta);
+            alert("🎉 Đã xuất thành công gói Hồ sơ Word & 2 file Excel (Bảng điểm + DS Hội đồng)!");
         } catch (err) {
             console.error("Lỗi xuất file:", err);
             alert("Có lỗi xuất file: " + err.message);
