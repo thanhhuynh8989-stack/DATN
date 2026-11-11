@@ -58,37 +58,40 @@
             </div>
         </div>
 
-        <!-- KHU VỰC 2: WORKSPACE 3 CỘT -->
-        <div class="row" style="height: 75vh;">
+        <!-- KHU VỰC 2: WORKSPACE 3 CỘT (CỐ ĐỊNH TIÊU ĐỀ, CUỘN ĐỘC LẬP) -->
+        <div class="row workspace-row">
             <!-- Cột Trái: Sinh Viên -->
-            <div class="col-md-3 h-100 d-flex flex-column">
-                <div class="card shadow-sm flex-fill border-0">
-                    <div class="card-header bg-success text-white fw-bold">SINH VIÊN CHỜ PHÂN CÔNG</div>
-                    <div class="card-body p-2 overflow-auto" id="pool-sv">
+            <div class="col-md-3 h-100">
+                <div class="card shadow-sm column-card">
+                    <div class="card-header bg-success text-white fw-bold">
+                        SINH VIÊN CHỜ PHÂN CÔNG
+                    </div>
+                    <div class="card-body" id="pool-sv">
                         <!-- Danh sách SV render vào đây -->
                     </div>
                 </div>
             </div>
-
+        
             <!-- Cột Giữa: Không Gian Hội Đồng -->
-            <div class="col-md-6 h-100 d-flex flex-column">
-                <div class="card shadow-sm flex-fill border-0">
+            <div class="col-md-6 h-100">
+                <div class="card shadow-sm column-card">
                     <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center">
                         <span>KHU VỰC PHÂN BỔ HỘI ĐỒNG</span>
-                        <!-- ĐÃ BỔ SUNG NÚT TẠO HỘI ĐỒNG BỊ THIẾU -->
                         <button class="btn btn-primary btn-sm fw-bold" id="btn-add-hd">+ TẠO HỘI ĐỒNG</button>
                     </div>
-                    <div class="card-body p-2 overflow-auto bg-secondary bg-opacity-10" id="workspace-hd">
+                    <div class="card-body bg-secondary bg-opacity-10" id="workspace-hd">
                         <!-- Các Hội đồng render vào đây -->
                     </div>
                 </div>
             </div>
-
+        
             <!-- Cột Phải: Giảng Viên -->
-            <div class="col-md-3 h-100 d-flex flex-column">
-                <div class="card shadow-sm flex-fill border-0">
-                    <div class="card-header bg-info text-white fw-bold">KHO GIẢNG VIÊN</div>
-                    <div class="card-body p-2 overflow-auto" id="pool-gv">
+            <div class="col-md-3 h-100">
+                <div class="card shadow-sm column-card">
+                    <div class="card-header bg-info text-white fw-bold">
+                        KHO GIẢNG VIÊN
+                    </div>
+                    <div class="card-body" id="pool-gv">
                          <!-- Danh sách GV render vào đây -->
                     </div>
                 </div>
