@@ -1,18 +1,35 @@
 /* css/styles.css */
 body {
     font-size: 0.88rem;
+    overflow: hidden; /* Bỏ cuộn trang web chính */
 }
 
-/* Thẻ card cố định tiêu đề và cuộn riêng phần thân */
-.column-container {
+/* Ép khung 3 cột có chiều cao cố định */
+.workspace-row {
+    height: calc(100vh - 160px); /* Tự động tính chiều cao trừ đi phần Setup ở trên */
+    min-height: 500px;
+}
+
+/* Thẻ Card chứa từng cột */
+.column-card {
     display: flex;
     flex-direction: column;
-    height: 75vh;
+    height: 100%;
+    min-height: 0; /* BẮT BUỘC: Để flexbox con không bị đẩy giãn quá chiều cao cha */
+    border: none;
 }
 
-.column-body {
-    flex: 1;
-    overflow-y: auto;
+/* Header cố định ở đỉnh cột */
+.column-card > .card-header {
+    flex-shrink: 0; /* Cố định tiêu đề, không cho co dãn */
+    z-index: 10;
+}
+
+/* Thân cột cho phép cuộn riêng biệt */
+.column-card > .card-body {
+    flex: 1 1 auto;
+    overflow-y: auto !important; /* Bắt buộc hiện thanh cuộn riêng khi vượt quá chiều cao */
+    min-height: 0; /* BẮT BUỘC */
     padding: 8px;
 }
 
@@ -32,13 +49,13 @@ body {
     box-shadow: 0 4px 8px rgba(0,0,0,0.1) !important;
 }
 
-/* Ô thả giảng viên & sinh viên */
+/* Ô thả giảng viên & sinh viên trong Box Hội Đồng */
 .dropzone-gv {
     background-color: #f8f9fa;
 }
 
 .dropzone-sv {
-    background-color: #f8f9fa;
+    background-color: #ffffff;
 }
 
 /* Tùy chỉnh thanh cuộn đẹp mắt */
