@@ -11,9 +11,9 @@
     <div class="container-fluid py-3">
         <h3 class="mb-3 text-center fw-bold text-primary">PHẦN MỀM XUẤT HỒ SƠ & BẢNG ĐIỂM HỘI ĐỒNG ĐATN</h3>
 
-        <!-- KHU VỰC 1: SETUP -->
+        <!-- KHU VỰC 1: SETUP & TẢI FILE -->
         <div class="card mb-3 shadow-sm border-0">
-            <div class="card-body row g-3">
+            <div class="card-body row g-3 align-items-end">
                 <div class="col-md-2">
                     <label class="fw-bold">Khoa:</label>
                     <select id="khoa-select" class="form-select form-select-sm">
@@ -22,20 +22,37 @@
                         <option value="Khoa Công nghệ Thực phẩm">Công nghệ Thực phẩm</option>
                     </select>
                 </div>
+        
+                <!-- File 1: SV & Đề tài -->
                 <div class="col-md-3">
-                    <label class="fw-bold">Danh sách SV & Đề tài (Excel):</label>
-                    <input type="file" id="upload-sv" class="form-control form-control-sm" accept=".xlsx">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <label class="fw-bold m-0">Danh sách SV & Đề tài:</label>
+                        <a href="./sample_files/Mau_Danh_Sach_SV.xlsx" download class="badge bg-secondary text-decoration-none" title="Tải file Excel mẫu">📥 File mẫu</a>
+                    </div>
+                    <input type="file" id="upload-sv" class="form-control form-control-sm" accept=".xlsx, .xls">
                 </div>
+        
+                <!-- File 2: Giảng viên -->
                 <div class="col-md-3">
-                    <label class="fw-bold">Danh sách Giảng viên (Excel):</label>
-                    <input type="file" id="upload-gv" class="form-control form-control-sm" accept=".xlsx">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <label class="fw-bold m-0">Danh sách Giảng viên:</label>
+                        <a href="./sample_files/Mau_Danh_Sach_GV.xlsx" download class="badge bg-secondary text-decoration-none" title="Tải file Excel mẫu">📥 File mẫu</a>
+                    </div>
+                    <input type="file" id="upload-gv" class="form-control form-control-sm" accept=".xlsx, .xls">
                 </div>
+        
+                <!-- File 3: Hội đồng (Tùy chọn) -->
                 <div class="col-md-2">
-                    <label class="fw-bold">DS Hội Đồng (Tùy chọn):</label>
-                    <input type="file" id="upload-hd" class="form-control form-control-sm" accept=".xlsx">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <label class="fw-bold m-0">DS Hội Đồng (Tùy chọn):</label>
+                        <a href="./sample_files/Mau_Danh_Sach_HD.xlsx" download class="badge bg-secondary text-decoration-none" title="Tải file Excel mẫu">📥 File mẫu</a>
+                    </div>
+                    <input type="file" id="upload-hd" class="form-control form-control-sm" accept=".xlsx, .xls">
                 </div>
-                <div class="col-md-2 text-end mt-4">
-                    <button class="btn btn-primary btn-sm w-100" id="btn-add-hd">+ TẠO HỘI ĐỒNG</button>
+        
+                <!-- NÚT UPLOAD / NẠP DỮ LIỆU -->
+                <div class="col-md-2 text-end">
+                    <button class="btn btn-success btn-sm w-100 fw-bold" id="btn-read-files">⚡ NẠP DỮ LIỆU EXCEL</button>
                 </div>
             </div>
         </div>
