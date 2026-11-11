@@ -3,6 +3,7 @@ import { validateGVHDConflictWithHD, validateTeacherIsGVHDOfAnyStudent, checkSch
 
 let hoidongCount = 0;
 
+// Export hàm 1: Khởi tạo Sortable toàn cục
 export function initGlobalSortables() {
     const poolSV = document.getElementById('pool-sv');
     if (poolSV) Sortable.create(poolSV, { group: 'sinhvien', animation: 150 });
@@ -16,26 +17,32 @@ export function initGlobalSortables() {
     }
 }
 
-export function createHoiDongBox(titleText = null, initDate = '', initTime = '', initRoom = '') {
+// Export hàm 2: Tạo Box Hội Đồng mới (Dùng input time có mũi tên tăng/giảm giờ phút)
+export function createHoiDongBox(titleText = null, initDate = '', initTime = '17:00', initRoom = '') {
     hoidongCount++;
     const hdTitle = titleText || `Hội Đồng ${hoidongCount}`;
     const boxId = `hd-box-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
+    // Chuẩn hóa format giờ HH:mm cho <input type="time">
+    let formattedTime = initTime;
+    if (initTime && initTime.includes('h')) {
+        const parts = initTime.split('h');
+        const hh = parts[0].padStart(2, '0');
+        const mm = (parts[1] || '00').padStart(2, '0');
+        formattedTime = `${hh}:${mm}`;
+    }
+
     const boxHTML = `
         <div class="box-hoidong p-2 mb-3 border rounded bg-white shadow-sm" id="${boxId}">
-            <div class="d-flex gap-2 mb-2 bg-light p-2 rounded align-items-center">
-                <input type="text" class="form-control form-control-sm fw-bold hd-title" value="${hdTitle}" style="width: 120px;">
-                <input type="date" class="form-control form-control-sm hd-date" value="${initDate}" style="width: 130px;">
-                <select class="form-select form-select-sm hd-time" style="width: 95px;">
-                    <option value="">--Giờ--</option>
-                    <option value="07h00" ${initTime==='07h00'?'selected':''}>07h00</option>
-                    <option value="08h00" ${initTime==='08h00'?'selected':''}>08h00</option>
-                    <option value="13h00" ${initTime==='13h00'?'selected':''}>13h00</option>
-                    <option value="14h00" ${initTime==='14h00'?'selected':''}>14h00</option>
-                    <option value="17h00" ${initTime==='17h00'?'selected':''}>17h00</option>
-                </select>
-                <input type="text" class="form-control form-control-sm hd-room" value="${initRoom}" placeholder="Phòng" style="width: 110px;">
-                <select class="form-select form-select-sm hd-location">
+            <div class="d-flex gap-2 mb-2 bg-light p-2 rounded align-items-center flex-wrap">
+                <input type="text" class="form-control form-control-sm fw-bold hd-title" value="${hdTitle}" placeholder="Số/Tên HĐ" style="width: 110px;">
+                <input type="date" class="form-control form-control-sm hd-date" value="${initDate}" style="width: 125px;" title="Ngày bảo vệ">
+                
+                <!-- KHUNG CHỌN GIỜ:PHÚT (Nhập số hoặc bấm mũi tên tăng giảm) -->
+                <input type="time" class="form-control form-control-sm hd-time" value="${formattedTime || '17:00'}" style="width: 110px;" title="Giờ:Phút bảo vệ">
+
+                <input type="text" class="form-control form-control-sm hd-room" value="${initRoom}" placeholder="Phòng (C120)" style="width: 105px;">
+                <select class="form-select form-select-sm hd-location" style="width: 150px;">
                     <option value="120 Hoàng Minh Thảo">120 Hoàng Minh Thảo</option>
                     <option value="254 Nguyễn Văn Linh">254 Nguyễn Văn Linh</option>
                     <option value="137 Nguyễn Văn Linh">137 Nguyễn Văn Linh</option>
@@ -43,13 +50,13 @@ export function createHoiDongBox(titleText = null, initDate = '', initTime = '',
                     <option value="K7/25 Quang Trung">K7/25 Quang Trung</option>
                     <option value="Phan Văn Trị">Phan Văn Trị</option>
                 </select>
-                <button type="button" class="btn btn-sm btn-outline-danger fw-bold ms-auto btn-delete-hd">✕ Xóa</button>
+                <button type="button" class="btn btn-sm btn-outline-danger fw-bold ms-auto btn-delete-hd" title="Xóa Hội đồng này">✕ Xóa</button>
             </div>
             <div class="row">
                 <div class="col-4 border-end">
-                    <div class="mb-1"><small class="text-danger fw-bold">Chủ tịch:</small><div class="dropzone-gv" data-role="Chủ tịch"></div></div>
-                    <div class="mb-1"><small class="text-success fw-bold">Phản biện:</small><div class="dropzone-gv" data-role="Phản biện"></div></div>
-                    <div><small class="text-primary fw-bold">Thư ký:</small><div class="dropzone-gv" data-role="Thư ký"></div></div>
+                    <div class="mb-1"><small class="text-danger fw-bold">Chủ tịch:</small><div class="dropzone-gv border rounded p-1 bg-light" data-role="Chủ tịch" style="min-height: 38px;"></div></div>
+                    <div class="mb-1"><small class="text-success fw-bold">Phản biện:</small><div class="dropzone-gv border rounded p-1 bg-light" data-role="Phản biện" style="min-height: 38px;"></div></div>
+                    <div><small class="text-primary fw-bold">Thư ký:</small><div class="dropzone-gv border rounded p-1 bg-light" data-role="Thư ký" style="min-height: 38px;"></div></div>
                 </div>
                 <div class="col-8">
                     <small class="fw-bold">Sinh viên bảo vệ:</small>
@@ -63,28 +70,32 @@ export function createHoiDongBox(titleText = null, initDate = '', initTime = '',
     workspace.insertAdjacentHTML('beforeend', boxHTML);
     const boxEl = document.getElementById(boxId);
 
-    // Gán sự kiện Xóa
-    boxEl.querySelector('.btn-delete-hd').addEventListener('click', () => boxEl.remove());
+    // Sự kiện Xóa Box
+    boxEl.querySelector('.btn-delete-hd')?.addEventListener('click', () => boxEl.remove());
 
     attachSortableToHoiDong(boxId);
     return boxId;
 }
 
-// Export hàm 3: Bóc tách file Excel Hội đồng và tạo danh sách Hội đồng
+// Export hàm 3: Bóc tách file Excel Hội đồng và tự động điền giờ phút
 export function renderHoidongFromExcel(rows) {
     const workspace = document.getElementById('workspace-hd');
     if (!workspace) return;
     workspace.innerHTML = '';
     hoidongCount = 0;
 
-    let defaultTime = "", defaultDate = "", defaultRoom = "";
+    let defaultTime = "17:00", defaultDate = "", defaultRoom = "";
 
-    // Bóc tách Thời gian bảo vệ từ các dòng tiêu đề file Excel
+    // Dò tìm Thời gian bảo vệ từ các dòng tiêu đề file Excel
     for (let i = 0; i < Math.min(rows.length, 7); i++) {
         const rowStr = (rows[i] || []).join(' ');
         if (rowStr.includes('Thời gian bảo vệ')) {
-            const timeMatch = rowStr.match(/(\d{1,2}h\d{2})/);
-            if (timeMatch) defaultTime = timeMatch[1];
+            const timeMatch = rowStr.match(/(\d{1,2})h(\d{2})?/);
+            if (timeMatch) {
+                const hh = timeMatch[1].padStart(2, '0');
+                const mm = (timeMatch[2] || '00').padStart(2, '0');
+                defaultTime = `${hh}:${mm}`;
+            }
             
             const dayMatch = rowStr.match(/ngày\s+(\d{1,2})\s+tháng\s+(\d{1,2})\s+năm\s+(\d{4})/);
             if (dayMatch) {
@@ -124,7 +135,7 @@ export function renderHoidongFromExcel(rows) {
                 const zone = box.querySelector(`.dropzone-gv[data-role="${roleName}"]`);
                 if (zone) {
                     zone.innerHTML = `
-                        <div class="card-item bg-light border-info p-1 rounded" data-id="${maGV}" data-name="${hoTenGV}">
+                        <div class="card-item bg-light border-info p-1 rounded shadow-sm" data-id="${maGV}" data-name="${hoTenGV}">
                             <div class="fw-bold text-dark small">${hoTenGV}</div>
                         </div>
                     `;
