@@ -3,9 +3,8 @@
 // ==========================================
 let templates = {};
 let hoidongCount = 0;
-
 document.addEventListener("DOMContentLoaded", async () => {
-    // Tải ngầm 4 file Word templates từ thư mục
+    // Tải ngầm 4 file Word templates từ thư mục relative
     const loadFile = (url) => new Promise((resolve, reject) => {
         PizZipUtils.getBinaryContent(url, (err, data) => {
             if (err) reject(err); else resolve(data);
@@ -13,13 +12,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     try {
-        templates.bienBan = await loadFile('templates/1_BIEN_BAN_BAO_VE_DATN.docx');
-        templates.phieuGVHD = await loadFile('templates/2_Phieu_GVHD.docx');
-        templates.phieuGVPB = await loadFile('templates/3_Phieu_GVPB.docx');
-        templates.phieuHD = await loadFile('templates/4_Phieu_Hoi_Dong.docx');
-        console.log("✅ Load templates nội bộ thành công!");
+        // Dùng đường dẫn tương đối './templates/...'
+        templates.bienBan = await loadFile('./templates/1_BIEN_BAN_BAO_VE_DATN.docx');
+        templates.phieuGVHD = await loadFile('./templates/2_Phieu_GVHD.docx');
+        templates.phieuGVPB = await loadFile('./templates/3_Phieu_GVPB.docx');
+        templates.phieuHD = await loadFile('./templates/4_Phieu_Hoi_Dong.docx');
+        console.log("✅ Load templates thành công!");
     } catch (e) {
-        alert("Lỗi tải template: Đảm bảo chạy qua Local Server (VSCode Live Server). Không mở trực tiếp file html (file://)");
+        console.error("Lỗi tải template:", e);
+        alert("Không tải được file template Word trong thư mục ./templates/. Vui lòng kiểm tra lại đường dẫn file trên GitHub!");
     }
 
     initGlobalSortables();
