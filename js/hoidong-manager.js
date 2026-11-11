@@ -3,7 +3,7 @@ import { validateGVHDConflictWithHD, validateTeacherIsGVHDOfAnyStudent, checkSch
 
 let hoidongCount = 0;
 
-// Export hàm 1: Khởi tạo Sortable toàn cục
+// Export hàm 1: Khởi tạo Sortable toàn cục & Lắng nghe sự kiện click nút "+ Thêm SV"
 export function initGlobalSortables() {
     const poolSV = document.getElementById('pool-sv');
     if (poolSV) Sortable.create(poolSV, { group: 'sinhvien', animation: 150 });
@@ -15,6 +15,9 @@ export function initGlobalSortables() {
             animation: 150, sort: false
         });
     }
+
+    // Lắng nghe sự kiện click nút "+ Thêm SV" và "Xác nhận Gán" (Chỉ đăng ký 1 lần)
+    initAddSVModalEvents();
 }
 
 // Export hàm 2: Tạo Box Hội Đồng mới
@@ -55,7 +58,13 @@ export function createHoiDongBox(titleText = null, initDate = '', initTime = '17
                     <div><small class="text-primary fw-bold">Thư ký:</small><div class="dropzone-gv border rounded p-1 bg-light" data-role="Thư ký" style="min-height: 38px;"></div></div>
                 </div>
                 <div class="col-8">
-                    <small class="fw-bold">Sinh viên bảo vệ:</small>
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <small class="fw-bold">Sinh viên bảo vệ:</small>
+                        <!-- NÚT GÁN SV NHANH CHỐNG VI PHẠM -->
+                        <button type="button" class="btn btn-outline-success btn-sm py-0 px-2 btn-open-add-sv" data-hd-id="${boxId}">
+                            + Thêm SV
+                        </button>
+                    </div>
                     <div class="dropzone-sv p-2 bg-light border rounded" style="min-height: 120px;"></div>
                 </div>
             </div>
@@ -110,7 +119,6 @@ export function renderHoidongFromExcel(parsedHoidongs) {
         // 2. Render Sinh viên & XÓA KHỎI KHO CHỜ THEO MÃ SV (maSV)
         const svDropzone = boxEl.querySelector('.dropzone-sv');
         hd.sinhViens.forEach(sv => {
-            // Ưu tiên đối chiếu lấy dữ liệu đầy đủ từ Kho Sinh viên nếu có sẵn
             const poolItem = document.querySelector(`#pool-sv .card-item[data-id="${sv.maSV}"]`);
             
             const hoTen = poolItem ? poolItem.getAttribute('data-name') : (sv.hoTenSV || sv.hoTen);
@@ -128,12 +136,108 @@ export function renderHoidongFromExcel(parsedHoidongs) {
             
             svDropzone?.insertAdjacentHTML('beforeend', svHTML);
 
-            // GẮN CỜ ĐÃ PHÂN CÔNG: Xóa thẻ SV khỏi Cột 1 (Kho chờ) theo Mã SV (maSV)
             if (poolItem) {
                 poolItem.remove();
             }
         });
     });
+}
+
+// ----------------------------------------------------
+// THUẬT TOÁN MỞ MODAL & LỌC SINH VIÊN PHÙ HỢP (CLICK-TO-ASSIGN)
+// ----------------------------------------------------
+let targetBoxIdForAddSV = null;
+
+function initAddSVModalEvents() {
+    // Lắng nghe click mở Modal từ các box HĐ
+    document.addEventListener('click', (e) => {
+        const btnAdd = e.target.closest('.btn-open-add-sv');
+        if (btnAdd) {
+            targetBoxIdForAddSV = btnAdd.getAttribute('data-hd-id');
+            openSelectSVModal(targetBoxIdForAddSV);
+        }
+    });
+
+    // Lắng nghe click nút "➕ Gán vào Hội đồng" trong Modal
+    document.getElementById('btn-confirm-gan-sv')?.addEventListener('click', () => {
+        if (!targetBoxIdForAddSV) return;
+        const box = document.getElementById(targetBoxIdForAddSV);
+        const svDropzone = box?.querySelector('.dropzone-sv');
+        if (!svDropzone) return;
+
+        const checkedInputs = document.querySelectorAll('#list-sv-phu-hop .chk-select-sv:checked');
+        checkedInputs.forEach(chk => {
+            const maSV = chk.value;
+            const poolItem = document.querySelector(`#pool-sv .card-item[data-id="${maSV}"]`);
+            if (poolItem) {
+                svDropzone.appendChild(poolItem);
+            }
+        });
+
+        const modalEl = document.getElementById('modalGanSinhVien');
+        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+        modalInstance?.hide();
+    });
+}
+
+function openSelectSVModal(boxId) {
+    const box = document.getElementById(boxId);
+    if (!box) return;
+
+    const hdTitle = box.querySelector('.hd-title')?.value || 'Hội Đồng';
+    const titleEl = document.getElementById('modalGanSVTitle');
+    if (titleEl) titleEl.innerText = `📋 CHỌN SINH VIÊN VÀO ${hdTitle.toUpperCase()}`;
+
+    // 1. Trích xuất TÊN các Giảng viên đang có trong Hội đồng này (Chủ tịch, Phản biện, Thư ký)
+    const activeGVNames = Array.from(box.querySelectorAll('.dropzone-gv .card-item'))
+                               .map(item => (item.getAttribute('data-name') || '').trim())
+                               .filter(name => name.length > 0);
+
+    // 2. Lấy danh sách SV còn trong Kho chờ (pool-sv)
+    const poolSVItems = Array.from(document.querySelectorAll('#pool-sv .card-item'));
+    const container = document.getElementById('list-sv-phu-hop');
+    if (!container) return;
+    container.innerHTML = '';
+
+    if (poolSVItems.length === 0) {
+        container.innerHTML = '<div class="text-center text-muted py-3">Không có sinh viên nào đang chờ phân công!</div>';
+    } else {
+        let countAvailable = 0;
+        poolSVItems.forEach(svItem => {
+            const maSV = svItem.getAttribute('data-id');
+            const hoTen = svItem.getAttribute('data-name');
+            const lop = svItem.getAttribute('data-lop');
+            const deTai = svItem.getAttribute('data-detai');
+            const gvhd = (svItem.getAttribute('data-gvhd') || '').trim();
+
+            // 3. LỌC CHỐNG VI PHẠM: GVHD của SV không được nằm trong danh sách GV đang thuộc HĐ này
+            const isConflicted = activeGVNames.some(gvName => gvName.toLowerCase() === gvhd.toLowerCase());
+
+            if (!isConflicted) {
+                countAvailable++;
+                const itemHTML = `
+                    <label class="list-group-item d-flex align-items-center gap-2 cursor-pointer">
+                        <input class="form-check-input flex-shrink-0 chk-select-sv" type="checkbox" value="${maSV}">
+                        <div class="w-100">
+                            <div class="fw-bold text-primary mb-0">${hoTen} (${maSV})</div>
+                            <div class="small text-muted">Lớp: ${lop} | GVHD: <span class="fw-bold text-dark">${gvhd || 'Chưa rõ'}</span></div>
+                            <div class="small text-dark text-truncate">Đề tài: ${deTai}</div>
+                        </div>
+                    </label>`;
+                container.insertAdjacentHTML('beforeend', itemHTML);
+            }
+        });
+
+        if (countAvailable === 0) {
+            container.innerHTML = `
+                <div class="text-center text-danger py-3 fw-bold">
+                    ⛔ Tất cả SV trong kho chờ đều bị trùng GVHD với Thành viên của ${hdTitle}!
+                </div>`;
+        }
+    }
+
+    const modal = new bootstrap.Modal(document.getElementById('modalGanSinhVien'));
+    modal.show();
 }
 
 function formatDateToInput(dateStr) {
