@@ -16,6 +16,44 @@ document.addEventListener("DOMContentLoaded", async () => {
     bindEvents();
 });
 
+// Bổ sung vào hàm bindEvents() trong file js/main.js
+
+// 4. Sự kiện Nhập Điểm Trực Tiếp
+const btnNhapDiem = document.getElementById('btn-nhap-diem');
+btnNhapDiem?.addEventListener('click', () => {
+    const khoaSelect = document.getElementById('khoa-select');
+    const khoa = khoaSelect ? khoaSelect.value : 'Khoa';
+    const exportData = collectExportData(khoa);
+
+    if (exportData.length === 0) {
+        return alert("Vui lòng phân công sinh viên vào Hội đồng trước khi nhập điểm!");
+    }
+
+    const tbody = document.getElementById('tbody-nhap-diem');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    exportData.forEach((sv, idx) => {
+        const tr = `
+            <tr>
+                <td>${idx + 1}</td>
+                <td class="fw-bold">${sv.ma_sv}</td>
+                <td class="text-start">${sv.ho_ten}</td>
+                <td><span class="badge bg-info text-dark">${sv.so_hd}</span></td>
+                <td><input type="number" step="0.1" min="0" max="10" class="form-control form-control-sm text-center input-diem-gvhd" data-masv="${sv.ma_sv}" placeholder="0.0"></td>
+                <td><input type="number" step="0.1" min="0" max="10" class="form-control form-control-sm text-center input-diem-ct" data-masv="${sv.ma_sv}" placeholder="0.0"></td>
+                <td><input type="number" step="0.1" min="0" max="10" class="form-control form-control-sm text-center input-diem-pb" data-masv="${sv.ma_sv}" placeholder="0.0"></td>
+                <td><input type="number" step="0.1" min="0" max="10" class="form-control form-control-sm text-center input-diem-tk" data-masv="${sv.ma_sv}" placeholder="0.0"></td>
+            </tr>
+        `;
+        tbody.insertAdjacentHTML('beforeend', tr);
+    });
+
+    // Mở Bootstrap Modal
+    const modalDiem = new bootstrap.Modal(document.getElementById('modalNhapDiem'));
+    modalDiem.show();
+});
+
 function bindEvents() {
     // 1. Sự kiện Nạp dữ liệu Excel
     const btnReadFiles = document.getElementById('btn-read-files');
