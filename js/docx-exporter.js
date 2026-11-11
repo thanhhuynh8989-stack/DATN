@@ -6,27 +6,39 @@ export async function exportWordZIP(exportData) {
 
     exportData.forEach(data => {
         const svFolder = zip.folder(`${data.ma_sv} - ${data.ho_ten}`);
+        
         const context = {
-            KHOA: data.khoa,
-            SO_HOI_DONG: data.so_hd,
-            NGÀY__BẢO_VỆ: data.ngay,
-            GIỜ: data.gio,
-            ĐỊA_ĐIỂM: `Phòng ${data.phong}, cơ sở ${data.dia_diem}`,
-            Chủ_tịch: data.chu_tich,
-            Phản_biện: data.phan_bien,
-            Thư_ký: data.thu_ky,
-            GVHD: data.gvhd,
-            HỌ_VÀ_TÊN: data.ho_ten,
-            MÃ_SỐ_SV: data.ma_sv,
-            LỚP: data.lop,
-            TÊN_ĐỀ_TÀI_ĐỒ_ÁN_TỐT_NGHIỆP: data.de_tai
+            KHOA: data.khoa || '',
+            SO_HOI_DONG: data.so_hd || '',
+            NGÀY__BẢO_VỆ: data.ngay || '',
+            GIỜ: data.gio || '',
+            ĐỊA_ĐIỂM: `Phòng ${data.phong || ''}, cơ sở ${data.dia_diem || ''}`,
+            Chủ_tịch: data.chu_tich || '',
+            Phản_biện: data.phan_bien || '',
+            Thư_ký: data.thu_ky || '',
+            GVHD: data.gvhd || '',
+            HỌ_VÀ_TÊN: data.ho_ten || '',
+            MÃ_SỐ_SV: data.ma_sv || '',
+            LỚP: data.lop || '',
+            TÊN_ĐỀ_TÀI_ĐỒ_ÁN_TỐT_NGHIỆP: data.de_tai || ''
         };
 
         const renderWord = (templateBinary, fileName) => {
             if (!templateBinary) return;
-            const doc = new window.docxtemplater(new PizZip(templateBinary), { paragraphLoop: true, linebreaks: true });
-            doc.render(context);
-            svFolder.file(fileName, doc.getZip().generate({ type: "blob" }));
+            try {
+                const doc = new window.docxtemplater(new PizZip(templateBinary), { 
+                    paragraphLoop: true, 
+                    linebreaks: true,
+                    delimiters: { start: '{{', end: '}}' } // Đảm bảo nhận diện chuẩn {{ tag }}
+                });
+                
+                doc.render(context);
+                const outBlob = doc.getZip().generate({ type: "blob" });
+                svFolder.file(fileName, outBlob);
+            } catch (error) {
+                console.error(`Lỗi render file ${fileName}:`, error);
+                throw new Error(`File template ${fileName} bị lỗi cú pháp tag {{ }}. Vui lòng kiểm tra lại file Word!`);
+            }
         };
 
         renderWord(templates.bienBan, '1_BIEN_BAN_BAO_VE.docx');
