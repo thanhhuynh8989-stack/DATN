@@ -16,7 +16,28 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 function bindEvents() {
-    // 1. Sự kiện Nạp dữ liệu Excel
+    // 0. XỬ LÝ CHUYỂN TAB TRÊN ĐIỆN THOẠI ĐẶT DỌC (MOBILE VIEW)
+    const tabSV = document.getElementById('tab-btn-sv');
+    const tabHD = document.getElementById('tab-btn-hd');
+    const tabGV = document.getElementById('tab-btn-gv');
+
+    const colSV = document.getElementById('col-sv');
+    const colHD = document.getElementById('col-hd');
+    const colGV = document.getElementById('col-gv');
+
+    const switchTab = (activeBtn, activeCol) => {
+        [tabSV, tabHD, tabGV].forEach(btn => btn?.classList.remove('active'));
+        [colSV, colHD, colGV].forEach(col => col?.classList.remove('active'));
+
+        activeBtn?.classList.add('active');
+        activeCol?.classList.add('active');
+    };
+
+    tabSV?.addEventListener('click', () => switchTab(tabSV, colSV));
+    tabHD?.addEventListener('click', () => switchTab(tabHD, colHD));
+    tabGV?.addEventListener('click', () => switchTab(tabGV, colGV));
+
+    // 1. SỰ KIỆN NẠP DỮ LIỆU EXCEL
     const btnReadFiles = document.getElementById('btn-read-files');
     btnReadFiles?.addEventListener('click', async () => {
         const fileSV = document.getElementById('upload-sv')?.files[0];
@@ -50,13 +71,13 @@ function bindEvents() {
         }
     });
 
-    // 2. Sự kiện Tạo Hội Đồng
+    // 2. SỰ KIỆN TẠO HỘI ĐỒNG MỚI
     const btnAddHD = document.getElementById('btn-add-hd');
     btnAddHD?.addEventListener('click', () => {
         createHoiDongBox();
     });
 
-    // 3. Sự kiện Mở Modal Nhập Điểm Trực Tiếp
+    // 3. SỰ KIỆN MỞ MODAL NHẬP ĐIỂM TRỰC TIẾP
     const btnNhapDiem = document.getElementById('btn-nhap-diem');
     btnNhapDiem?.addEventListener('click', () => {
         const meta = getSetupMetadata();
@@ -90,7 +111,7 @@ function bindEvents() {
         modalDiem.show();
     });
 
-    // 4. Sự kiện Nút "Lưu Điểm" trong Modal
+    // 4. SỰ KIỆN NÚT "LƯU ĐIỂM" TRONG MODAL
     const btnSaveDiem = document.getElementById('btn-save-diem');
     btnSaveDiem?.addEventListener('click', () => {
         document.querySelectorAll('#tbody-nhap-diem tr').forEach(tr => {
@@ -102,7 +123,7 @@ function bindEvents() {
             const diemPB = tr.querySelector('.input-diem-pb')?.value || '';
             const diemTK = tr.querySelector('.input-diem-tk')?.value || '';
 
-            // Lưu điểm trực tiếp vào thuộc tính của thẻ Sinh viên trong DOM
+            // Lưu điểm vào thuộc tính HTML của thẻ Sinh viên trong DOM
             const svCard = document.querySelector(`.dropzone-sv .card-item[data-id="${maSV}"]`);
             if (svCard) {
                 svCard.setAttribute('data-diem-gvhd', diemGVHD);
@@ -112,7 +133,7 @@ function bindEvents() {
             }
         });
 
-        // Đóng Modal
+        // Ẩn Modal sau khi lưu
         const modalEl = document.getElementById('modalNhapDiem');
         const modalInstance = bootstrap.Modal.getInstance(modalEl);
         modalInstance?.hide();
@@ -120,7 +141,7 @@ function bindEvents() {
         alert("✅ Đã lưu điểm trực tiếp thành công!");
     });
 
-    // 5. Sự kiện Xuất File Word & 2 File Excel (.ZIP)
+    // 5. SỰ KIỆN XUẤT FILE WORD & 2 FILE EXCEL (.ZIP)
     const btnExport = document.getElementById('btn-export');
     btnExport?.addEventListener('click', async () => {
         const meta = getSetupMetadata();
@@ -223,7 +244,6 @@ function collectExportData(meta) {
                 de_tai: svEl.getAttribute('data-detai'),
                 lop: svEl.getAttribute('data-lop'),
                 gvhd: svEl.getAttribute('data-gvhd'),
-                // Lấy thêm điểm vừa nhập từ thuộc tính HTML (nếu có)
                 diem_gvhd: svEl.getAttribute('data-diem-gvhd') || '',
                 diem_ct: svEl.getAttribute('data-diem-ct') || '',
                 diem_pb: svEl.getAttribute('data-diem-pb') || '',
