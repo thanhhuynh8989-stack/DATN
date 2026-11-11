@@ -71,7 +71,7 @@
                     </div>
                 </div>
             </div>
-        
+
             <!-- Cột Giữa: Không Gian Hội Đồng -->
             <div class="col-md-6 h-100">
                 <div class="card shadow-sm column-card">
@@ -84,7 +84,7 @@
                     </div>
                 </div>
             </div>
-        
+
             <!-- Cột Phải: Giảng Viên -->
             <div class="col-md-3 h-100">
                 <div class="card shadow-sm column-card">
@@ -98,9 +98,47 @@
             </div>
         </div>
 
-        <div class="text-center mt-3">
-            <button class="btn btn-warning fw-bold px-4" id="btn-nhap-diem">NHẬP ĐIỂM</button>
-            <button class="btn btn-danger fw-bold px-5 ms-3" id="btn-export">TẠO HỒ SƠ (.ZIP) & BẢNG ĐIỂM (.XLSX)</button>
+        <!-- KHU VỰC 3: THANH NÚT BẤM XUẤT FILE & NHẬP ĐIỂM -->
+        <div class="text-center py-3 bg-white border-top mt-2 shadow-sm rounded">
+            <button class="btn btn-warning fw-bold px-4 shadow-sm" id="btn-nhap-diem">📝 NHẬP ĐIỂM TRỰC TIẾP</button>
+            <button class="btn btn-danger fw-bold px-5 ms-3 shadow-sm" id="btn-export">🚀 TẠO HỒ SƠ (.ZIP) & BẢNG ĐIỂM (.XLSX)</button>
+        </div>
+    </div>
+
+    <!-- MODAL NHẬP ĐIỂM TRỰC TIẾP -->
+    <div class="modal fade" id="modalNhapDiem" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title fw-bold">📝 BẢNG NHẬP ĐIỂM TRỰC TIẾP HỘI ĐỒNG</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover mb-0 align-middle text-center" id="table-nhap-diem">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>STT</th>
+                                    <th>MÃ SV</th>
+                                    <th>HỌ VÀ TÊN</th>
+                                    <th>HỘI ĐỒNG</th>
+                                    <th>ĐIỂM GVHD (30%)</th>
+                                    <th>ĐIỂM CT (70%)</th>
+                                    <th>ĐIỂM PB (70%)</th>
+                                    <th>ĐIỂM TK (70%)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-nhap-diem">
+                                <!-- Render danh sách SV đã phân công vào đây -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                    <button type="button" class="btn btn-success fw-bold" id="btn-save-diem">Lưu Điểm</button>
+                </div>
+            </div>
         </div>
     </div>
 
