@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Hệ thống Quản lý Hội đồng ĐATN</title>
+    <!-- Nhúng CSS Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-light">
+    <div class="container-fluid py-3">
+        <h2 class="mb-4 text-center">HỆ THỐNG XUẤT HỒ SƠ & BẢNG ĐIỂM HỘI ĐỒNG ĐATN</h2>
+
+        <!-- KHU VỰC 1: SETUP & UPLOAD -->
+        <div class="card mb-4 shadow-sm">
+            <div class="card-body row">
+                <div class="col-md-3">
+                    <label>Khoa:</label>
+                    <select id="khoa-select" class="form-select">
+                        <option value="Điện - Điện tử">Điện - Điện tử</option>
+                        <option value="Môi trường & KHTN">Môi trường & KHTN</option>
+                        <option value="Công nghệ Thực phẩm">Công nghệ Thực phẩm</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label>File SV & Đề tài:</label>
+                    <input type="file" id="file-sv" class="form-control" accept=".xlsx, .xls">
+                </div>
+                <div class="col-md-3">
+                    <label>File Giảng viên (Phản biện/HĐ):</label>
+                    <input type="file" id="file-gv" class="form-control" accept=".xlsx, .xls">
+                </div>
+                <div class="col-md-3">
+                    <label>Tùy chọn Mẫu Hội Đồng (Mẫu 4):</label>
+                    <div class="form-check form-switch mt-2">
+                        <input class="form-check-input" type="checkbox" id="custom-template-toggle">
+                        <label class="form-check-label" for="custom-template-toggle">Dùng mẫu tùy chỉnh</label>
+                    </div>
+                    <input type="file" id="file-template-4" class="form-control mt-1 d-none" accept=".docx">
+                </div>
+            </div>
+        </div>
+
+        <!-- KHU VỰC 2: WORKSPACE (3 CỘT KÉO THẢ) -->
+        <div class="row">
+            <!-- CỘT 1: SINH VIÊN CHỜ PHÂN CÔNG -->
+            <div class="col-md-3">
+                <div class="card bg-white h-100 shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        Sinh Viên Chờ Phân Công (<span id="count-sv">0</span>)
+                    </div>
+                    <div class="card-body overflow-auto" id="list-sv-pending" style="max-height: 70vh;">
+                        <!-- Các thẻ div Card Sinh Viên sẽ được render bằng JS vào đây -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- CỘT 2: KHU VỰC CÁC HỘI ĐỒNG -->
+            <div class="col-md-6">
+                <div class="d-flex justify-content-between mb-2">
+                    <h4>Danh sách Hội đồng</h4>
+                    <button class="btn btn-success btn-sm" id="btn-add-hd">+ Thêm Hội Đồng</button>
+                </div>
+                <div id="list-hoidong" class="overflow-auto" style="max-height: 70vh;">
+                    <!-- VÍ DỤ 1 BOX HỘI ĐỒNG -->
+                    <div class="card mb-3 border-info hoidong-box" data-hd-id="1">
+                        <div class="card-header bg-info bg-opacity-25 d-flex justify-content-between">
+                            <strong>Hội đồng 1</strong>
+                            <div class="d-flex gap-2">
+                                <input type="date" class="form-control form-control-sm" title="Ngày bảo vệ">
+                                <select class="form-select form-select-sm" title="Giờ bảo vệ">
+                                    <option>07h00</option><option>08h00</option><option>13h00</option><option>14h00</option>
+                                </select>
+                                <input type="text" class="form-control form-control-sm" placeholder="Phòng (VD: C120)">
+                                <select class="form-select form-select-sm" title="Cơ sở">
+                                    <option>254 Nguyễn Văn Linh</option>
+                                    <option>137 Nguyễn Văn Linh</option>
+                                    <option>03 Quang Trung</option>
+                                    <option>K7/25 Quang Trung</option>
+                                    <option>120 Hoàng Minh Thảo</option>
+                                    <option>Phan Văn Trị</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="card-body p-2 row">
+                            <!-- Dropzone Giảng viên -->
+                            <div class="col-5 border-end">
+                                <div class="mb-2"><b>Chủ tịch:</b> <div class="dropzone-gv" data-role="Chủ tịch"></div></div>
+                                <div class="mb-2"><b>Phản biện:</b> <div class="dropzone-gv" data-role="Phản biện"></div></div>
+                                <div><b>Thư ký:</b> <div class="dropzone-gv" data-role="Thư ký"></div></div>
+                            </div>
+                            <!-- Dropzone Sinh viên -->
+                            <div class="col-7">
+                                <b>Sinh viên bảo vệ:</b>
+                                <div class="dropzone-sv min-vh-25 p-2 bg-light border border-dashed"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CỘT 3: KHO GIẢNG VIÊN -->
+            <div class="col-md-3">
+                <div class="card bg-white h-100 shadow-sm">
+                    <div class="card-header bg-secondary text-white">
+                        Danh Sách Giảng Viên
+                    </div>
+                    <div class="card-body overflow-auto" id="list-gv-pool" style="max-height: 70vh;">
+                        <!-- Các thẻ div Card Giảng viên sẽ nằm ở đây -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- NÚT HÀNH ĐỘNG -->
+        <div class="text-center mt-4">
+            <button class="btn btn-warning" id="btn-nhap-diem">Nhập Điểm Trực Tiếp</button>
+            <button class="btn btn-danger btn-lg ms-3" id="btn-xuat-ho-so">TẠO HỒ SƠ & BẢNG ĐIỂM</button>
+        </div>
+    </div>
+
+    <!-- Nhúng thư viện JS -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
