@@ -307,45 +307,47 @@ export async function buildDSDBWorkbook(exportData, meta = {}) {
                 chuTichID: item.chu_tich_id || '',
                 phanBienID: item.phan_bien_id || '',
                 thuKyID: item.thu_ky_id || '',
+                chuTichDonVi: item.chu_tich_don_vi || 'Đại học Duy Tân',
+                phanBienDonVi: item.phan_bien_don_vi || 'Đại học Duy Tân',
+                thuKyDonVi: item.thu_ky_don_vi || 'Đại học Duy Tân',
                 students: []
             };
         }
         hdGroups[key].students.push(item);
     });
 
-    // 3. HEADER QUỐC HIỆU & TIÊU ĐỀ (Dòng 1 -> 5)
+    // 3. HEADER QUỐC HIỆU & TIÊU ĐỀ (Dòng 1 -> 5, giãn đều từ A đến J)
     ws.mergeCells('A1:C1');
     ws.getCell('A1').value = 'BỘ GIÁO DỤC & ĐÀO TẠO';
     ws.getCell('A1').font = { name: 'Times New Roman', size: 11, bold: true };
     ws.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
 
-    ws.mergeCells('E1:I1');
-    ws.getCell('E1').value = 'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM';
-    ws.getCell('E1').font = { name: 'Times New Roman', size: 11, bold: true };
-    ws.getCell('E1').alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.mergeCells('F1:J1');
+    ws.getCell('F1').value = 'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM';
+    ws.getCell('F1').font = { name: 'Times New Roman', size: 11, bold: true };
+    ws.getCell('F1').alignment = { horizontal: 'center', vertical: 'middle' };
 
     ws.mergeCells('A2:C2');
     ws.getCell('A2').value = 'ĐẠI HỌC DUY TÂN';
     ws.getCell('A2').font = { name: 'Times New Roman', size: 11, bold: true };
     ws.getCell('A2').alignment = { horizontal: 'center', vertical: 'middle' };
 
-    ws.mergeCells('E2:I2');
-    ws.getCell('E2').value = 'Độc lập - Tự do - Hạnh phúc';
-    ws.getCell('E2').font = { name: 'Times New Roman', size: 11, bold: true };
-    ws.getCell('E2').alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.mergeCells('F2:J2');
+    ws.getCell('F2').value = 'Độc lập - Tự do - Hạnh phúc';
+    ws.getCell('F2').font = { name: 'Times New Roman', size: 11, bold: true };
+    ws.getCell('F2').alignment = { horizontal: 'center', vertical: 'middle' };
 
     // Dòng 4: Tiêu đề chính với chữ KHÓA mặc định xuống dòng
-    ws.mergeCells('A4:I4');
+    ws.mergeCells('A4:J4');
     const titleText = `DANH SÁCH HỘI ĐỒNG BẢO VỆ ĐỒ ÁN TỐT NGHIỆP\nKHÓA ${khoaListStr}`;
     const cellTitle = ws.getCell('A4');
     cellTitle.value = titleText;
     cellTitle.font = { name: 'Times New Roman', size: 12, bold: true };
     cellTitle.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-    // Mặc định 2 dòng (height = 34), tự động tăng lên 48 nếu danh sách lớp ở dòng 2 quá dài
-    ws.getRow(4).height = khoaListStr.length > 65 ? 48 : 34;
+    ws.getRow(4).height = khoaListStr.length > 75 ? 48 : 34;
 
     // Dòng 5: Thời gian bảo vệ
-    ws.mergeCells('A5:I5');
+    ws.mergeCells('A5:J5');
     const dotThangStr = meta.dotThang || '6';
     const namChamStr = meta.namCham || '2026';
     const cellSubTitle = ws.getCell('A5');
@@ -354,10 +356,10 @@ export async function buildDSDBWorkbook(exportData, meta = {}) {
     cellSubTitle.alignment = { horizontal: 'center', vertical: 'middle' };
     ws.getRow(5).height = 20;
 
-    // 4. HEADER BẢNG 9 CỘT CHUẨN (Dòng 8)
+    // 4. HEADER BẢNG 10 CỘT CHUẨN (Dòng 8)
     const headers = [
-        "HỘI\nĐỒNG", "MÃ SỐ\nGV", "HỌ VÀ TÊN", "NGÀY\nBẢO VỆ", "CHỨC DANH",
-        "TÊN ĐỀ TÀI ĐỒ ÁN TỐT\nNGHIỆP", "MÃ SỐ SV", "HỌ VÀ TÊN", "LỚP"
+        "HỘI\nĐỒNG", "MÃ SỐ\nGV", "HỌ VÀ TÊN", "ĐƠN VỊ\nCÔNG TÁC", "NGÀY\nBẢO VỆ", 
+        "CHỨC DANH", "TÊN ĐỀ TÀI ĐỒ ÁN TỐT\nNGHIỆP", "MÃ SỐ SV", "HỌ VÀ TÊN", "LỚP"
     ];
 
     ws.getRow(8).height = 34;
@@ -366,7 +368,7 @@ export async function buildDSDBWorkbook(exportData, meta = {}) {
         cell.value = h;
         cell.font = { name: 'Times New Roman', size: 10, bold: true };
         cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFCCFFFF' } }; // Xanh ngọc nhạt như ảnh
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFCCFFFF' } };
         cell.border = thinBorder;
     });
 
@@ -377,9 +379,9 @@ export async function buildDSDBWorkbook(exportData, meta = {}) {
     Object.keys(hdGroups).forEach(hdKey => {
         const hd = hdGroups[hdKey];
         const gvMembers = [
-            { role: 'Chủ tịch', name: hd.chuTich, id: hd.chuTichID },
-            { role: 'Phản biện', name: hd.phanBien, id: hd.phanBienID },
-            { role: 'Thư ký', name: hd.thuKy, id: hd.thuKyID }
+            { role: 'Chủ tịch', name: hd.chuTich, id: hd.chuTichID, donVi: hd.chuTichDonVi },
+            { role: 'Phản biện', name: hd.phanBien, id: hd.phanBienID, donVi: hd.phanBienDonVi },
+            { role: 'Thư ký', name: hd.thuKy, id: hd.thuKyID, donVi: hd.thuKyDonVi }
         ];
 
         const totalRows = Math.max(3, hd.students.length);
@@ -389,35 +391,37 @@ export async function buildDSDBWorkbook(exportData, meta = {}) {
         for (let offset = 0; offset < totalRows; offset++) {
             const r = startR + offset;
 
-            // Cột B, C, E: Thông tin Giảng viên
+            // Cột B, C, D, F: Thông tin Giảng viên (bao gồm ĐƠN VỊ CÔNG TÁC ở Cột D)
             if (offset < 3) {
                 const gv = gvMembers[offset];
                 ws.getCell(`B${r}`).value = gv.id || '';
                 ws.getCell(`C${r}`).value = gv.name || '';
-                ws.getCell(`E${r}`).value = gv.role;
+                ws.getCell(`D${r}`).value = gv.donVi || 'Đại học Duy Tân';
+                ws.getCell(`F${r}`).value = gv.role;
             }
 
-            // Cột F, G, H, I: Thông tin Sinh viên
+            // Cột G, H, I, J: Thông tin Sinh viên
             if (offset < hd.students.length) {
                 const sv = hd.students[offset];
-                ws.getCell(`F${r}`).value = sv.de_tai || '';
-                ws.getCell(`G${r}`).value = sv.ma_sv || '';
-                ws.getCell(`H${r}`).value = sv.ho_ten || '';
-                ws.getCell(`I${r}`).value = sv.lop || '';
+                ws.getCell(`G${r}`).value = sv.de_tai || '';
+                ws.getCell(`H${r}`).value = sv.ma_sv || '';
+                ws.getCell(`I${r}`).value = sv.ho_ten || '';
+                ws.getCell(`J${r}`).value = sv.lop || '';
             }
 
-            // Định dạng viền và căn lề từng ô
-            for (let c = 1; c <= 9; c++) {
+            // Định dạng viền và căn lề từng ô cho đủ 10 cột
+            for (let c = 1; c <= 10; c++) {
                 const cell = ws.getCell(r, c);
                 cell.border = thinBorder;
                 cell.font = { name: 'Times New Roman', size: 10 };
-                if (c === 3 || c === 6 || c === 8) {
+                // Cột C (Tên GV), D (Đơn vị), G (Đề tài), I (Tên SV) căn trái
+                if (c === 3 || c === 4 || c === 7 || c === 9) {
                     cell.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
                 } else {
                     cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
                 }
             }
-            ws.getRow(r).height = 24;
+            ws.getRow(r).height = 26;
         }
 
         // Merge Cột A (HỘI ĐỒNG)
@@ -427,22 +431,22 @@ export async function buildDSDBWorkbook(exportData, meta = {}) {
         cellA.font = { name: 'Times New Roman', size: 11, bold: true };
         cellA.alignment = { horizontal: 'center', vertical: 'middle' };
 
-        // Merge Cột D (NGÀY BẢO VỆ)
-        ws.mergeCells(`D${startR}:D${endR}`);
-        const cellD = ws.getCell(`D${startR}`);
+        // Merge Cột E (NGÀY BẢO VỆ)
+        ws.mergeCells(`E${startR}:E${endR}`);
+        const cellE = ws.getCell(`E${startR}`);
         const timeInfo = [hd.gio, hd.ngay].filter(Boolean).join(' ngày ');
         const placeInfo = [hd.phong ? `Phòng ${hd.phong}` : '', hd.diaDiem].filter(Boolean).join(', ');
-        cellD.value = [timeInfo, placeInfo].filter(Boolean).join('\n');
-        cellD.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        cellE.value = [timeInfo, placeInfo].filter(Boolean).join('\n');
+        cellE.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
 
         rowIdx += totalRows;
         hdIndex++;
     });
 
-    // 6. FOOTER CHỮ KÝ 3 CHỨC DANH
+    // 6. FOOTER CHỮ KÝ 3 CHỨC DANH (Giãn cân đối trên 10 cột A -> J)
     rowIdx += 1;
-    ws.mergeCells(`G${rowIdx}:I${rowIdx}`);
-    const cellDate = ws.getCell(`G${rowIdx}`);
+    ws.mergeCells(`H${rowIdx}:J${rowIdx}`);
+    const cellDate = ws.getCell(`H${rowIdx}`);
     cellDate.font = { name: 'Times New Roman', size: 10, italic: true };
     cellDate.alignment = { horizontal: 'center', vertical: 'middle' };
 
@@ -453,32 +457,198 @@ export async function buildDSDBWorkbook(exportData, meta = {}) {
     cellSignLeft.font = { name: 'Times New Roman', size: 11, bold: true };
     cellSignLeft.alignment = { horizontal: 'center', vertical: 'middle' };
 
-    ws.mergeCells(`D${rowIdx}:F${rowIdx}`);
+    ws.mergeCells(`D${rowIdx}:G${rowIdx}`);
     const cellSignMid = ws.getCell(`D${rowIdx}`);
     cellSignMid.value = 'BAN THƯ KÝ';
     cellSignMid.font = { name: 'Times New Roman', size: 11, bold: true };
     cellSignMid.alignment = { horizontal: 'center', vertical: 'middle' };
 
-    ws.mergeCells(`G${rowIdx}:I${rowIdx}`);
-    const cellSignRight = ws.getCell(`G${rowIdx}`);
+    ws.mergeCells(`H${rowIdx}:J${rowIdx}`);
+    const cellSignRight = ws.getCell(`H${rowIdx}`);
     cellSignRight.value = 'CT. HỘI ĐỒNG THI & XÉT CNTN';
     cellSignRight.font = { name: 'Times New Roman', size: 11, bold: true };
     cellSignRight.alignment = { horizontal: 'center', vertical: 'middle' };
 
-    // 7. ĐỘ RỘNG 9 CỘT
+    // 7. ĐỘ RỘNG 10 CỘT
     ws.getColumn(1).width = 9;   // A: HỘI ĐỒNG
     ws.getColumn(2).width = 13;  // B: MÃ SỐ GV
     ws.getColumn(3).width = 23;  // C: HỌ VÀ TÊN GV
-    ws.getColumn(4).width = 20;  // D: NGÀY BẢO VỆ
-    ws.getColumn(5).width = 14;  // E: CHỨC DANH
-    ws.getColumn(6).width = 36;  // F: TÊN ĐỀ TÀI ĐỒ ÁN TỐT NGHIỆP
-    ws.getColumn(7).width = 14;  // G: MÃ SỐ SV
-    ws.getColumn(8).width = 23;  // H: HỌ VÀ TÊN SV
-    ws.getColumn(9).width = 13;  // I: LỚP
+    ws.getColumn(4).width = 22;  // D: ĐƠN VỊ CÔNG TÁC
+    ws.getColumn(5).width = 20;  // E: NGÀY BẢO VỆ
+    ws.getColumn(6).width = 14;  // F: CHỨC DANH
+    ws.getColumn(7).width = 36;  // G: TÊN ĐỀ TÀI ĐỒ ÁN TỐT NGHIỆP
+    ws.getColumn(8).width = 14;  // H: MÃ SỐ SV
+    ws.getColumn(9).width = 23;  // I: HỌ VÀ TÊN SV
+    ws.getColumn(10).width = 13; // J: LỚP
 
     return workbook;
 }
 
 function grpKeyClean(str) {
     return String(str || '').replace(/[^a-zA-Z0-9]/g, '');
+}
+
+// BỔ SUNG VÀO CUỐI FILE js/excel-exporter.js
+
+// Xuất độc lập File 2: Danh sách Hội đồng đã lập
+export async function exportDSHoiDongExcel(exportData, meta = {}) {
+    if (typeof ExcelJS === 'undefined') return alert("Thiếu thư viện ExcelJS!");
+    const workbook = await buildDSDBWorkbook(exportData, meta);
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveAs(new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), "Danh_Sach_Hoi_Dong_Da_Lap.xlsx");
+}
+
+// Xuất độc lập File 3: Danh sách Phân công Phản biện Tốt nghiệp
+export async function exportPhanBienExcel(exportData, meta = {}) {
+    if (typeof ExcelJS === 'undefined') return alert("Thiếu thư viện ExcelJS!");
+    const workbook = await buildPhanBienWorkbook(exportData, meta);
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveAs(new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), "Danh_Sach_Phan_Cong_Phan_Bien.xlsx");
+}
+
+// 3. WORKBOOK DANH SÁCH PHÂN CÔNG PHẢN BIỆN TỐT NGHIỆP (KHỚP 100% ẢNH MẪU)
+export async function buildPhanBienWorkbook(exportData, meta = {}) {
+    const workbook = new ExcelJS.Workbook();
+    const ws = workbook.addWorksheet("DS_Phan_Bien", { views: [{ showGridLines: true }] });
+
+    const thinBorder = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+
+    // --- HEADER DÒNG 1 -> 5 ---
+    ws.mergeCells('A1:C1');
+    ws.getCell('A1').value = 'BỘ GIÁO DỤC VÀ ĐÀO TẠO';
+    ws.getCell('A1').font = { name: 'Times New Roman', size: 11, bold: true };
+    ws.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
+
+    ws.mergeCells('E1:H1');
+    ws.getCell('E1').value = 'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM';
+    ws.getCell('E1').font = { name: 'Times New Roman', size: 11, bold: true };
+    ws.getCell('E1').alignment = { horizontal: 'center', vertical: 'middle' };
+
+    ws.mergeCells('A2:C2');
+    ws.getCell('A2').value = 'ĐẠI HỌC DUY TÂN';
+    ws.getCell('A2').font = { name: 'Times New Roman', size: 11, bold: true, underline: true };
+    ws.getCell('A2').alignment = { horizontal: 'center', vertical: 'middle' };
+
+    ws.mergeCells('E2:H2');
+    ws.getCell('E2').value = 'Độc lập - Tự do - Hạnh phúc';
+    ws.getCell('E2').font = { name: 'Times New Roman', size: 11, bold: true, underline: true };
+    ws.getCell('E2').alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // Dòng 3: Tiêu đề chính
+    ws.mergeCells('C3:H3');
+    ws.getCell('C3').value = 'DANH SÁCH PHÂN CÔNG PHẢN BIỆN TỐT NGHIỆP';
+    ws.getCell('C3').font = { name: 'Times New Roman', size: 12, bold: true };
+    ws.getCell('C3').alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // Dòng 4: Ngành (lấy từ Khoa/Ngành đang chọn, bỏ chữ "Khoa " nếu có)
+    const nganhRaw = (meta.khoa || 'CÔNG NGHỆ THỰC PHẨM').replace(/^Khoa\s+/i, '').toUpperCase();
+    ws.mergeCells('C4:H4');
+    ws.getCell('C4').value = `NGÀNH: ${nganhRaw}`;
+    ws.getCell('C4').font = { name: 'Times New Roman', size: 12, bold: true };
+    ws.getCell('C4').alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // Dòng 5: Dòng Quyết định in nghiêng
+    const soQD = meta.soQD || '.. .. .. /QĐ-ĐHĐT';
+    const ngayKy = meta.ngayKyQD || '.. .. .. / .. .. .. / 2026';
+    const nam = meta.namCham || '2026';
+    ws.mergeCells('B5:H5');
+    ws.getCell('B5').value = `(Ban hành kèm theo Quyết định số : ${soQD} ngày ${ngayKy} của Giám đốc Đại học Duy Tân)`;
+    ws.getCell('B5').font = { name: 'Times New Roman', size: 11, italic: true };
+    ws.getCell('B5').alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // --- HEADER BẢNG (DÒNG 7 - MERGE C7:D7 CHO HỌ VÀ TÊN) ---
+    ws.getRow(7).height = 28;
+    ws.getCell('A7').value = 'STT';
+    ws.getCell('B7').value = 'MSSV';
+    ws.mergeCells('C7:D7');
+    ws.getCell('C7').value = 'HỌ VÀ TÊN';
+    ws.getCell('E7').value = 'LỚP';
+    ws.getCell('F7').value = 'TÊN ĐỀ TÀI';
+    ws.getCell('G7').value = 'GV PHẢN BIỆN';
+    ws.getCell('H7').value = 'GHI CHÚ';
+
+    for (let c = 1; c <= 8; c++) {
+        const cell = ws.getCell(7, c);
+        cell.font = { name: 'Times New Roman', size: 11, bold: true };
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        cell.border = thinBorder;
+    }
+
+    // --- ĐỔ DỮ LIỆU SINH VIÊN & GV PHẢN BIỆN (BẮT ĐẦU TỪ DÒNG 8) ---
+    let rowIdx = 8;
+    exportData.forEach((sv, idx) => {
+        const r = rowIdx;
+        ws.getRow(r).height = 34;
+
+        // Tách Họ đệm (Cột C) và Tên (Cột D) chuẩn hành chính Việt Nam
+        const fullName = (sv.ho_ten || '').trim();
+        const nameParts = fullName.split(/\s+/);
+        const firstName = nameParts.length > 1 ? nameParts.pop() : fullName;
+        const lastName = nameParts.length > 0 ? nameParts.join(' ') : '';
+
+        ws.getCell(`A${r}`).value = idx + 1;
+        ws.getCell(`B${r}`).value = sv.ma_sv || '';
+        ws.getCell(`C${r}`).value = lastName;
+        ws.getCell(`D${r}`).value = firstName;
+        ws.getCell(`E${r}`).value = sv.lop || '';
+        ws.getCell(`F${r}`).value = sv.de_tai || '';
+        ws.getCell(`G${r}`).value = sv.phan_bien || '';
+        ws.getCell(`H${r}`).value = '';
+
+        // Định dạng từng cột
+        for (let c = 1; c <= 8; c++) {
+            const cell = ws.getCell(r, c);
+            cell.font = { name: 'Times New Roman', size: 11 };
+            cell.vertical = 'middle';
+
+            // Viền bảng: Giữa cột C (Họ đệm) và cột D (Tên) không kẻ vạch dọc ngăn cách giống mẫu
+            cell.border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: c === 4 ? undefined : { style: 'thin' },
+                right: c === 3 ? undefined : { style: 'thin' }
+            };
+
+            if (c === 3 || c === 4 || c === 6 || c === 7) {
+                cell.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+            } else {
+                cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+            }
+        }
+        rowIdx++;
+    });
+
+    // --- FOOTER CHỮ KÝ 4 CHỨC DANH (DÒNG CUỐI CÙNG) ---
+    const footerRow = rowIdx;
+    ws.getRow(footerRow).height = 28;
+
+    ws.mergeCells(`A${footerRow}:C${footerRow}`);
+    ws.getCell(`A${footerRow}`).value = 'TRƯỞNG KHOA';
+    ws.getCell(`A${footerRow}`).font = { name: 'Times New Roman', size: 11, bold: true };
+    ws.getCell(`A${footerRow}`).alignment = { horizontal: 'center', vertical: 'middle' };
+
+    ws.mergeCells(`D${footerRow}:F${footerRow}`);
+    ws.getCell(`D${footerRow}`).value = 'HIỆU TRƯỞNG TRƯỜNG ĐÀO TẠO';
+    ws.getCell(`D${footerRow}`).font = { name: 'Times New Roman', size: 11, bold: true };
+    ws.getCell(`D${footerRow}`).alignment = { horizontal: 'center', vertical: 'middle' };
+
+    ws.getCell(`G${footerRow}`).value = 'BAN ĐÀO TẠO';
+    ws.getCell(`G${footerRow}`).font = { name: 'Times New Roman', size: 11, bold: true };
+    ws.getCell(`G${footerRow}`).alignment = { horizontal: 'center', vertical: 'middle' };
+
+    ws.getCell(`H${footerRow}`).value = 'GIÁM ĐỐC';
+    ws.getCell(`H${footerRow}`).font = { name: 'Times New Roman', size: 11, bold: true };
+    ws.getCell(`H${footerRow}`).alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // --- ĐỘ RỘNG 8 CỘT KHỚP MẪU ---
+    ws.getColumn(1).width = 6;   // A: STT
+    ws.getColumn(2).width = 16;  // B: MSSV
+    ws.getColumn(3).width = 18;  // C: HỌ ĐỆM
+    ws.getColumn(4).width = 10;  // D: TÊN
+    ws.getColumn(5).width = 11;  // E: LỚP
+    ws.getColumn(6).width = 45;  // F: TÊN ĐỀ TÀI
+    ws.getColumn(7).width = 24;  // G: GV PHẢN BIỆN
+    ws.getColumn(8).width = 14;  // H: GHI CHÚ
+
+    return workbook;
 }
