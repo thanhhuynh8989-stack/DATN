@@ -75,6 +75,24 @@ html, body {
     border-radius: 6px;
 }
 
+/* Nút xóa nhanh trên thẻ SV và GV ở 2 kho chờ */
+.btn-remove-card {
+    line-height: 1;
+    font-size: 0.85rem;
+    opacity: 0.65;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.btn-remove-card:hover {
+    opacity: 1;
+    transform: scale(1.15);
+}
+
+/* Tự động ẩn nút xóa kho chờ khi thẻ đã được gán vào bên trong Hội đồng */
+.box-hoidong .btn-remove-card {
+    display: none !important;
+}
+
 /* ĐIỀU CHỈNH CHUẨN RIÊNG CHO ĐIỆN THOẠI ĐẶT DỌC (< 768px) */
 @media (max-width: 767.98px) {
     .app-container {
