@@ -231,7 +231,20 @@ export function parseHoiDongRows(rows) {
         const hoTenSV = String(row[8] || '').trim();
         const lop = String(row[9] || '').trim();
 
-        if (colA.toUpperCase().includes('HỘI ĐỒNG') || maGV.toUpperCase().includes('MÃ')) return;
+        const upperRow = row.join(' ').toUpperCase();
+
+        // Chặn dòng tiêu đề bảng và toàn bộ các dòng chữ ký Footer ở cuối file
+        if (
+            colA.toUpperCase().includes('HỘI ĐỒNG') ||
+            maGV.toUpperCase().includes('MÃ') ||
+            upperRow.includes('TRƯỞNG KHOA') ||
+            upperRow.includes('BAN THƯ KÝ') ||
+            upperRow.includes('HỘI ĐỒNG THI') ||
+            upperRow.includes('XÉT CNTN') ||
+            upperRow.includes('ĐÀ NẴNG, NGÀY')
+        ) {
+            return;
+        }
 
         if (colA && !isNaN(colA)) {
             currentHD = colA;
@@ -258,7 +271,8 @@ export function parseHoiDongRows(rows) {
                 }
             }
 
-            if (maSV) {
+            // Chỉ nhận Sinh viên khi có cả Mã SV và Họ tên SV hợp lệ
+            if (maSV && hoTenSV) {
                 const existSV = hoidongs[currentHD].sinhViens.find(s => s.maSV === maSV);
                 if (!existSV) {
                     const nganh = detectNganhFromLop(lop);
