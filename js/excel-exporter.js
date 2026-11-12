@@ -15,6 +15,7 @@ export async function exportExcelReport(exportData, meta = {}) {
 export async function buildExcelReportWorkbook(exportData, meta = {}) {
     const workbook = new ExcelJS.Workbook();
     const sheetsMap = {};
+    const DOTS = '..................................';
 
     const getBuoi = (timeStr) => {
         if (!timeStr) return "Sáng";
@@ -27,8 +28,8 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
     };
 
     exportData.forEach(item => {
-        let nganh = meta.khoa || "CÔNG NGHỆ THỰC PHẨM";
-        if (item.lop && item.lop.includes("CTP")) nganh = "CÔNG NGHỆ THỰC PHẨM";
+        // Lấy đúng NGÀNH (từ ô Ngành hoặc tự dịch từ mã Lớp SV), tuyệt đối không lấy tên Khoa
+        const nganh = (item.nganh || meta.nganh || DOTS).toUpperCase();
 
         const buoi = getBuoi(item.gio);
         const phong = item.phong || 'Phong';
@@ -82,13 +83,14 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
             ws.getCell(`D${currentRow}`).font = { name: 'Times New Roman', size: 13, bold: true };
             ws.getCell(`D${currentRow}`).alignment = { horizontal: 'left', vertical: 'middle' };
 
-            ws.getCell(`D${currentRow+1}`).value = `NGÀNH :   ${grp.nganh.toUpperCase()}`;
+            ws.getCell(`D${currentRow+1}`).value = `NGÀNH :   ${grp.nganh}`;
             ws.getCell(`D${currentRow+1}`).font = { name: 'Times New Roman', size: 11, bold: true };
 
-            const dotThangStr = meta.dotThang || '6';
-            const namChamStr = meta.namCham || '2026';
-            const soQDStr = meta.soQD || '2071/QĐ-ĐHĐT';
-            const ngayKyQDStr = meta.ngayKyQD || '5/8/2026';
+            // Nếu trường cài đặt trống thì thay bằng dấu chấm
+            const dotThangStr = (meta.dotThang || '').trim() || '......';
+            const namChamStr = (meta.namCham || '').trim() || '........';
+            const soQDStr = (meta.soQD || '').trim() || DOTS;
+            const ngayKyQDStr = (meta.ngayKyQD || '').trim() || '................';
 
             ws.getCell(`D${currentRow+2}`).value = `Đợt:            Tháng ${dotThangStr}`;
             ws.getCell(`D${currentRow+2}`).font = { name: 'Times New Roman', size: 11 };
@@ -100,10 +102,15 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
             ws.getCell(`H${currentRow+3}`).value = `ký ngày    ${ngayKyQDStr}`;
             ws.getCell(`H${currentRow+3}`).font = { name: 'Times New Roman', size: 11 };
 
-            ws.getCell(`D${currentRow+4}`).value = `Thời gian:  ${grp.gio || '17:00'} ngày ${grp.ngay || '11/11/2026'}`;
+            const gioStr = (grp.gio || '').trim() || '......';
+            const ngayStr = (grp.ngay || '').trim() || '................';
+            const phongStr = (grp.phong || '').trim() || '......';
+            const diaDiemStr = (grp.diaDiem || '').trim() || DOTS;
+
+            ws.getCell(`D${currentRow+4}`).value = `Thời gian:  ${gioStr} ngày ${ngayStr}`;
             ws.getCell(`D${currentRow+4}`).font = { name: 'Times New Roman', size: 11, bold: true };
 
-            ws.getCell(`I${currentRow+4}`).value = `Địa điểm: Phòng ${grp.phong || '111'}, cơ sở ${grp.diaDiem || '120 Hoàng Minh Thảo'}`;
+            ws.getCell(`I${currentRow+4}`).value = `Địa điểm: Phòng ${phongStr}, cơ sở ${diaDiemStr}`;
             ws.getCell(`I${currentRow+4}`).font = { name: 'Times New Roman', size: 11, bold: true };
 
             currentRow += 6;
@@ -512,6 +519,7 @@ export async function buildPhanBienWorkbook(exportData, meta = {}) {
     const ws = workbook.addWorksheet("DS_Phan_Bien", { views: [{ showGridLines: true }] });
 
     const thinBorder = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+    const DOTS = '..................................';
 
     // --- HEADER DÒNG 1 -> 5 ---
     ws.mergeCells('A1:C1');
@@ -540,17 +548,16 @@ export async function buildPhanBienWorkbook(exportData, meta = {}) {
     ws.getCell('C3').font = { name: 'Times New Roman', size: 12, bold: true };
     ws.getCell('C3').alignment = { horizontal: 'center', vertical: 'middle' };
 
-    // Dòng 4: Ngành (lấy từ Khoa/Ngành đang chọn, bỏ chữ "Khoa " nếu có)
-    const nganhRaw = (meta.khoa || 'CÔNG NGHỆ THỰC PHẨM').replace(/^Khoa\s+/i, '').toUpperCase();
+    // Dòng 4: Lấy đúng giá trị NGÀNH (từ ô Ngành hoặc tự dịch từ mã Lớp SV), KHÔNG lấy giá trị KHOA
+    const nganhRaw = ((meta.nganh || '').trim() || exportData.find(s => s.nganh)?.nganh || DOTS).toUpperCase();
     ws.mergeCells('C4:H4');
     ws.getCell('C4').value = `NGÀNH: ${nganhRaw}`;
     ws.getCell('C4').font = { name: 'Times New Roman', size: 12, bold: true };
     ws.getCell('C4').alignment = { horizontal: 'center', vertical: 'middle' };
 
-    // Dòng 5: Dòng Quyết định in nghiêng
-    const soQD = meta.soQD || '.. .. .. /QĐ-ĐHĐT';
-    const ngayKy = meta.ngayKyQD || '.. .. .. / .. .. .. / 2026';
-    const nam = meta.namCham || '2026';
+    // Dòng 5: Lấy Số QĐ và Ngày ký từ cài đặt; nếu trống thì thay bằng dấu chấm
+    const soQD = (meta.soQD || '').trim() || DOTS;
+    const ngayKy = (meta.ngayKyQD || '').trim() || DOTS;
     ws.mergeCells('B5:H5');
     ws.getCell('B5').value = `(Ban hành kèm theo Quyết định số : ${soQD} ngày ${ngayKy} của Giám đốc Đại học Duy Tân)`;
     ws.getCell('B5').font = { name: 'Times New Roman', size: 11, italic: true };
@@ -599,7 +606,6 @@ export async function buildPhanBienWorkbook(exportData, meta = {}) {
         for (let c = 1; c <= 8; c++) {
             const cell = ws.getCell(r, c);
             cell.font = { name: 'Times New Roman', size: 11 };
-            cell.vertical = 'middle';
 
             // Viền bảng: Giữa cột C (Họ đệm) và cột D (Tên) không kẻ vạch dọc ngăn cách giống mẫu
             cell.border = {
