@@ -218,7 +218,7 @@ function renderSinhVienPool(svList) {
     svList.forEach(sv => {
         const html = `
             <div class="card-item mb-2 p-2 border rounded bg-white shadow-sm" 
-                 data-id="${sv.maSV}" data-name="${sv.hoTen}" data-lop="${sv.lop}" data-detai="${sv.deTai}" data-gvhd="${sv.gvhd}">
+                 data-id="${sv.maSV}" data-name="${sv.hoTen}" data-lop="${sv.lop}" data-detai="${sv.deTai}" data-gvhd="${sv.gvhd}"> data-nganh="${sv.nganh || ''}"
                 <div class="fw-bold text-primary">${sv.hoTen} (${sv.maSV})</div>
                 <div class="text-muted small">Lớp: ${sv.lop} | GVHD: <span class="fw-bold text-dark">${sv.gvhd}</span></div>
                 <div class="text-dark small text-truncate" title="${sv.deTai}">Đề tài: ${sv.deTai}</div>
@@ -271,6 +271,7 @@ function collectExportData(meta) {
         box.querySelectorAll('.dropzone-sv .card-item').forEach(svEl => {
             exportData.push({
                 khoa: meta.khoa || 'Khoa',
+                nganh: svEl.getAttribute('data-nganh') || meta.khoa.replace(/^Khoa\s+/i, '').toUpperCase(),
                 so_hd: hdName,
                 ngay: formattedDate,
                 gio: time,
