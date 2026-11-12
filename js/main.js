@@ -265,13 +265,26 @@ function initKhoaNganhDropdowns() {
 }
 
 function getSetupMetadata() {
+    const rawNgayKy = (document.getElementById('ngay-ky-qd')?.value || '').trim();
+    let formattedNgayKy = rawNgayKy;
+    if (rawNgayKy.includes('-')) {
+        const parts = rawNgayKy.split('-');
+        if (parts.length === 3) {
+            formattedNgayKy = `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+    }
+
+    const rawSoQD = (document.getElementById('so-qd')?.value || '').trim();
+    const soPart = rawSoQD || '................';
+    const fullSoQD = soPart.includes('/') ? soPart : `${soPart}/QĐ-ĐHDT-HĐTN`;
+
     return {
         khoa: (document.getElementById('khoa-select')?.value || '').trim(),
         nganh: (document.getElementById('nganh-select')?.value || '').trim(),
         dotThang: (document.getElementById('dot-thang')?.value || '').trim(),
         namCham: (document.getElementById('nam-cham')?.value || '').trim(),
-        soQD: (document.getElementById('so-qd')?.value || '').trim(),
-        ngayKyQD: (document.getElementById('ngay-ky-qd')?.value || '').trim()
+        soQD: fullSoQD,
+        ngayKyQD: formattedNgayKy
     };
 }
 
