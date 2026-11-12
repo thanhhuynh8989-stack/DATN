@@ -292,15 +292,17 @@ function renderSinhVienPool(svList) {
     const pool = document.getElementById('pool-sv');
     if (!pool) return;
     pool.innerHTML = '';
+
     svList.forEach(sv => {
-        const html = `
-            <div class="card-item mb-2 p-2 border rounded bg-white shadow-sm" 
-                 data-id="${sv.maSV}" data-name="${sv.hoTen}" data-lop="${sv.lop}" data-detai="${sv.deTai}" data-gvhd="${sv.gvhd}"> data-nganh="${sv.nganh || ''}"
+        const cardHTML = `
+            <div class="card-item position-relative mb-2 p-2 pe-4 border rounded bg-white shadow-sm" 
+                 data-id="${sv.maSV}" data-name="${sv.hoTen}" data-lop="${sv.lop}" data-detai="${sv.deTai}" data-gvhd="${sv.gvhd}" data-nganh="${sv.nganh || ''}">
+                <button type="button" class="btn btn-sm btn-link text-danger text-decoration-none fw-bold position-absolute top-0 end-0 px-2 py-1 btn-remove-card" title="Xóa sinh viên này">✕</button>
                 <div class="fw-bold text-primary">${sv.hoTen} (${sv.maSV})</div>
-                <div class="text-muted small">Lớp: ${sv.lop} | GVHD: <span class="fw-bold text-dark">${sv.gvhd}</span></div>
+                <div class="text-muted small">Lớp: ${sv.lop} | GVHD: <span class="fw-bold text-dark">${sv.gvhd || 'Chưa rõ'}</span></div>
                 <div class="text-dark small text-truncate" title="${sv.deTai}">Đề tài: ${sv.deTai}</div>
             </div>`;
-        pool.insertAdjacentHTML('beforeend', html);
+        pool.insertAdjacentHTML('beforeend', cardHTML);
     });
 }
 
@@ -308,16 +310,18 @@ function renderGiangVienPool(gvList) {
     const pool = document.getElementById('pool-gv');
     if (!pool) return;
     pool.innerHTML = '';
+
     gvList.forEach(gv => {
-        const html = `
-            <div class="card-item bg-light border-info mb-2 p-2 rounded shadow-sm" data-id="${gv.maGV}" data-name="${gv.hoTenGV}">
-                <div class="fw-bold text-dark">${gv.hoTenGV}</div>
-                <div class="text-muted small">${gv.donVi} - Mã: ${gv.maGV}</div>
+        const cardHTML = `
+            <div class="card-item position-relative mb-2 p-2 pe-4 border rounded bg-white shadow-sm" 
+                 data-id="${gv.maGV}" data-name="${gv.hoTenGV}" data-donvi="${gv.donVi || ''}">
+                <button type="button" class="btn btn-sm btn-link text-danger text-decoration-none fw-bold position-absolute top-0 end-0 px-2 py-1 btn-remove-card" title="Xóa giảng viên này">✕</button>
+                <div class="fw-bold text-dark small">${gv.hoTenGV}</div>
+                <div class="text-muted text-truncate" style="font-size: 0.75rem;">${gv.donVi || 'Đại học Duy Tân'} - Mã: ${gv.maGV}</div>
             </div>`;
-        pool.insertAdjacentHTML('beforeend', html);
+        pool.insertAdjacentHTML('beforeend', cardHTML);
     });
 }
-
 function collectExportData(meta) {
     const exportData = [];
     document.querySelectorAll('.box-hoidong').forEach(box => {
