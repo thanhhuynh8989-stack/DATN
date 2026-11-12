@@ -105,8 +105,8 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
 
         ws.getCell(`D${currentRow+3}`).value = `Hội đồng bảo vệ kèm theo Quyết định số  ${soQDStr}`;
         ws.getCell(`D${currentRow+3}`).font = { name: 'Times New Roman', size: 11, bold: true };
-        ws.getCell(`J${currentRow+3}`).value = `ký ngày    ${ngayKyQDStr}`;
-        ws.getCell(`J${currentRow+3}`).font = { name: 'Times New Roman', size: 11 };
+        ws.getCell(`L${currentRow+3}`).value = `ký ngày    ${ngayKyQDStr}`;
+        ws.getCell(`L${currentRow+3}`).font = { name: 'Times New Roman', size: 11 };
 
         // Nếu nhiều HĐ trong cùng sheet có giờ khác nhau (VD: 17:00 và 18:00), lấy giờ bắt đầu sớm nhất hoặc liệt kê
         const gioList = [...new Set(Object.values(sheetData.hoidongs).flatMap(h => h.students.map(s => s.gio)).filter(Boolean))];
