@@ -107,7 +107,7 @@ export function renderHoidongFromExcel(parsedHoidongs) {
         const boxEl = document.getElementById(boxId);
         if (!boxEl) return;
 
-        // 1. Render Giảng viên vào đúng chức danh theo Mã GV
+        // 1. Render Giảng viên vào đúng chức danh theo Mã GV (bổ sung data-donvi & nút xóa ẩn)
         hd.thanhVien.forEach(gv => {
             let roleName = "";
             if (gv.chucDanh.includes("Chủ tịch")) roleName = "Chủ tịch";
@@ -118,9 +118,11 @@ export function renderHoidongFromExcel(parsedHoidongs) {
                 const zone = boxEl.querySelector(`.dropzone-gv[data-role="${roleName}"]`);
                 if (zone) {
                     zone.innerHTML = `
-                        <div class="card-item bg-light border-info p-1 rounded shadow-sm" data-id="${gv.maGV}" data-name="${gv.hoTenGV}">
+                        <div class="card-item position-relative bg-light border-info p-1 pe-4 rounded shadow-sm" 
+                             data-id="${gv.maGV}" data-name="${gv.hoTenGV}" data-donvi="${gv.donVi || 'Đại học Duy Tân'}">
+                            <button type="button" class="btn btn-sm btn-link text-danger text-decoration-none fw-bold position-absolute top-0 end-0 px-2 py-1 btn-remove-card" title="Xóa giảng viên này">✕</button>
                             <div class="fw-bold text-dark small">${gv.hoTenGV}</div>
-                            <div class="text-muted text-truncate" style="font-size: 0.75rem;">${gv.donVi || ''} - Mã: ${gv.maGV}</div>
+                            <div class="text-muted text-truncate" style="font-size: 0.75rem;">${gv.donVi || 'Đại học Duy Tân'} - Mã: ${gv.maGV}</div>
                         </div>
                     `;
                 }
@@ -136,10 +138,12 @@ export function renderHoidongFromExcel(parsedHoidongs) {
             const lop = poolItem ? poolItem.getAttribute('data-lop') : (sv.lop || '');
             const deTai = poolItem ? poolItem.getAttribute('data-detai') : (sv.deTai || '');
             const gvhd = poolItem ? poolItem.getAttribute('data-gvhd') : '';
+            const nganh = poolItem ? poolItem.getAttribute('data-nganh') : (sv.nganh || '');
 
             const svHTML = `
-                <div class="card-item mb-2 p-2 border rounded bg-white shadow-sm" 
-                     data-id="${sv.maSV}" data-name="${hoTen}" data-lop="${lop}" data-detai="${deTai}" data-gvhd="${gvhd}">
+                <div class="card-item position-relative mb-2 p-2 pe-4 border rounded bg-white shadow-sm" 
+                     data-id="${sv.maSV}" data-name="${hoTen}" data-lop="${lop}" data-detai="${deTai}" data-gvhd="${gvhd}" data-nganh="${nganh}">
+                    <button type="button" class="btn btn-sm btn-link text-danger text-decoration-none fw-bold position-absolute top-0 end-0 px-2 py-1 btn-remove-card" title="Xóa sinh viên này">✕</button>
                     <div class="fw-bold text-primary">${hoTen} (${sv.maSV})</div>
                     <div class="text-muted small">Lớp: ${lop} | GVHD: <span class="fw-bold text-dark">${gvhd || 'Chưa rõ'}</span></div>
                     <div class="text-dark small text-truncate" title="${deTai}">Đề tài: ${deTai}</div>
