@@ -21,33 +21,38 @@ export function initGlobalSortables() {
 }
 
 // Export hàm 2: Tạo Box Hội Đồng mới
-export function createHoiDongBox(titleText = null, initDate = '', initTime = '17:00', initRoom = '') {
+export function createHoiDongBox(titleText = null, initDate = '', initTime = '17:00', initRoom = '', initLocation = '120 Hoàng Minh Thảo') {
     hoidongCount++;
     const hdTitle = titleText || `Hội Đồng ${hoidongCount}`;
     const boxId = `hd-box-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-    let formattedTime = initTime;
-    if (initTime && initTime.includes('h')) {
-        const parts = initTime.split('h');
-        const hh = parts[0].padStart(2, '0');
-        const mm = (parts[1] || '00').padStart(2, '0');
-        formattedTime = `${hh}:${mm}`;
+    let formattedTime = initTime || '17:00';
+    if (formattedTime.includes('h')) {
+        const parts = formattedTime.split('h');
+        formattedTime = `${parts[0].padStart(2, '0')}:${(parts[1] || '00').padStart(2, '0')}`;
     }
+
+    const locations = [
+        "120 Hoàng Minh Thảo",
+        "254 Nguyễn Văn Linh",
+        "137 Nguyễn Văn Linh",
+        "03 Quang Trung",
+        "K7/25 Quang Trung",
+        "Phan Văn Trị"
+    ];
+    const locationOptions = locations.map(loc => 
+        `<option value="${loc}" ${loc === initLocation ? 'selected' : ''}>${loc}</option>`
+    ).join('');
 
     const boxHTML = `
         <div class="box-hoidong p-2 mb-3 border rounded bg-white shadow-sm" id="${boxId}">
             <div class="d-flex gap-2 mb-2 bg-light p-2 rounded align-items-center flex-wrap">
                 <input type="text" class="form-control form-control-sm fw-bold hd-title" value="${hdTitle}" placeholder="Số/Tên HĐ" style="width: 110px;">
                 <input type="date" class="form-control form-control-sm hd-date" value="${initDate}" style="width: 125px;" title="Ngày bảo vệ">
-                <input type="time" class="form-control form-control-sm hd-time" value="${formattedTime || '17:00'}" style="width: 110px;" title="Giờ:Phút bảo vệ">
-                <input type="text" class="form-control form-control-sm hd-room" value="${initRoom}" placeholder="Phòng (C120)" style="width: 105px;">
+                <input type="time" class="form-control form-control-sm hd-time" value="${formattedTime}" style="width: 110px;" title="Giờ:Phút bảo vệ">
+                <input type="text" class="form-control form-control-sm hd-room" value="${initRoom}" placeholder="Phòng (111)" style="width: 105px;">
                 <select class="form-select form-select-sm hd-location" style="width: 150px;">
-                    <option value="120 Hoàng Minh Thảo">120 Hoàng Minh Thảo</option>
-                    <option value="254 Nguyễn Văn Linh">254 Nguyễn Văn Linh</option>
-                    <option value="137 Nguyễn Văn Linh">137 Nguyễn Văn Linh</option>
-                    <option value="03 Quang Trung">03 Quang Trung</option>
-                    <option value="K7/25 Quang Trung">K7/25 Quang Trung</option>
-                    <option value="Phan Văn Trị">Phan Văn Trị</option>
+                    ${locationOptions}
                 </select>
                 <button type="button" class="btn btn-sm btn-outline-danger fw-bold ms-auto btn-delete-hd" title="Xóa Hội đồng này">✕ Xóa</button>
             </div>
@@ -91,7 +96,13 @@ export function renderHoidongFromExcel(parsedHoidongs) {
     Object.keys(parsedHoidongs).forEach(hdKey => {
         const hd = parsedHoidongs[hdKey];
         const formattedDate = formatDateToInput(hd.ngayBV);
-        const boxId = createHoiDongBox(hd.soHD, formattedDate, '17:00', '');
+        const boxId = createHoiDongBox(
+            hd.soHD, 
+            formattedDate, 
+            hd.gioBV || '17:00', 
+            hd.phongBV || '', 
+            hd.diaDiemBV || '120 Hoàng Minh Thảo'
+        );
 
         const boxEl = document.getElementById(boxId);
         if (!boxEl) return;
