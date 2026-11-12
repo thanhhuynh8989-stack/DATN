@@ -188,8 +188,8 @@ function bindEvents() {
     // 5C. Xuất Danh sách Hội đồng đã lập (.XLSX)
     document.getElementById('btn-export-hd')?.addEventListener('click', async () => {
         const meta = getSetupMetadata();
-        const exportData = collectExportData(meta);
-        if (exportData.length === 0) return alert("Chưa có sinh viên nào được phân công vào Hội đồng!");
+        const exportData = collectExportData(meta, true);
+        if (exportData.length === 0) return alert("Chưa có Hội đồng nào được tạo!");
 
         try {
             await exportDSHoiDongExcel(exportData, meta);
