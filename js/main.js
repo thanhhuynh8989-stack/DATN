@@ -2,7 +2,8 @@
 import { loadTemplatesSilently } from './templates.js';
 import { readExcelFile, parseSinhVienRows, parseGiangVienRows, parseHoiDongRows } from './excel-reader.js';
 import { initGlobalSortables, createHoiDongBox, renderHoidongFromExcel } from './hoidong-manager.js';
-import { exportWordZIP } from './docx-exporter.js';
+import { exportWordZIP } from './docx-exporter.js';.
+import { exportExcelReport, exportDSHoiDongExcel, exportPhanBienExcel } from './excel-exporter.js';
 
 document.addEventListener("DOMContentLoaded", async () => {
     try {
@@ -141,22 +142,61 @@ function bindEvents() {
         alert("✅ Đã lưu điểm trực tiếp thành công!");
     });
 
-    // 5. SỰ KIỆN XUẤT FILE WORD & 2 FILE EXCEL (.ZIP)
-    const btnExport = document.getElementById('btn-export');
-    btnExport?.addEventListener('click', async () => {
+    // 5. SỰ KIỆN XUẤT FILE WORD & 3 FILE EXCEL (.ZIP)
+    // 5A. Xuất Gói Hồ sơ Word (.ZIP)
+    document.getElementById('btn-export-word')?.addEventListener('click', async () => {
         const meta = getSetupMetadata();
         const exportData = collectExportData(meta);
-
-        if (exportData.length === 0) {
-            return alert("Chưa có sinh viên nào được phân công vào Hội đồng!");
-        }
+        if (exportData.length === 0) return alert("Chưa có sinh viên nào được phân công vào Hội đồng!");
 
         try {
             await exportWordZIP(exportData, meta);
-            alert("🎉 Đã xuất thành công gói Hồ sơ Word & 2 file Excel (Bảng điểm + DS Hội đồng)!");
+            alert("🎉 Đã xuất thành công gói Hồ sơ Word (.ZIP)!");
         } catch (err) {
-            console.error("Lỗi xuất file:", err);
-            alert("Có lỗi xuất file: " + err.message);
+            console.error("Lỗi xuất Word:", err);
+            alert("Có lỗi xuất Hồ sơ Word: " + err.message);
+        }
+    });
+
+    // 5B. Xuất Bảng điểm Kết quả chấm (.XLSX)
+    document.getElementById('btn-export-diem')?.addEventListener('click', async () => {
+        const meta = getSetupMetadata();
+        const exportData = collectExportData(meta);
+        if (exportData.length === 0) return alert("Chưa có sinh viên nào được phân công vào Hội đồng!");
+
+        try {
+            await exportExcelReport(exportData, meta);
+        } catch (err) {
+            console.error("Lỗi xuất Bảng điểm:", err);
+            alert("Có lỗi xuất Bảng điểm: " + err.message);
+        }
+    });
+
+    // 5C. Xuất Danh sách Hội đồng đã lập (.XLSX)
+    document.getElementById('btn-export-hd')?.addEventListener('click', async () => {
+        const meta = getSetupMetadata();
+        const exportData = collectExportData(meta);
+        if (exportData.length === 0) return alert("Chưa có sinh viên nào được phân công vào Hội đồng!");
+
+        try {
+            await exportDSHoiDongExcel(exportData, meta);
+        } catch (err) {
+            console.error("Lỗi xuất DS Hội đồng:", err);
+            alert("Có lỗi xuất Danh sách Hội đồng: " + err.message);
+        }
+    });
+
+    // 5D. Xuất Danh sách Phân công Phản biện (.XLSX)
+    document.getElementById('btn-export-pb')?.addEventListener('click', async () => {
+        const meta = getSetupMetadata();
+        const exportData = collectExportData(meta);
+        if (exportData.length === 0) return alert("Chưa có sinh viên nào được phân công vào Hội đồng!");
+
+        try {
+            await exportPhanBienExcel(exportData, meta);
+        } catch (err) {
+            console.error("Lỗi xuất DS Phản biện:", err);
+            alert("Có lỗi xuất Danh sách Phản biện: " + err.message);
         }
     });
 }
