@@ -113,6 +113,33 @@ html, body {
     }
 }
 
+/* Tối ưu & chống tràn màn hình cho các trường cài đặt trên Mobile */
+.setup-fields-row input,
+.setup-fields-row select,
+.setup-fields-row .input-group {
+    max-width: 100%;
+    min-width: 0;
+}
+
+@media (max-width: 767.98px) {
+    .setup-fields-row .form-control-sm,
+    .setup-fields-row .form-select-sm {
+        font-size: 0.78rem;
+        padding-left: 0.35rem;
+        padding-right: 0.35rem;
+    }
+
+    .setup-fields-row .input-group-text {
+        font-size: 0.66rem !important;
+        padding-left: 0.25rem !important;
+        padding-right: 0.25rem !important;
+    }
+
+    .setup-fields-row input[type="date"] {
+        font-size: 0.74rem;
+    }
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: #f1f1f1; }
