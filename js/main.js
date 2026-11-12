@@ -54,6 +54,12 @@ function bindEvents() {
                 const rows = await readExcelFile(fileSV);
                 const svList = parseSinhVienRows(rows);
                 renderSinhVienPool(svList);
+                // Tự động điền Ngành vào ô #nganh-input nếu bóc tách được từ file SV
+                const nganhInput = document.getElementById('nganh-input');
+                const detectedNganh = svList.find(s => s.nganh)?.nganh;
+                if (nganhInput && !nganhInput.value.trim() && detectedNganh) {
+                    nganhInput.value = detectedNganh;
+                }
             }
             if (fileGV) {
                 const rows = await readExcelFile(fileGV);
@@ -203,11 +209,12 @@ function bindEvents() {
 
 function getSetupMetadata() {
     return {
-        khoa: document.getElementById('khoa-select')?.value || 'Khoa Công nghệ Thực phẩm',
-        dotThang: document.getElementById('dot-thang')?.value || '6',
-        namCham: document.getElementById('nam-cham')?.value || '2026',
-        soQD: document.getElementById('so-qd')?.value || '2071/QĐ-ĐHĐT',
-        ngayKyQD: document.getElementById('ngay-ky-qd')?.value || '5/8/2026'
+        khoa: document.getElementById('khoa-select')?.value || 'Khoa Môi trường & KHTN',
+        nganh: (document.getElementById('nganh-input')?.value || '').trim(),
+        dotThang: (document.getElementById('dot-thang')?.value || '').trim(),
+        namCham: (document.getElementById('nam-cham')?.value || '').trim(),
+        soQD: (document.getElementById('so-qd')?.value || '').trim(),
+        ngayKyQD: (document.getElementById('ngay-ky-qd')?.value || '').trim()
     };
 }
 
@@ -269,9 +276,10 @@ function collectExportData(meta) {
         }
 
         box.querySelectorAll('.dropzone-sv .card-item').forEach(svEl => {
+            const svNganh = (svEl.getAttribute('data-nganh') || '').trim();
             exportData.push({
-                khoa: meta.khoa || 'Khoa',
-                nganh: svEl.getAttribute('data-nganh') || meta.khoa.replace(/^Khoa\s+/i, '').toUpperCase(),
+                khoa: meta.khoa,
+                nganh: meta.nganh || svNganh || '',
                 so_hd: hdName,
                 ngay: formattedDate,
                 gio: time,
