@@ -16,35 +16,46 @@
         <!-- KHU VỰC 1: SETUP THÔNG TIN & TẢI FILE EXCEL -->
         <div class="card mb-1 shadow-sm border-0 setup-section">
             <div class="card-body p-2">
-                <!-- HÀNG 1: KHOA - ĐỢT - NĂM - SỐ QĐ - NGÀY KÝ QĐ -->
+                <!-- HÀNG 1: KHOA - NGÀNH - ĐỢT - NĂM - SỐ QĐ - NGÀY KÝ QĐ -->
                 <div class="row g-2 align-items-end mb-2">
-                    <div class="col-6 col-md-3">
+                    <div class="col-6 col-md-2">
                         <label class="fw-bold small">Khoa:</label>
                         <select id="khoa-select" class="form-select form-select-sm">
                             <option value="Khoa Điện - Điện tử">Điện - Điện tử</option>
-                            <option value="Khoa Môi trường & KHTN">Môi trường & KHTN</option>
-                            <option value="Khoa Công nghệ Thực phẩm" selected>Công nghệ Thực phẩm</option>
+                            <option value="Khoa Môi trường & KHTN" selected>Môi trường & KHTN</option>
+                            <option value="Khoa Công nghệ Thực phẩm">Công nghệ Thực phẩm</option>
                         </select>
                     </div>
 
-                    <div class="col-3 col-md-2">
-                        <label class="fw-bold small">Đợt (Tháng):</label>
-                        <input type="number" min="1" max="12" id="dot-thang" class="form-control form-control-sm" value="6" placeholder="Ví dụ: 6">
+                    <div class="col-6 col-md-3">
+                        <label class="fw-bold small">Ngành (Tự động hoặc nhập):</label>
+                        <input type="text" id="nganh-input" list="nganh-list" class="form-control form-control-sm" placeholder="VD: Công nghệ Thực phẩm">
+                        <datalist id="nganh-list">
+                            <option value="Công nghệ Thực phẩm">
+                            <option value="Quản lý Tài nguyên & Môi trường">
+                            <option value="Kỹ thuật Điện">
+                            <option value="Kỹ thuật Điều khiển & Tự động hóa">
+                        </datalist>
                     </div>
 
-                    <div class="col-3 col-md-2">
+                    <div class="col-3 col-md-1">
+                        <label class="fw-bold small">Đợt:</label>
+                        <input type="number" min="1" max="12" id="dot-thang" class="form-control form-control-sm" value="6">
+                    </div>
+
+                    <div class="col-3 col-md-1">
                         <label class="fw-bold small">Năm:</label>
-                        <input type="number" id="nam-cham" class="form-control form-control-sm" value="2026" placeholder="2026">
+                        <input type="number" id="nam-cham" class="form-control form-control-sm" value="2026">
                     </div>
 
                     <div class="col-6 col-md-3">
                         <label class="fw-bold small">Số Quyết định:</label>
-                        <input type="text" id="so-qd" class="form-control form-control-sm" value="2071/QĐ-ĐHĐT" placeholder="Ví dụ: 2071/QĐ-ĐHĐT">
+                        <input type="text" id="so-qd" class="form-control form-control-sm" value="2071/QĐ-ĐHĐT" placeholder="Để trống nếu chưa có">
                     </div>
 
                     <div class="col-6 col-md-2">
                         <label class="fw-bold small">Ngày ký QĐ:</label>
-                        <input type="text" id="ngay-ky-qd" class="form-control form-control-sm" value="5/8/2026" placeholder="5/8/2026">
+                        <input type="text" id="ngay-ky-qd" class="form-control form-control-sm" value="5/8/2026" placeholder="Để trống nếu chưa có">
                     </div>
                 </div>
 
