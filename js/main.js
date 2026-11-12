@@ -332,57 +332,90 @@ function renderGiangVienPool(gvList) {
         pool.insertAdjacentHTML('beforeend', cardHTML);
     });
 }
-function collectExportData(meta) {
+function collectExportData(meta, includeEmptyHD = false) {
     const exportData = [];
+
     document.querySelectorAll('.box-hoidong').forEach(box => {
-        const hdName = box.querySelector('.hd-title')?.value || 'Hội Đồng';
-        const dateStr = box.querySelector('.hd-date')?.value || '';
-        const time = box.querySelector('.hd-time')?.value || '';
-        const room = box.querySelector('.hd-room')?.value || '';
-        const location = box.querySelector('.hd-location')?.value || '';
+        const hdName = box.querySelector('.hd-title')?.value.trim() || 'Hội Đồng';
+        const rawDate = box.querySelector('.hd-date')?.value || '';
+        const gio = box.querySelector('.hd-time')?.value || '';
+        const phong = box.querySelector('.hd-room')?.value.trim() || '';
+        const diaDiem = box.querySelector('.hd-location')?.value || '';
+
+        let ngay = rawDate;
+        if (rawDate.includes('-')) {
+            const parts = rawDate.split('-');
+            if (parts.length === 3) ngay = `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
 
         const getGVInfo = (role) => {
             const el = box.querySelector(`.dropzone-gv[data-role="${role}"] .card-item`);
             return {
-                name: el ? el.getAttribute('data-name') : '',
-                id: el ? el.getAttribute('data-id') : ''
+                name: el ? (el.getAttribute('data-name') || '') : '',
+                id: el ? (el.getAttribute('data-id') || '') : '',
+                donVi: el ? (el.getAttribute('data-donvi') || 'Đại học Duy Tân') : 'Đại học Duy Tân'
             };
         };
 
-        const ct = getGVInfo('Chủ tịch');
-        const pb = getGVInfo('Phản biện');
-        const tk = getGVInfo('Thư ký');
+        const ctInfo = getGVInfo('Chủ tịch');
+        const pbInfo = getGVInfo('Phản biện');
+        const tkInfo = getGVInfo('Thư ký');
 
-        let formattedDate = dateStr;
-        if (dateStr.includes('-')) {
-            const parts = dateStr.split('-');
-            formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
-        }
+        const baseHD = {
+            khoa: meta.khoa,
+            nganh: meta.nganh || '',
+            so_hd: hdName,
+            ngay: ngay,
+            gio: gio,
+            phong: phong,
+            dia_diem: diaDiem,
+            chu_tich: ctInfo.name,
+            chu_tich_id: ctInfo.id,
+            chu_tich_don_vi: ctInfo.donVi,
+            phan_bien: pbInfo.name,
+            phan_bien_id: pbInfo.id,
+            phan_bien_don_vi: pbInfo.donVi,
+            thu_ky: tkInfo.name,
+            thu_ky_id: tkInfo.id,
+            thu_ky_don_vi: tkInfo.donVi
+        };
 
-        box.querySelectorAll('.dropzone-sv .card-item').forEach(svEl => {
-            const svNganh = (svEl.getAttribute('data-nganh') || '').trim();
-            exportData.push({
-                khoa: meta.khoa,
-                nganh: meta.nganh || svNganh || '',
-                so_hd: hdName,
-                ngay: formattedDate,
-                gio: time,
-                phong: room,
-                dia_diem: location,
-                chu_tich: ct.name, chu_tich_id: ct.id,
-                phan_bien: pb.name, phan_bien_id: pb.id,
-                thu_ky: tk.name, thu_ky_id: tk.id,
-                ma_sv: svEl.getAttribute('data-id'),
-                ho_ten: svEl.getAttribute('data-name'),
-                de_tai: svEl.getAttribute('data-detai'),
-                lop: svEl.getAttribute('data-lop'),
-                gvhd: svEl.getAttribute('data-gvhd'),
-                diem_gvhd: svEl.getAttribute('data-diem-gvhd') || '',
-                diem_ct: svEl.getAttribute('data-diem-ct') || '',
-                diem_pb: svEl.getAttribute('data-diem-pb') || '',
-                diem_tk: svEl.getAttribute('data-diem-tk') || ''
+        const svCards = box.querySelectorAll('.dropzone-sv .card-item');
+
+        if (svCards.length > 0) {
+            svCards.forEach(svEl => {
+                const svId = svEl.getAttribute('data-id') || '';
+                const svNganh = (svEl.getAttribute('data-nganh') || '').trim();
+                const scoreObj = window.studentScores ? (window.studentScores[svId] || {}) : {};
+
+                exportData.push({
+                    ...baseHD,
+                    nganh: meta.nganh || svNganh || '',
+                    ho_ten: svEl.getAttribute('data-name') || '',
+                    ma_sv: svId,
+                    lop: svEl.getAttribute('data-lop') || '',
+                    de_tai: svEl.getAttribute('data-detai') || '',
+                    gvhd: svEl.getAttribute('data-gvhd') || '',
+                    diem_gvhd: scoreObj.gvhd ?? '',
+                    diem_ct: scoreObj.ct ?? '',
+                    diem_pb: scoreObj.pb ?? '',
+                    diem_tk: scoreObj.tk ?? '',
+                    diem_chu: scoreObj.chu ?? ''
+                });
             });
-        });
+        } else if (includeEmptyHD) {
+            // Hội đồng chưa có sinh viên nhưng vẫn xuất khung Hội đồng & Giảng viên
+            exportData.push({
+                ...baseHD,
+                ho_ten: '',
+                ma_sv: '',
+                lop: '',
+                de_tai: '',
+                gvhd: '',
+                isEmptyHD: true
+            });
+        }
     });
+
     return exportData;
 }
