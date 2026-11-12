@@ -344,7 +344,10 @@ export async function buildDSDBWorkbook(exportData, meta = {}) {
                 students: []
             };
         }
-        hdGroups[key].students.push(item);
+        // Chỉ thêm vào danh sách sinh viên nếu dòng đó có dữ liệu sinh viên thực tế
+        if (!item.isEmptyHD && (item.ma_sv || item.ho_ten)) {
+            hdGroups[key].students.push(item);
+        }
     });
 
     // 3. HEADER QUỐC HIỆU & TIÊU ĐỀ (Dòng 1 -> 5, giãn đều từ A đến J)
