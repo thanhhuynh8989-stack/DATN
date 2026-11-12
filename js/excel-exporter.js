@@ -129,7 +129,7 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
         const hRow1 = currentRow;
         const hRow2 = currentRow + 1;
 
-        ws.getRow(hRow1).height = 20;
+        ws.getRow(hRow1).height = 25;
         ws.getRow(hRow2).height = 20;
 
         ws.getCell(`A${hRow1}`).value = "STT";
