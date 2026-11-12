@@ -319,7 +319,7 @@ export async function buildDSDBWorkbook(exportData, meta = {}) {
             .map(item => (item.lop || '').trim())
             .filter(lop => lop.length > 0)
     )];
-    const khoaListStr = uniqueClasses.length > 0 ? uniqueClasses.join(' + ') : 'K26 + K27';
+    const khoaListStr = uniqueClasses.length > 0 ? uniqueClasses.join(' + ') : '................';
 
     // 2. Gom nhóm dữ liệu theo từng Hội đồng
     const hdGroups = {};
