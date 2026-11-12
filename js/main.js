@@ -212,6 +212,16 @@ function bindEvents() {
             alert("Có lỗi xuất Danh sách Phản biện: " + err.message);
         }
     });
+
+    // Xóa từng thẻ SV hoặc GV ở 2 khung Kho chờ
+    document.addEventListener('click', (e) => {
+        const btnRemove = e.target.closest('.btn-remove-card');
+        if (btnRemove) {
+            e.stopPropagation(); // Tránh kích hoạt sự kiện kéo/click khác của thẻ
+            const card = btnRemove.closest('.card-item');
+            if (card) card.remove();
+        }
+    });
 }
 
 function initKhoaNganhDropdowns() {
