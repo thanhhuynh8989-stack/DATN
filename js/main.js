@@ -4,6 +4,10 @@ import { readExcelFile, parseSinhVienRows, parseGiangVienRows, parseHoiDongRows 
 import { initGlobalSortables, createHoiDongBox, renderHoidongFromExcel } from './hoidong-manager.js';
 import { exportWordZIP } from './docx-exporter.js';
 import { exportExcelReport, exportDSHoiDongExcel, exportPhanBienExcel } from './excel-exporter.js';
+import { 
+    readExcelFile, parseSinhVienRows, parseGiangVienRows, parseHoiDongRows,
+    loadDanhSachNganhSilently, danhMucNganh, findNganhInfoByLop 
+} from './excel-reader.js';
 
 document.addEventListener("DOMContentLoaded", async () => {
     try {
