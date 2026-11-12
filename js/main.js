@@ -11,11 +11,15 @@ import {
 
 document.addEventListener("DOMContentLoaded", async () => {
     try {
-        await loadTemplatesSilently();
+        await Promise.all([
+            loadTemplatesSilently(),
+            loadDanhSachNganhSilently('./sample_files/DANH_SACH_NGANH.xlsx')
+        ]);
     } catch (e) {
-        console.error("Lỗi tải template Word:", e);
+        console.error("Lỗi tải dữ liệu khởi tạo:", e);
     }
 
+    initKhoaNganhDropdowns();
     initGlobalSortables();
     bindEvents();
 });
@@ -58,11 +62,11 @@ function bindEvents() {
                 const rows = await readExcelFile(fileSV);
                 const svList = parseSinhVienRows(rows);
                 renderSinhVienPool(svList);
-                // Tự động điền Ngành vào ô #nganh-input nếu bóc tách được từ file SV
-                const nganhInput = document.getElementById('nganh-input');
-                const detectedNganh = svList.find(s => s.nganh)?.nganh;
-                if (nganhInput && !nganhInput.value.trim() && detectedNganh) {
-                    nganhInput.value = detectedNganh;
+
+                // Tự động chọn đúng Khoa & Ngành trên thanh cài đặt dựa vào mã lớp SV
+                const firstSVWithLop = svList.find(s => s.lop);
+                if (firstSVWithLop && typeof window.syncKhoaNganhFromLop === 'function') {
+                    window.syncKhoaNganhFromLop(firstSVWithLop.lop);
                 }
             }
             if (fileGV) {
@@ -211,10 +215,60 @@ function bindEvents() {
     });
 }
 
+function initKhoaNganhDropdowns() {
+    const khoaSelect = document.getElementById('khoa-select');
+    const nganhSelect = document.getElementById('nganh-select');
+    if (!khoaSelect || !nganhSelect) return;
+
+    if (danhMucNganh.length === 0) {
+        khoaSelect.innerHTML = `<option value="Khoa Công nghệ Thực phẩm">Khoa Công nghệ Thực phẩm</option>`;
+        nganhSelect.innerHTML = `<option value="Công nghệ Thực phẩm">Công nghệ Thực phẩm</option>`;
+        return;
+    }
+
+    // Lấy danh sách Khoa duy nhất
+    const uniqueKhoas = [...new Set(danhMucNganh.map(item => item.khoa))];
+    khoaSelect.innerHTML = uniqueKhoas
+        .map(k => `<option value="${k}">${k}</option>`)
+        .join('');
+
+    // Hàm cập nhật danh sách Ngành theo Khoa đang chọn
+    const updateNganhOptions = (selectedKhoa, preselectNganh = '') => {
+        const filteredNganhs = danhMucNganh.filter(item => item.khoa === selectedKhoa);
+        nganhSelect.innerHTML = filteredNganhs
+            .map(n => `<option value="${n.chuyenNganh}">${n.chuyenNganh} (${n.maChuyenNganh})</option>`)
+            .join('');
+
+        if (preselectNganh) {
+            const matchOpt = Array.from(nganhSelect.options).find(
+                opt => opt.value.toLowerCase() === preselectNganh.toLowerCase()
+            );
+            if (matchOpt) nganhSelect.value = matchOpt.value;
+        }
+    };
+
+    // Khởi tạo danh sách Ngành cho Khoa đầu tiên
+    updateNganhOptions(khoaSelect.value);
+
+    // Lắng nghe sự kiện đổi Khoa -> tự động lọc lại danh sách Ngành
+    khoaSelect.addEventListener('change', () => {
+        updateNganhOptions(khoaSelect.value);
+    });
+
+    // Lưu helper lên window để dùng khi nạp file Excel SV tự động nhảy đúng Khoa/Ngành
+    window.syncKhoaNganhFromLop = (lopStr) => {
+        const info = findNganhInfoByLop(lopStr);
+        if (info) {
+            khoaSelect.value = info.khoa;
+            updateNganhOptions(info.khoa, info.chuyenNganh);
+        }
+    };
+}
+
 function getSetupMetadata() {
     return {
-        khoa: document.getElementById('khoa-select')?.value || 'Khoa Môi trường & KHTN',
-        nganh: (document.getElementById('nganh-input')?.value || '').trim(),
+        khoa: (document.getElementById('khoa-select')?.value || '').trim(),
+        nganh: (document.getElementById('nganh-select')?.value || '').trim(),
         dotThang: (document.getElementById('dot-thang')?.value || '').trim(),
         namCham: (document.getElementById('nam-cham')?.value || '').trim(),
         soQD: (document.getElementById('so-qd')?.value || '').trim(),
