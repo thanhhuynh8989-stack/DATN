@@ -1,6 +1,5 @@
 // js/main.js
 import { loadTemplatesSilently } from './templates.js';
-import { readExcelFile, parseSinhVienRows, parseGiangVienRows, parseHoiDongRows } from './excel-reader.js';
 import { initGlobalSortables, createHoiDongBox, renderHoidongFromExcel } from './hoidong-manager.js';
 import { exportWordZIP } from './docx-exporter.js';
 import { exportExcelReport, exportDSHoiDongExcel, exportPhanBienExcel } from './excel-exporter.js';
