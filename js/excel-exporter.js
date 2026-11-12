@@ -99,8 +99,8 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
 
             ws.getCell(`D${currentRow+3}`).value = `Hội đồng bảo vệ kèm theo Quyết định số  ${soQDStr}`;
             ws.getCell(`D${currentRow+3}`).font = { name: 'Times New Roman', size: 11, bold: true };
-            ws.getCell(`H${currentRow+3}`).value = `ký ngày    ${ngayKyQDStr}`;
-            ws.getCell(`H${currentRow+3}`).font = { name: 'Times New Roman', size: 11 };
+            ws.getCell(`I${currentRow+3}`).value = `ký ngày    ${ngayKyQDStr}`;
+            ws.getCell(`I${currentRow+3}`).font = { name: 'Times New Roman', size: 11 };
 
             const gioStr = (grp.gio || '').trim() || '......';
             const ngayStr = (grp.ngay || '').trim() || '................';
