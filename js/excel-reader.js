@@ -1,5 +1,74 @@
 // js/excel-reader.js
 
+export let danhMucNganh = []; // Mảng lưu { maChuyenNganh, chuyenNganh, khoa }
+
+// Tự động nạp file DANH_SACH_NGANH.xlsx khi khởi động ứng dụng
+export async function loadDanhSachNganhSilently(url = './sample_files/DANH_SACH_NGANH.xlsx') {
+    try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Không tìm thấy file ${url}`);
+        const arrayBuffer = await response.arrayBuffer();
+        const data = new Uint8Array(arrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheet = workbook.SheetNames[0];
+        const rows = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheet], { header: 1 });
+
+        const parsed = [];
+        rows.forEach((row, idx) => {
+            if (idx < 1 || !row || row.length < 3) return;
+            const ma = String(row[0] || '').trim().toUpperCase();
+            const tenNganh = String(row[1] || '').trim();
+            const tenKhoa = String(row[2] || '').trim();
+
+            if (!ma || ma.includes('MA_CHUYEN_NGANH') || ma.includes('MÃ')) return;
+            if (tenNganh && tenKhoa) {
+                parsed.push({
+                    maChuyenNganh: ma,
+                    chuyenNganh: tenNganh,
+                    khoa: tenKhoa
+                });
+            }
+        });
+
+        danhMucNganh = parsed;
+        return danhMucNganh;
+    } catch (err) {
+        console.warn("Cảnh báo tải DANH_SACH_NGANH.xlsx:", err.message);
+        return [];
+    }
+}
+
+// Tra cứu thông tin { chuyenNganh, khoa } từ chuỗi Lớp (VD: "K27 CTP" -> khớp Ma_Chuyen_nganh "CTP")
+export function findNganhInfoByLop(lopStr) {
+    const cleanLop = String(lopStr || '').toUpperCase().trim();
+    if (!cleanLop || danhMucNganh.length === 0) return null;
+
+    // Tách các token chữ cái trong mã lớp (VD: "K27 CTP" -> ["K", "CTP"])
+    const tokens = cleanLop.split(/[^A-Z0-9]+/).filter(Boolean);
+
+    // Ưu tiên khớp chính xác token (VD: "CTP" === "CTP")
+    for (const item of danhMucNganh) {
+        if (tokens.includes(item.maChuyenNganh)) {
+            return item;
+        }
+    }
+
+    // Dự phòng: khớp chuỗi con (sắp xếp mã dài trước để tránh "MT" đè "QLMT")
+    const sorted = [...danhMucNganh].sort((a, b) => b.maChuyenNganh.length - a.maChuyenNganh.length);
+    for (const item of sorted) {
+        if (cleanLop.includes(item.maChuyenNganh)) {
+            return item;
+        }
+    }
+
+    return null;
+}
+
+export function detectNganhFromLop(lopStr) {
+    const found = findNganhInfoByLop(lopStr);
+    return found ? found.chuyenNganh.toUpperCase() : '';
+}
+
 export function readExcelFile(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
