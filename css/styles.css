@@ -158,6 +158,46 @@ html, body {
     }
 }
 
+/* Nút nổi Tips Hướng dẫn sử dụng */
+#btn-app-tips {
+    position: fixed;
+    right: 16px;
+    bottom: 64px; /* Nằm ngay phía trên thanh Footer cố định */
+    width: 44px;
+    height: 44px;
+    z-index: 1040;
+    border: 2px solid #fff;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+#btn-app-tips:hover {
+    transform: scale(1.1);
+}
+
+#tipsTab .nav-link {
+    color: #495057;
+    font-size: 0.82rem;
+}
+
+#tipsTab .nav-link.active {
+    background-color: #0d6efd;
+    color: #fff;
+}
+
+@media (max-width: 767.98px) {
+    #btn-app-tips {
+        right: 12px;
+        bottom: 84px; /* Tránh thanh Footer 2 hàng trên màn hình điện thoại */
+        width: 40px;
+        height: 40px;
+    }
+
+    #tipsTab .nav-link {
+        font-size: 0.72rem;
+        padding: 4px 6px;
+    }
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: #f1f1f1; }
