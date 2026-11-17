@@ -6,7 +6,7 @@ import {
     loadDanhSachNganhSilently, danhMucNganh, findNganhInfoByLop 
 } from './excel-reader.js';
 import { 
-    loadTemplatesSilently, templates, 
+    loadTemplatesSilently,
     extractPhieuHDCriteriaTable, applyPhieuHDCriteriaTable, resetPhieuHDToOriginal 
 } from './templates.js';
 import { exportWordZIP, previewPhieuHDTemplate } from './docx-exporter.js';
@@ -455,6 +455,7 @@ function bindEvents() {
             }
         }
     });
+}
 
 function initKhoaNganhDropdowns() {
     const khoaSelect = document.getElementById('khoa-select');
