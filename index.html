@@ -142,6 +142,12 @@
        <div class="footer-section shadow-sm d-flex flex-wrap justify-content-center gap-1 gap-md-2">
             <button class="btn btn-warning btn-sm fw-bold shadow-sm" id="btn-nhap-diem">📝 Nhập điểm</button>
             <button class="btn btn-primary btn-sm fw-bold shadow-sm" id="btn-export-word">📦 Hồ sơ HĐ (.ZIP)</button>
+
+            <button type="button" id="btn-edit-template-hd" class="btn btn-outline-light btn-sm fw-bold position-relative" title="Chỉnh sửa tạm thời nội dung mẫu 4. Phiếu Hội đồng cho phiên làm việc này">
+    ✏️ Sửa mẫu 4
+    <span id="badge-template-hd-modified" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark d-none" style="font-size: 0.65rem;">Đã sửa</span>
+</button>
+
             <button class="btn btn-success btn-sm fw-bold shadow-sm" id="btn-export-diem">📊 Bảng điểm KQ</button>
             <button class="btn btn-info text-dark btn-sm fw-bold shadow-sm" id="btn-export-hd">📋 DS Hội đồng</button>
             <button class="btn btn-danger btn-sm fw-bold shadow-sm" id="btn-export-pb">📑 DS Phản biện</button>
@@ -306,5 +312,44 @@
         </div>
     </div>
 </div>
+
+<!-- MODAL CHỈNH SỬA TẠM THỜI MẪU 4. PHIẾU HỘI ĐỒNG -->
+<div class="modal fade" id="modalEditTemplateHD" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-dark text-white py-2">
+                <h6 class="modal-title fw-bold">✏️ CHỈNH SỬA TẠM THỜI MẪU 4. PHIẾU CHẤM HỘI ĐỒNG (PHIÊN HIỆN TẠI)</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body p-3 bg-light">
+                <div class="alert alert-warning py-2 small mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <strong>Lưu ý quan trọng:</strong> Giữ nguyên các thẻ biến nằm trong dấu ngoặc nhọn <code>{{...}}</code> (như <code>{{HỌ_VÀ_TÊN}}</code>, <code>{{MÃ_SỐ_SV}}</code>, <code>{{TÊN_ĐỀ_TÀI_ĐỒ_ÁN_TỐT_NGHIỆP}}</code>, <code>{{Ghi tên thành viên HĐ tại đây}}</code>) để hệ thống tự điền dữ liệu. Mọi chỉnh sửa chỉ áp dụng cho phiên làm việc này.
+                    </div>
+                    <button type="button" id="btn-preview-template-hd" class="btn btn-outline-dark btn-sm fw-bold flex-shrink-0">
+                        ⬇️ Tải file mẫu 4 hiện tại
+                    </button>
+                </div>
+
+                <!-- Danh sách các đoạn văn bản trích xuất từ 4_Phieu_Hoi_Dong.docx -->
+                <div id="template-hd-editor-list" class="d-flex flex-column gap-2"></div>
+            </div>
+
+            <div class="modal-footer py-2 justify-content-between">
+                <button type="button" id="btn-reset-template-hd" class="btn btn-outline-danger btn-sm fw-bold">
+                    ↺ Khôi phục mẫu gốc ban đầu
+                </button>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Đóng</button>
+                    <button type="button" id="btn-apply-template-hd" class="btn btn-primary btn-sm fw-bold px-3">
+                        💾 Áp dụng cho phiên này
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 </body>
 </html>
