@@ -37,7 +37,7 @@ export async function loadTemplatesSilently() {
     }
 }
 
-// Trích xuất danh sách các đoạn văn bản (<w:p>) từ word/document.xml của Mẫu 4 để chỉnh sửa trên Web
+// Trích xuất CHỈ Mục II. Kết quả đánh giá (Bảng tiêu chí & Thang điểm) của Mẫu 4
 export function extractPhieuHDParagraphs() {
     if (!templates.phieuHD) return [];
     const zip = new PizZip(templates.phieuHD);
@@ -49,23 +49,53 @@ export function extractPhieuHDParagraphs() {
     const paragraphs = Array.from(xmlDoc.getElementsByTagNameNS(wNS, 'p'));
 
     const items = [];
-    paragraphs.forEach((pNode, index) => {
+    let inSection2 = false;
+
+    for (let index = 0; index < paragraphs.length; index++) {
+        const pNode = paragraphs[index];
         const tNodes = Array.from(pNode.getElementsByTagNameNS(wNS, 't'));
         const fullText = tNodes.map(t => t.textContent || '').join('');
-        if (fullText.trim().length > 0) {
-            let curr = pNode.parentNode;
-            let isInTable = false;
-            while (curr) {
-                if (curr.localName === 'tc') { isInTable = true; break; }
-                curr = curr.parentNode;
+        const cleanText = fullText.replace(/\s+/g, ' ').trim();
+        const lowerText = cleanText.toLowerCase();
+
+        // 1. Bắt đầu khi gặp tiêu đề "II. Kết quả đánh giá"
+        if (!inSection2) {
+            if (lowerText.includes('kết quả đánh giá')) {
+                inSection2 = true;
             }
-            items.push({
-                pIndex: index,
-                text: fullText,
-                isInTable
-            });
+            continue;
         }
-    });
+
+        // 2. Dừng lại ngay khi sang Mục III hoặc phần chữ ký cuối trang
+        if (
+            /^iii[\.\:\s]/i.test(cleanText) ||
+            lowerText.includes('nhận xét') ||
+            lowerText.includes('kết luận') ||
+            lowerText.includes('đà nẵng, ngày') ||
+            lowerText.includes('thành viên hội đồng')
+        ) {
+            break;
+        }
+
+        if (!cleanText) continue;
+
+        // 3. Bỏ qua các nhãn tiêu đề cột & số thứ tự cố định trong bảng để chỉ sửa Nội dung + Thang điểm
+        const ignoredHeaders = ['tt', 'nội dung', 'thang điểm', 'điểm chấm', 'tổng điểm', '1', '2', '3', '4', '5'];
+        if (ignoredHeaders.includes(lowerText)) continue;
+
+        let curr = pNode.parentNode;
+        let isInTable = false;
+        while (curr) {
+            if (curr.localName === 'tc') { isInTable = true; break; }
+            curr = curr.parentNode;
+        }
+
+        items.push({
+            pIndex: index,
+            text: fullText,
+            isInTable
+        });
+    }
 
     return items;
 }
