@@ -1,13 +1,10 @@
 // js/main.js
-import { loadTemplatesSilently } from './templates.js';
 import { initGlobalSortables, createHoiDongBox, renderHoidongFromExcel } from './hoidong-manager.js';
-import { exportWordZIP } from './docx-exporter.js';
 import { exportExcelReport, exportDSHoiDongExcel, exportPhanBienExcel } from './excel-exporter.js';
 import { 
     readExcelFile, parseSinhVienRows, parseGiangVienRows, parseHoiDongRows,
     loadDanhSachNganhSilently, danhMucNganh, findNganhInfoByLop 
 } from './excel-reader.js';
-
 import { 
     loadTemplatesSilently, templates, 
     extractPhieuHDParagraphs, applyPhieuHDParagraphEdits, resetPhieuHDToOriginal 
@@ -267,6 +264,25 @@ function bindEvents() {
         }
     });
 
+    const tipsModalEl = document.getElementById('tipsModal');
+    if (tipsModalEl) {
+        tipsModalEl.addEventListener('show.bs.modal', () => {
+            const targetTabBtn = document.getElementById(lastActiveTipTab);
+            if (targetTabBtn && window.bootstrap) {
+                bootstrap.Tab.getOrCreateInstance(targetTabBtn).show();
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'F1') {
+                e.preventDefault();
+                if (window.bootstrap) {
+                    bootstrap.Modal.getOrCreateInstance(tipsModalEl).toggle();
+                }
+            }
+        });
+    }
+
     // 8. CHỈNH SỬA TẠM THỜI MẪU 4. PHIẾU HỘI ĐỒNG THEO PHIÊN LÀM VIỆC
     const btnEditTplHD = document.getElementById('btn-edit-template-hd');
     const modalEditTplEl = document.getElementById('modalEditTemplateHD');
@@ -327,26 +343,43 @@ function bindEvents() {
         if (ok) {
             badgeModified?.classList.remove('d-none');
             if (modalEditTplEl && window.bootstrap) {
-                
-
-    const tipsModalEl = document.getElementById('tipsModal');
-    if (tipsModalEl) {
-        tipsModalEl.addEventListener('show.bs.modal', () => {
-            const targetTabBtn = document.getElementById(lastActiveTipTab);
-            if (targetTabBtn && window.bootstrap) {
-                bootstrap.Tab.getOrCreateInstance(targetTabBtn).show();
+                bootstrap.Modal.getInstance(modalEditTplEl)?.hide();
             }
+            alert("✅ Đã áp dụng chỉnh sửa tạm thời cho Mẫu 4. Phiếu Hội đồng trong phiên làm việc này!");
+        } else {
+            alert("❌ Có lỗi khi cập nhật nội dung file mẫu!");
+        }
+    });
+
+    // Tải thử 1 bản xem trước Mẫu 4 đã chỉnh sửa
+    document.getElementById('btn-preview-template-hd')?.addEventListener('click', async () => {
+        const editedMap = {};
+        document.querySelectorAll('.tpl-hd-paragraph-input').forEach(textarea => {
+            const pIndex = textarea.getAttribute('data-pindex');
+            editedMap[pIndex] = textarea.value;
         });
 
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'F1') {
-                e.preventDefault();
-                if (window.bootstrap) {
-                    bootstrap.Modal.getOrCreateInstance(tipsModalEl).toggle();
-                }
+        const ok = applyPhieuHDParagraphEdits(editedMap);
+        if (ok) {
+            badgeModified?.classList.remove('d-none');
+            const meta = getSetupMetadata();
+            if (typeof previewPhieuHDTemplate === 'function') {
+                await previewPhieuHDTemplate(meta);
             }
-        });
-    }
+        }
+    });
+
+    // Khôi phục Mẫu 4 về nguyên bản gốc
+    document.getElementById('btn-reset-template-hd')?.addEventListener('click', () => {
+        if (confirm("Khôi phục Mẫu 4. Phiếu Hội đồng về đúng nguyên bản ban đầu?")) {
+            const ok = resetPhieuHDToOriginal();
+            if (ok) {
+                badgeModified?.classList.add('d-none');
+                renderTemplateHDEditor();
+                alert("🔄 Đã khôi phục Mẫu 4 về nguyên bản gốc!");
+            }
+        }
+    });
 }
 
 function initKhoaNganhDropdowns() {
@@ -360,11 +393,13 @@ function initKhoaNganhDropdowns() {
         return;
     }
 
+    // Lấy danh sách Khoa duy nhất
     const uniqueKhoas = [...new Set(danhMucNganh.map(item => item.khoa))];
     khoaSelect.innerHTML = uniqueKhoas
         .map(k => `<option value="${k}">${k}</option>`)
         .join('');
 
+    // Hàm cập nhật danh sách Ngành theo Khoa đang chọn
     const updateNganhOptions = (selectedKhoa, preselectNganh = '') => {
         const filteredNganhs = danhMucNganh.filter(item => item.khoa === selectedKhoa);
         nganhSelect.innerHTML = filteredNganhs
@@ -379,12 +414,15 @@ function initKhoaNganhDropdowns() {
         }
     };
 
+    // Khởi tạo danh sách Ngành cho Khoa đầu tiên
     updateNganhOptions(khoaSelect.value);
 
+    // Lắng nghe sự kiện đổi Khoa -> tự động lọc lại danh sách Ngành
     khoaSelect.addEventListener('change', () => {
         updateNganhOptions(khoaSelect.value);
     });
 
+    // Lưu helper lên window để dùng khi nạp file Excel SV tự động nhảy đúng Khoa/Ngành
     window.syncKhoaNganhFromLop = (lopStr) => {
         const info = findNganhInfoByLop(lopStr);
         if (info) {
@@ -532,6 +570,7 @@ function collectExportData(meta, includeEmptyHD = false) {
                 });
             });
         } else if (includeEmptyHD) {
+            // Hội đồng chưa có sinh viên nhưng vẫn xuất khung Hội đồng & Giảng viên
             exportData.push({
                 ...baseHD,
                 ho_ten: '',
