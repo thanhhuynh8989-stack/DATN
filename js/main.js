@@ -7,7 +7,7 @@ import {
 } from './excel-reader.js';
 import { 
     loadTemplatesSilently, templates, 
-    extractPhieuHDParagraphs, applyPhieuHDParagraphEdits, resetPhieuHDToOriginal 
+    extractPhieuHDCriteriaTable, applyPhieuHDCriteriaTable, resetPhieuHDToOriginal 
 } from './templates.js';
 import { exportWordZIP, previewPhieuHDTemplate } from './docx-exporter.js';
 
@@ -283,45 +283,127 @@ function bindEvents() {
         });
     }
 
-    // 8. CHỈNH SỬA TẠM THỜI MẪU 4. PHIẾU HỘI ĐỒNG THEO PHIÊN LÀM VIỆC
+        // 8. CHỈNH SỬA TẠM THỜI BẢNG MỤC II - MẪU 4. PHIẾU HỘI ĐỒNG (2 CỘT, THÊM/XÓA HÀNG, TỰ TÍNH TỔNG)
     const btnEditTplHD = document.getElementById('btn-edit-template-hd');
     const modalEditTplEl = document.getElementById('modalEditTemplateHD');
     const badgeModified = document.getElementById('badge-template-hd-modified');
 
+    // Hàm tự động cộng tổng cột Thang điểm (hỗ trợ cả dấu phẩy "4,0" lẫn dấu chấm "4.0")
+    const recalcTemplateHDTotal = () => {
+        let sum = 0;
+        let hasComma = false;
+        document.querySelectorAll('.tpl-hd-score-input').forEach(inp => {
+            const raw = inp.value.trim();
+            if (raw.includes(',')) hasComma = true;
+            const num = parseFloat(raw.replace(',', '.'));
+            if (!isNaN(num)) sum += num;
+        });
+
+        const totalInput = document.getElementById('tpl-hd-total-score');
+        if (totalInput) {
+            const formatted = Number.isInteger(sum) ? String(sum) : sum.toFixed(1);
+            totalInput.value = hasComma ? formatted.replace('.', ',') : formatted;
+        }
+    };
+
+    // Hàm tạo 1 hàng HTML (2 cột: Nội dung | Thang điểm + Nút xóa)
+    const createCriteriaRowHTML = (content = '', score = '') => `
+        <tr class="tpl-hd-row">
+            <td class="align-middle p-1">
+                <textarea class="form-control form-control-sm tpl-hd-content-input" 
+                          rows="${content.length > 55 ? 2 : 1}" 
+                          placeholder="Nhập nội dung đánh giá...">${content}</textarea>
+            </td>
+            <td class="align-middle p-1" style="width: 105px;">
+                <input type="text" class="form-control form-control-sm text-center fw-bold tpl-hd-score-input" 
+                       value="${score}" placeholder="0,0">
+            </td>
+            <td class="align-middle text-center p-1" style="width: 42px;">
+                <button type="button" class="btn btn-sm btn-outline-danger px-2 py-0 fw-bold btn-remove-tpl-row" title="Xóa hàng này">✕</button>
+            </td>
+        </tr>
+    `;
+
     const renderTemplateHDEditor = () => {
         const listContainer = document.getElementById('template-hd-editor-list');
         if (!listContainer) return;
-        listContainer.innerHTML = '';
 
-        const paragraphs = extractPhieuHDParagraphs();
-        if (paragraphs.length === 0) {
-            listContainer.innerHTML = '<div class="text-danger text-center py-3">Không đọc được nội dung file 4_Phieu_Hoi_Dong.docx!</div>';
+        const { rows, totalScore } = extractPhieuHDCriteriaTable();
+        if (rows.length === 0) {
+            listContainer.innerHTML = '<div class="text-danger text-center py-3">Không đọc được bảng Mục II trong file 4_Phieu_Hoi_Dong.docx!</div>';
             return;
         }
 
-        paragraphs.forEach((item, idx) => {
-            const hasPlaceholder = item.text.includes('{{') && item.text.includes('}}');
-            const badgeType = item.isInTable
-                ? '<span class="badge bg-info text-dark">Ô bảng</span>'
-                : '<span class="badge bg-secondary">Đoạn văn</span>';
-            const badgeVar = hasPlaceholder
-                ? '<span class="badge bg-warning text-dark">Chứa biến {{...}}</span>'
-                : '';
+        const rowsHTML = rows.map(r => createCriteriaRowHTML(r.content, r.score)).join('');
 
-            const rowHTML = `
-                <div class="bg-white p-2 rounded border shadow-sm">
-                    <div class="d-flex align-items-center gap-2 mb-1">
-                        <span class="fw-bold text-muted small">#${idx + 1}</span>
-                        ${badgeType}
-                        ${badgeVar}
-                    </div>
-                    <textarea class="form-control form-control-sm tpl-hd-paragraph-input font-monospace" 
-                              data-pindex="${item.pIndex}" 
-                              rows="${item.text.length > 95 ? 2 : 1}">${item.text}</textarea>
-                </div>
-            `;
-            listContainer.insertAdjacentHTML('beforeend', rowHTML);
+        listContainer.innerHTML = `
+            <div class="table-responsive bg-white rounded border shadow-sm">
+                <table class="table table-bordered table-sm mb-0 align-middle">
+                    <thead class="table-primary text-center small">
+                        <tr>
+                            <th>Nội dung đánh giá</th>
+                            <th style="width: 105px;">Thang điểm</th>
+                            <th style="width: 42px;">Xóa</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tpl-hd-tbody">
+                        ${rowsHTML}
+                    </tbody>
+                    <tfoot class="table-light">
+                        <tr>
+                            <td class="text-end fw-bold small pe-2">TỔNG ĐIỂM:</td>
+                            <td class="p-1">
+                                <input type="text" id="tpl-hd-total-score" class="form-control form-control-sm text-center fw-bold text-danger bg-white" value="${totalScore}">
+                            </td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            <div class="mt-2">
+                <button type="button" id="btn-add-tpl-row" class="btn btn-outline-primary btn-sm fw-bold">
+                    ➕ Chèn thêm hàng tiêu chí
+                </button>
+            </div>
+        `;
+    };
+
+    // Lắng nghe thêm hàng, xóa hàng và tự động cộng tổng điểm ngay trong Modal
+    document.addEventListener('click', (e) => {
+        if (e.target.closest('#btn-add-tpl-row')) {
+            const tbody = document.getElementById('tpl-hd-tbody');
+            tbody?.insertAdjacentHTML('beforeend', createCriteriaRowHTML('', '0,0'));
+            recalcTemplateHDTotal();
+        }
+        const btnDelRow = e.target.closest('.btn-remove-tpl-row');
+        if (btnDelRow) {
+            const tbody = document.getElementById('tpl-hd-tbody');
+            if (tbody && tbody.querySelectorAll('.tpl-hd-row').length <= 1) {
+                return alert("Bảng đánh giá phải có ít nhất 1 hàng nội dung!");
+            }
+            btnDelRow.closest('.tpl-hd-row')?.remove();
+            recalcTemplateHDTotal();
+        }
+    });
+
+    document.addEventListener('input', (e) => {
+        if (e.target.classList.contains('tpl-hd-score-input')) {
+            recalcTemplateHDTotal();
+        }
+    });
+
+    // Thu thập dữ liệu bảng từ Modal
+    const collectEditedTableData = () => {
+        const editedRows = [];
+        document.querySelectorAll('#tpl-hd-tbody .tpl-hd-row').forEach(tr => {
+            const content = tr.querySelector('.tpl-hd-content-input')?.value.trim() || '';
+            const score = tr.querySelector('.tpl-hd-score-input')?.value.trim() || '';
+            if (content || score) {
+                editedRows.push({ content, score });
+            }
         });
+        const totalScore = document.getElementById('tpl-hd-total-score')?.value.trim() || '10';
+        return { editedRows, totalScore };
     };
 
     btnEditTplHD?.addEventListener('click', () => {
@@ -333,13 +415,10 @@ function bindEvents() {
 
     // Áp dụng các thay đổi vào bộ nhớ phiên làm việc hiện tại
     document.getElementById('btn-apply-template-hd')?.addEventListener('click', () => {
-        const editedMap = {};
-        document.querySelectorAll('.tpl-hd-paragraph-input').forEach(textarea => {
-            const pIndex = textarea.getAttribute('data-pindex');
-            editedMap[pIndex] = textarea.value;
-        });
+        const { editedRows, totalScore } = collectEditedTableData();
+        if (editedRows.length === 0) return alert("Vui lòng nhập ít nhất 1 hàng tiêu chí đánh giá!");
 
-        const ok = applyPhieuHDParagraphEdits(editedMap);
+        const ok = applyPhieuHDCriteriaTable(editedRows, totalScore);
         if (ok) {
             badgeModified?.classList.remove('d-none');
             if (modalEditTplEl && window.bootstrap) {
@@ -353,18 +432,14 @@ function bindEvents() {
 
     // Tải thử 1 bản xem trước Mẫu 4 đã chỉnh sửa
     document.getElementById('btn-preview-template-hd')?.addEventListener('click', async () => {
-        const editedMap = {};
-        document.querySelectorAll('.tpl-hd-paragraph-input').forEach(textarea => {
-            const pIndex = textarea.getAttribute('data-pindex');
-            editedMap[pIndex] = textarea.value;
-        });
+        const { editedRows, totalScore } = collectEditedTableData();
+        if (editedRows.length === 0) return alert("Vui lòng nhập ít nhất 1 hàng tiêu chí đánh giá!");
 
-        const ok = applyPhieuHDParagraphEdits(editedMap);
+        const ok = applyPhieuHDCriteriaTable(editedRows, totalScore);
         if (ok) {
             badgeModified?.classList.remove('d-none');
-            const meta = getSetupMetadata();
             if (typeof previewPhieuHDTemplate === 'function') {
-                await previewPhieuHDTemplate(meta);
+                await previewPhieuHDTemplate();
             }
         }
     });
@@ -380,7 +455,6 @@ function bindEvents() {
             }
         }
     });
-}
 
 function initKhoaNganhDropdowns() {
     const khoaSelect = document.getElementById('khoa-select');
