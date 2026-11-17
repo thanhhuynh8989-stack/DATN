@@ -52,9 +52,13 @@ export function extractPhieuHDParagraphs() {
     paragraphs.forEach((pNode, index) => {
         const tNodes = Array.from(pNode.getElementsByTagNameNS(wNS, 't'));
         const fullText = tNodes.map(t => t.textContent || '').join('');
-        // Chỉ lấy những đoạn có nội dung chữ để giao diện gọn gàng
         if (fullText.trim().length > 0) {
-            const isInTable = Boolean(pNode.closest('tc') || pNode.parentNode?.localName === 'tc');
+            let curr = pNode.parentNode;
+            let isInTable = false;
+            while (curr) {
+                if (curr.localName === 'tc') { isInTable = true; break; }
+                curr = curr.parentNode;
+            }
             items.push({
                 pIndex: index,
                 text: fullText,
@@ -65,6 +69,7 @@ export function extractPhieuHDParagraphs() {
 
     return items;
 }
+
 
 // Áp dụng các đoạn văn bản đã chỉnh sửa vào bản sao tạm thời templates.phieuHD (giữ nguyên font/style)
 export function applyPhieuHDParagraphEdits(editedMap) {
@@ -84,11 +89,12 @@ export function applyPhieuHDParagraphEdits(editedMap) {
         if (!pNode) return;
 
         const tNodes = Array.from(pNode.getElementsByTagNameNS(wNS, 't'));
-        if (tNodes.length > 0) {
-            // Giữ nguyên format của run đầu tiên, gán toàn bộ chuỗi đã sửa và giữ khoảng trắng
+        const oldText = tNodes.map(t => t.textContent || '').join('');
+
+        // Chỉ tác động vào XML nếu nội dung thực sự có thay đổi -> giữ nguyên run formatting các đoạn không sửa
+        if (tNodes.length > 0 && oldText !== newText) {
             tNodes[0].setAttribute('xml:space', 'preserve');
             tNodes[0].textContent = newText;
-            // Xóa nội dung các run phụ phía sau trong cùng đoạn để tránh lặp chữ
             for (let i = 1; i < tNodes.length; i++) {
                 tNodes[i].textContent = '';
             }
