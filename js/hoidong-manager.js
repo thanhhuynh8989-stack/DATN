@@ -16,17 +16,16 @@ export function initGlobalSortables() {
         });
     }
 
-    // Lắng nghe sự kiện click nút "+ Thêm SV" và "Xác nhận Gán" (Chỉ đăng ký 1 lần)
     initAddSVModalEvents();
 }
 
-// Export hàm 2: Tạo Box Hội Đồng mới
-export function createHoiDongBox(titleText = null, initDate = '', initTime = '17:00', initRoom = '', initLocation = '120 Hoàng Minh Thảo') {
+// Export hàm 2: Tạo Box Hội Đồng mới (Không tự gán Giờ và Cơ sở mặc định nếu không truyền vào)
+export function createHoiDongBox(titleText = null, initDate = '', initTime = '', initRoom = '', initLocation = '') {
     hoidongCount++;
     const hdTitle = titleText || `Hội Đồng ${hoidongCount}`;
     const boxId = `hd-box-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-    let formattedTime = initTime || '17:00';
+    let formattedTime = initTime || '';
     if (formattedTime.includes('h')) {
         const parts = formattedTime.split('h');
         formattedTime = `${parts[0].padStart(2, '0')}:${(parts[1] || '00').padStart(2, '0')}`;
@@ -40,9 +39,12 @@ export function createHoiDongBox(titleText = null, initDate = '', initTime = '17
         "K7/25 Quang Trung",
         "Phan Văn Trị"
     ];
-    const locationOptions = locations.map(loc => 
-        `<option value="${loc}" ${loc === initLocation ? 'selected' : ''}>${loc}</option>`
-    ).join('');
+    const locationOptions = [
+        `<option value="" ${!initLocation ? 'selected' : ''}>-- Chọn cơ sở --</option>`,
+        ...locations.map(loc => 
+            `<option value="${loc}" ${loc === initLocation ? 'selected' : ''}>${loc}</option>`
+        )
+    ].join('');
 
     const boxHTML = `
         <div class="box-hoidong p-2 mb-3 border rounded bg-white shadow-sm" id="${boxId}">
@@ -51,7 +53,7 @@ export function createHoiDongBox(titleText = null, initDate = '', initTime = '17
                 <input type="date" class="form-control form-control-sm hd-date" value="${initDate}" style="width: 125px;" title="Ngày bảo vệ">
                 <input type="time" class="form-control form-control-sm hd-time" value="${formattedTime}" style="width: 110px;" title="Giờ:Phút bảo vệ">
                 <input type="text" class="form-control form-control-sm hd-room" value="${initRoom}" placeholder="Phòng (111)" style="width: 105px;">
-                <select class="form-select form-select-sm hd-location" style="width: 150px;">
+                <select class="form-select form-select-sm hd-location" style="width: 155px;">
                     ${locationOptions}
                 </select>
                 <button type="button" class="btn btn-sm btn-outline-danger fw-bold ms-auto btn-delete-hd" title="Xóa Hội đồng này">✕ Xóa</button>
@@ -65,7 +67,6 @@ export function createHoiDongBox(titleText = null, initDate = '', initTime = '17
                 <div class="col-8">
                     <div class="d-flex justify-content-between align-items-center mb-1">
                         <small class="fw-bold">Sinh viên bảo vệ:</small>
-                        <!-- NÚT GÁN SV NHANH CHỐNG VI PHẠM -->
                         <button type="button" class="btn btn-outline-success btn-sm py-0 px-2 btn-open-add-sv" data-hd-id="${boxId}">
                             + Thêm SV
                         </button>
@@ -99,15 +100,15 @@ export function renderHoidongFromExcel(parsedHoidongs) {
         const boxId = createHoiDongBox(
             hd.soHD, 
             formattedDate, 
-            hd.gioBV || '17:00', 
+            hd.gioBV || '', 
             hd.phongBV || '', 
-            hd.diaDiemBV || '120 Hoàng Minh Thảo'
+            hd.diaDiemBV || ''
         );
 
         const boxEl = document.getElementById(boxId);
         if (!boxEl) return;
 
-        // 1. Render Giảng viên vào đúng chức danh theo Mã GV (bổ sung data-donvi & nút xóa ẩn)
+        // 1. Render Giảng viên vào đúng chức danh theo Mã GV
         hd.thanhVien.forEach(gv => {
             let roleName = "";
             if (gv.chucDanh.includes("Chủ tịch")) roleName = "Chủ tịch";
@@ -137,15 +138,17 @@ export function renderHoidongFromExcel(parsedHoidongs) {
             const hoTen = poolItem ? poolItem.getAttribute('data-name') : (sv.hoTenSV || sv.hoTen);
             const lop = poolItem ? poolItem.getAttribute('data-lop') : (sv.lop || '');
             const deTai = poolItem ? poolItem.getAttribute('data-detai') : (sv.deTai || '');
-            const gvhd = poolItem ? poolItem.getAttribute('data-gvhd') : '';
-            const nganh = poolItem ? poolItem.getAttribute('data-nganh') : (sv.nganh || '');
+            const maGVHD = poolItem ? (poolItem.getAttribute('data-magvhd') || '') : (sv.maGVHD || '');
+            const gvhd = poolItem ? (poolItem.getAttribute('data-gvhd') || '') : (sv.gvhd || '');
+            const nganh = poolItem ? (poolItem.getAttribute('data-nganh') || '') : (sv.nganh || '');
+            const maGVDisplay = maGVHD ? ` [${maGVHD}]` : '';
 
             const svHTML = `
                 <div class="card-item position-relative mb-2 p-2 pe-4 border rounded bg-white shadow-sm" 
-                     data-id="${sv.maSV}" data-name="${hoTen}" data-lop="${lop}" data-detai="${deTai}" data-gvhd="${gvhd}" data-nganh="${nganh}">
+                     data-id="${sv.maSV}" data-name="${hoTen}" data-lop="${lop}" data-detai="${deTai}" data-magvhd="${maGVHD}" data-gvhd="${gvhd}" data-nganh="${nganh}">
                     <button type="button" class="btn btn-sm btn-link text-danger text-decoration-none fw-bold position-absolute top-0 end-0 px-2 py-1 btn-remove-card" title="Xóa sinh viên này">✕</button>
                     <div class="fw-bold text-primary">${hoTen} (${sv.maSV})</div>
-                    <div class="text-muted small">Lớp: ${lop} | GVHD: <span class="fw-bold text-dark">${gvhd || 'Chưa rõ'}</span></div>
+                    <div class="text-muted small">Lớp: ${lop} | GVHD: <span class="fw-bold text-dark">${gvhd || 'Chưa rõ'}${maGVDisplay}</span></div>
                     <div class="text-dark small text-truncate" title="${deTai}">Đề tài: ${deTai}</div>
                 </div>`;
             
@@ -164,7 +167,6 @@ export function renderHoidongFromExcel(parsedHoidongs) {
 let targetBoxIdForAddSV = null;
 
 function initAddSVModalEvents() {
-    // Lắng nghe click mở Modal từ các box HĐ
     document.addEventListener('click', (e) => {
         const btnAdd = e.target.closest('.btn-open-add-sv');
         if (btnAdd) {
@@ -173,7 +175,6 @@ function initAddSVModalEvents() {
         }
     });
 
-    // Lắng nghe click nút "➕ Gán vào Hội đồng" trong Modal
     document.getElementById('btn-confirm-gan-sv')?.addEventListener('click', () => {
         if (!targetBoxIdForAddSV) return;
         const box = document.getElementById(targetBoxIdForAddSV);
@@ -203,12 +204,6 @@ function openSelectSVModal(boxId) {
     const titleEl = document.getElementById('modalGanSVTitle');
     if (titleEl) titleEl.innerText = `📋 CHỌN SINH VIÊN VÀO ${hdTitle.toUpperCase()}`;
 
-    // 1. Trích xuất TÊN các Giảng viên đang có trong Hội đồng này (Chủ tịch, Phản biện, Thư ký)
-    const activeGVNames = Array.from(box.querySelectorAll('.dropzone-gv .card-item'))
-                               .map(item => (item.getAttribute('data-name') || '').trim())
-                               .filter(name => name.length > 0);
-
-    // 2. Lấy danh sách SV còn trong Kho chờ (pool-sv)
     const poolSVItems = Array.from(document.querySelectorAll('#pool-sv .card-item'));
     const container = document.getElementById('list-sv-phu-hop');
     if (!container) return;
@@ -223,19 +218,21 @@ function openSelectSVModal(boxId) {
             const hoTen = svItem.getAttribute('data-name');
             const lop = svItem.getAttribute('data-lop');
             const deTai = svItem.getAttribute('data-detai');
+            const maGVHD = (svItem.getAttribute('data-magvhd') || '').trim();
             const gvhd = (svItem.getAttribute('data-gvhd') || '').trim();
 
-            // 3. LỌC CHỐNG VI PHẠM: GVHD của SV không được nằm trong danh sách GV đang thuộc HĐ này
-            const isConflicted = activeGVNames.some(gvName => gvName.toLowerCase() === gvhd.toLowerCase());
+            // LỌC CHỐNG VI PHẠM 2 LỚP: Kiểm tra bằng Mã GVHD trước -> dự phòng Tên chuẩn hóa
+            const isConflicted = Boolean(validateGVHDConflictWithHD(gvhd, box, maGVHD));
 
             if (!isConflicted) {
                 countAvailable++;
+                const maGVDisplay = maGVHD ? ` [${maGVHD}]` : '';
                 const itemHTML = `
                     <label class="list-group-item d-flex align-items-center gap-2 cursor-pointer">
                         <input class="form-check-input flex-shrink-0 chk-select-sv" type="checkbox" value="${maSV}">
                         <div class="w-100">
                             <div class="fw-bold text-primary mb-0">${hoTen} (${maSV})</div>
-                            <div class="small text-muted">Lớp: ${lop} | GVHD: <span class="fw-bold text-dark">${gvhd || 'Chưa rõ'}</span></div>
+                            <div class="small text-muted">Lớp: ${lop} | GVHD: <span class="fw-bold text-dark">${gvhd || 'Chưa rõ'}${maGVDisplay}</span></div>
                             <div class="small text-dark text-truncate">Đề tài: ${deTai}</div>
                         </div>
                     </label>`;
@@ -274,11 +271,12 @@ function attachSortableToHoiDong(boxId) {
         onAdd: function (evt) {
             const svCard = evt.item;
             const svName = svCard.getAttribute('data-name');
-            const gvhdName = svCard.getAttribute('data-gvhd');
+            const gvhdName = svCard.getAttribute('data-gvhd') || '';
+            const maGVHD = svCard.getAttribute('data-magvhd') || '';
 
-            const conflictedMember = validateGVHDConflictWithHD(gvhdName, box);
+            const conflictedMember = validateGVHDConflictWithHD(gvhdName, box, maGVHD);
             if (conflictedMember) {
-                alert(`⛔ VI PHẠM NGUYÊN TẮC: GVHD (${gvhdName}) đang làm thành viên HĐ (${conflictedMember}). Không thể xếp sinh viên ${svName} vào HĐ này!`);
+                alert(`⛔ VI PHẠM NGUYÊN TẮC: GVHD (${gvhdName || maGVHD}) đang làm thành viên HĐ (${conflictedMember}). Không thể xếp sinh viên ${svName} vào HĐ này!`);
                 evt.from.appendChild(svCard);
             }
         }
@@ -290,8 +288,8 @@ function attachSortableToHoiDong(boxId) {
             animation: 150,
             onAdd: function (evt) {
                 const item = evt.item;
-                const gvId = item.getAttribute('data-id');
-                const gvName = item.getAttribute('data-name');
+                const gvId = item.getAttribute('data-id') || '';
+                const gvName = item.getAttribute('data-name') || '';
                 const currBox = evt.to.closest('.box-hoidong');
 
                 if (evt.to.children.length > 1) evt.to.removeChild(evt.to.children[0]);
@@ -302,7 +300,7 @@ function attachSortableToHoiDong(boxId) {
                     item.remove(); return;
                 }
 
-                const violatedSVName = validateTeacherIsGVHDOfAnyStudent(gvName, currBox);
+                const violatedSVName = validateTeacherIsGVHDOfAnyStudent(gvName, currBox, gvId);
                 if (violatedSVName) {
                     alert(`⛔ VI PHẠM NGUYÊN TẮC: ${gvName} là GVHD của sinh viên ${violatedSVName} đang thuộc Hội đồng này!`);
                     item.remove(); return;
