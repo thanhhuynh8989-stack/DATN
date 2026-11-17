@@ -213,7 +213,7 @@ function bindEvents() {
         }
     });
 
-    // Xóa từng thẻ SV hoặc GV ở 2 khung Kho chờ
+    // 6. XÓA TỪNG THẺ SV HOẶC GV Ở 2 KHUNG KHO CHỜ
     document.addEventListener('click', (e) => {
         const btnRemove = e.target.closest('.btn-remove-card');
         if (btnRemove) {
@@ -222,6 +222,39 @@ function bindEvents() {
             if (card) card.remove();
         }
     });
+
+    // 7. ĐIỀU KHIỂN MODAL TIPS HƯỚNG DẪN THEO KHU VỰC & PHÍM TẮT F1
+    let lastActiveTipTab = 'tab-setup';
+    document.addEventListener('click', (e) => {
+        if (e.target.closest('#pool-sv') || e.target.closest('#pool-gv')) {
+            lastActiveTipTab = 'tab-pool';
+        } else if (e.target.closest('#workspace-hd')) {
+            lastActiveTipTab = 'tab-hd';
+        } else if (e.target.closest('.footer-section')) {
+            lastActiveTipTab = 'tab-export';
+        } else if (e.target.closest('.setup-fields-row') || e.target.closest('#btn-read-files')) {
+            lastActiveTipTab = 'tab-setup';
+        }
+    });
+
+    const tipsModalEl = document.getElementById('tipsModal');
+    if (tipsModalEl) {
+        tipsModalEl.addEventListener('show.bs.modal', () => {
+            const targetTabBtn = document.getElementById(lastActiveTipTab);
+            if (targetTabBtn && window.bootstrap) {
+                bootstrap.Tab.getOrCreateInstance(targetTabBtn).show();
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'F1') {
+                e.preventDefault();
+                if (window.bootstrap) {
+                    bootstrap.Modal.getOrCreateInstance(tipsModalEl).toggle();
+                }
+            }
+        });
+    }
 }
 
 function initKhoaNganhDropdowns() {
