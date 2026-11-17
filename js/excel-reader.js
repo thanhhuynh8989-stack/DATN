@@ -43,7 +43,6 @@ export function findNganhInfoByLop(lopStr) {
     const cleanLop = String(lopStr || '').toUpperCase().trim();
     if (!cleanLop || danhMucNganh.length === 0) return null;
 
-    // Tách các token chữ cái trong mã lớp (VD: "K27 CTP" -> ["K27", "CTP"])
     const tokens = cleanLop.split(/[^A-Z0-9]+/).filter(Boolean);
 
     // Ưu tiên khớp chính xác token (VD: "CTP" === "CTP")
@@ -90,13 +89,26 @@ export function readExcelFile(file) {
     });
 }
 
-// 5. Bóc tách Danh sách Sinh viên & Đề tài
+// 5. Bóc tách Danh sách Sinh viên & Đề tài (Tự động nhận diện cột Mã GVHD / Mã GV / Mã Giảng viên)
 export function parseSinhVienRows(rows) {
     let headerIdx = -1;
     let detectedNganhFromHeader = '';
+    let colMap = {
+        maSV: 1,
+        hoDem: -1,
+        ten: -1,
+        hoTen: 2,
+        lop: 3,
+        deTai: 4,
+        gvhd: 5,
+        maGVHD: -1,
+        nganh: -1
+    };
+    let hasCustomColMap = false;
 
     for (let i = 0; i < Math.min(rows.length, 15); i++) {
-        const rowStr = (rows[i] || []).join(' ').trim();
+        const row = rows[i] || [];
+        const rowStr = row.join(' ').trim();
         const upperStr = rowStr.toUpperCase();
 
         const nganhMatch = rowStr.match(/NGÀNH\s*[:\-]\s*([^\n\r]+)/i);
@@ -104,8 +116,44 @@ export function parseSinhVienRows(rows) {
             detectedNganhFromHeader = nganhMatch[1].trim().toUpperCase();
         }
 
-        if (upperStr.includes('MSSV') || upperStr.includes('MÃ SỐ SV')) {
+        if (upperStr.includes('MSSV') || upperStr.includes('MÃ SỐ SV') || upperStr.includes('MÃ SV')) {
             headerIdx = i;
+            hasCustomColMap = true;
+
+            row.forEach((cellVal, cIdx) => {
+                const h = String(cellVal || '').toUpperCase().replace(/\s+/g, ' ').trim();
+                if (!h) return;
+
+                if (h.includes('MSSV') || h.includes('MÃ SỐ SV') || h.includes('MÃ SV')) {
+                    colMap.maSV = cIdx;
+                } else if (h === 'HỌ' || h.includes('HỌ ĐỆM') || h.includes('HỌ VÀ TÊN ĐỆM')) {
+                    colMap.hoDem = cIdx;
+                } else if (h === 'TÊN') {
+                    colMap.ten = cIdx;
+                } else if (h.includes('HỌ VÀ TÊN') || h.includes('HỌ TÊN')) {
+                    colMap.hoTen = cIdx;
+                } else if (h.includes('LỚP') || h.includes('KHÓA')) {
+                    colMap.lop = cIdx;
+                } else if (h.includes('ĐỀ TÀI')) {
+                    colMap.deTai = cIdx;
+                } else if (
+                    h.includes('MÃ GV') ||
+                    h.includes('MÃ SỐ GV') ||
+                    h.includes('MÃ GIẢNG VIÊN') ||
+                    h.includes('MÃ SỐ GIẢNG VIÊN')
+                ) {
+                    colMap.maGVHD = cIdx;
+                } else if (
+                    h.includes('GVHD') ||
+                    h.includes('GIẢNG VIÊN HƯỚNG DẪN') ||
+                    h.includes('GV HƯỚNG DẪN') ||
+                    h.includes('HƯỚNG DẪN')
+                ) {
+                    colMap.gvhd = cIdx;
+                } else if (h.includes('NGÀNH')) {
+                    colMap.nganh = cIdx;
+                }
+            });
             break;
         }
     }
@@ -115,30 +163,45 @@ export function parseSinhVienRows(rows) {
 
     rows.forEach((row, idx) => {
         if (idx < startRow || !row || row.length === 0) return;
-        const maSV = String(row[1] || '').trim();
-        if (!maSV || maSV.toUpperCase().includes('MSSV')) return;
+        const maSV = String(row[colMap.maSV] || '').trim();
+        if (!maSV || maSV.toUpperCase().includes('MSSV') || maSV.toUpperCase().includes('MÃ')) return;
 
-        const col2 = String(row[2] || '').trim();
-        const col3 = String(row[3] || '').trim();
-        let hoTen = '', lop = '', deTai = '', gvhd = '', nganhCol = '';
+        let hoTen = '', lop = '', deTai = '', gvhd = '', maGVHD = '', nganhCol = '';
 
-        if (col3 && !col3.startsWith('K2') && !col3.startsWith('K1') && !col3.startsWith('K3')) {
-            hoTen = `${col2} ${col3}`.trim();
-            lop = String(row[4] || '').trim();
-            deTai = String(row[5] || '').trim();
-            gvhd = String(row[6] || '').trim();
-            nganhCol = String(row[7] || '').trim().toUpperCase();
+        if (hasCustomColMap) {
+            if (colMap.hoDem >= 0 && colMap.ten >= 0) {
+                hoTen = `${String(row[colMap.hoDem] || '').trim()} ${String(row[colMap.ten] || '').trim()}`.trim();
+            } else {
+                hoTen = String(row[colMap.hoTen] || '').trim();
+            }
+            lop = String(row[colMap.lop] || '').trim();
+            deTai = String(row[colMap.deTai] || '').trim();
+            gvhd = String(row[colMap.gvhd] || '').trim();
+            maGVHD = colMap.maGVHD >= 0 ? String(row[colMap.maGVHD] || '').trim() : '';
+            nganhCol = colMap.nganh >= 0 ? String(row[colMap.nganh] || '').trim().toUpperCase() : '';
         } else {
-            hoTen = col2;
-            lop = col3;
-            deTai = String(row[4] || '').trim();
-            gvhd = String(row[5] || '').trim();
-            nganhCol = String(row[6] || '').trim().toUpperCase();
+            // Dự phòng nếu file không có dòng tiêu đề chuẩn
+            const col2 = String(row[2] || '').trim();
+            const col3 = String(row[3] || '').trim();
+            if (col3 && !col3.startsWith('K2') && !col3.startsWith('K1') && !col3.startsWith('K3')) {
+                hoTen = `${col2} ${col3}`.trim();
+                lop = String(row[4] || '').trim();
+                deTai = String(row[5] || '').trim();
+                gvhd = String(row[6] || '').trim();
+                maGVHD = String(row[7] || '').trim();
+            } else {
+                hoTen = col2;
+                lop = col3;
+                deTai = String(row[4] || '').trim();
+                gvhd = String(row[5] || '').trim();
+                maGVHD = String(row[6] || '').trim();
+            }
         }
 
         const nganh = nganhCol || detectedNganhFromHeader || detectNganhFromLop(lop);
-        result.push({ maSV, hoTen, lop, deTai, gvhd, nganh });
+        result.push({ maSV, hoTen, lop, deTai, maGVHD, gvhd, nganh });
     });
+
     return result;
 }
 
@@ -159,10 +222,10 @@ export function parseGiangVienRows(rows) {
     return result;
 }
 
-// 7. Hàm phụ trợ bóc tách Giờ, Ngày, Phòng, Cơ sở từ chuỗi thời gian & địa điểm
+// 7. Hàm phụ trợ bóc tách Giờ, Ngày, Phòng, Cơ sở từ chuỗi thời gian & địa điểm (Không tự gán mặc định)
 function extractScheduleAndPlace(rawStr) {
     const text = String(rawStr || '').trim();
-    let gio = '17:00';
+    let gio = '';
     let ngay = '';
     let phong = '';
     let diaDiem = '';
@@ -207,7 +270,7 @@ function extractScheduleAndPlace(rawStr) {
 export function parseHoiDongRows(rows) {
     const hoidongs = {};
     let currentHD = null;
-    let defaultHeaderPlace = { gio: '17:00', ngay: '', phong: '', diaDiem: '' };
+    let defaultHeaderPlace = { gio: '', ngay: '', phong: '', diaDiem: '' };
 
     for (let i = 0; i < Math.min(rows.length, 8); i++) {
         const rowStr = (rows[i] || []).join(' ');
@@ -255,10 +318,10 @@ export function parseHoiDongRows(rows) {
                 const parsedInfo = extractScheduleAndPlace(ngayBV);
                 hoidongs[currentHD] = {
                     soHD: `Hội Đồng ${currentHD}`,
-                    ngayBV: parsedInfo.ngay || defaultHeaderPlace.ngay,
-                    gioBV: parsedInfo.gio || defaultHeaderPlace.gio || '17:00',
-                    phongBV: parsedInfo.phong || defaultHeaderPlace.phong,
-                    diaDiemBV: parsedInfo.diaDiem || defaultHeaderPlace.diaDiem || '120 Hoàng Minh Thảo',
+                    ngayBV: parsedInfo.ngay || defaultHeaderPlace.ngay || '',
+                    gioBV: parsedInfo.gio || defaultHeaderPlace.gio || '',
+                    phongBV: parsedInfo.phong || defaultHeaderPlace.phong || '',
+                    diaDiemBV: parsedInfo.diaDiem || defaultHeaderPlace.diaDiem || '',
                     thanhVien: [],
                     sinhViens: []
                 };
