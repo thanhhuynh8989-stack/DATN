@@ -315,36 +315,23 @@
 
 <!-- MODAL CHỈNH SỬA TẠM THỜI MẪU 4. PHIẾU HỘI ĐỒNG -->
 <div class="modal fade" id="modalEditTemplateHD" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-dark text-white py-2">
-                <h6 class="modal-title fw-bold">✏️ CHỈNH SỬA TẠM THỜI MẪU 4. PHIẾU CHẤM HỘI ĐỒNG (PHIÊN HIỆN TẠI)</h6>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h6 class="modal-title fw-bold">✏️ CHỈNH SỬA TẠM THỜI MẪU 4. PHIẾU HỘI ĐỒNG (PHIÊN HIỆN TẠI)</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-
-            <div class="modal-body p-3 bg-light">
-                <div class="alert alert-warning py-2 small mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <div>
-                        <strong>Lưu ý quan trọng:</strong> Giữ nguyên các thẻ biến nằm trong dấu ngoặc nhọn <code>{{...}}</code> (như <code>{{HỌ_VÀ_TÊN}}</code>, <code>{{MÃ_SỐ_SV}}</code>, <code>{{TÊN_ĐỀ_TÀI_ĐỒ_ÁN_TỐT_NGHIỆP}}</code>, <code>{{Ghi tên thành viên HĐ tại đây}}</code>) để hệ thống tự điền dữ liệu. Mọi chỉnh sửa chỉ áp dụng cho phiên làm việc này.
-                    </div>
-                    <button type="button" id="btn-preview-template-hd" class="btn btn-outline-dark btn-sm fw-bold flex-shrink-0">
-                        ⬇️ Tải file mẫu 4 hiện tại
-                    </button>
+            <div class="modal-body bg-light p-3">
+                <div class="alert alert-warning py-2 small mb-2">
+                    <strong>Lưu ý:</strong> Thay đổi chỉ áp dụng cho phiên làm việc hiện tại (tải lại trang sẽ về mẫu gốc). Giữ nguyên các thẻ biến dạng <code>{{...}}</code> nếu có để hệ thống tự điền thông tin.
                 </div>
-
-                <!-- Danh sách các đoạn văn bản trích xuất từ 4_Phieu_Hoi_Dong.docx -->
                 <div id="template-hd-editor-list" class="d-flex flex-column gap-2"></div>
             </div>
-
             <div class="modal-footer py-2 justify-content-between">
-                <button type="button" id="btn-reset-template-hd" class="btn btn-outline-danger btn-sm fw-bold">
-                    ↺ Khôi phục mẫu gốc ban đầu
-                </button>
+                <button type="button" id="btn-reset-template-hd" class="btn btn-outline-danger btn-sm fw-bold">🔄 Khôi phục mẫu gốc</button>
                 <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Đóng</button>
-                    <button type="button" id="btn-apply-template-hd" class="btn btn-primary btn-sm fw-bold px-3">
-                        💾 Áp dụng cho phiên này
-                    </button>
+                    <button type="button" id="btn-preview-template-hd" class="btn btn-outline-primary btn-sm fw-bold">👁️ Tải thử bản xem trước</button>
+                    <button type="button" id="btn-apply-template-hd" class="btn btn-success btn-sm fw-bold px-3">✅ Áp dụng cho phiên này</button>
                 </div>
             </div>
         </div>
