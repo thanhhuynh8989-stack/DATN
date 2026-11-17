@@ -8,6 +8,8 @@ import {
     loadDanhSachNganhSilently, danhMucNganh, findNganhInfoByLop 
 } from './excel-reader.js';
 
+window.studentScores = window.studentScores || {};
+
 document.addEventListener("DOMContentLoaded", async () => {
     try {
         await Promise.all([
@@ -57,9 +59,28 @@ function bindEvents() {
         }
 
         try {
+            // Nạp Kho Giảng viên trước (nếu có) để hỗ trợ đối chiếu Mã GVHD cho Sinh viên
+            let gvMapById = {};
+            if (fileGV) {
+                const rows = await readExcelFile(fileGV);
+                const gvList = parseGiangVienRows(rows);
+                gvList.forEach(gv => {
+                    if (gv.maGV) gvMapById[gv.maGV.toUpperCase()] = gv.hoTenGV;
+                });
+                renderGiangVienPool(gvList);
+            }
+
             if (fileSV) {
                 const rows = await readExcelFile(fileSV);
                 const svList = parseSinhVienRows(rows);
+
+                // Bù tên GVHD từ Kho GV nếu file SV chỉ nhập Mã GVHD
+                svList.forEach(sv => {
+                    if (!sv.gvhd && sv.maGVHD && gvMapById[sv.maGVHD.toUpperCase()]) {
+                        sv.gvhd = gvMapById[sv.maGVHD.toUpperCase()];
+                    }
+                });
+
                 renderSinhVienPool(svList);
 
                 // Tự động chọn đúng Khoa & Ngành trên thanh cài đặt dựa vào mã lớp SV
@@ -68,11 +89,7 @@ function bindEvents() {
                     window.syncKhoaNganhFromLop(firstSVWithLop.lop);
                 }
             }
-            if (fileGV) {
-                const rows = await readExcelFile(fileGV);
-                const gvList = parseGiangVienRows(rows);
-                renderGiangVienPool(gvList);
-            }
+
             if (fileHD) {
                 const rows = await readExcelFile(fileHD);
                 const parsedHoidongs = parseHoiDongRows(rows);
@@ -137,7 +154,15 @@ function bindEvents() {
             const diemPB = tr.querySelector('.input-diem-pb')?.value || '';
             const diemTK = tr.querySelector('.input-diem-tk')?.value || '';
 
-            // Lưu điểm vào thuộc tính HTML của thẻ Sinh viên trong DOM
+            // Đồng bộ lưu điểm vào cả window.studentScores lẫn thuộc tính DOM của thẻ SV
+            window.studentScores[maSV] = {
+                ...(window.studentScores[maSV] || {}),
+                gvhd: diemGVHD,
+                ct: diemCT,
+                pb: diemPB,
+                tk: diemTK
+            };
+
             const svCard = document.querySelector(`.dropzone-sv .card-item[data-id="${maSV}"]`);
             if (svCard) {
                 svCard.setAttribute('data-diem-gvhd', diemGVHD);
@@ -147,7 +172,6 @@ function bindEvents() {
             }
         });
 
-        // Ẩn Modal sau khi lưu
         const modalEl = document.getElementById('modalNhapDiem');
         const modalInstance = bootstrap.Modal.getInstance(modalEl);
         modalInstance?.hide();
@@ -217,7 +241,7 @@ function bindEvents() {
     document.addEventListener('click', (e) => {
         const btnRemove = e.target.closest('.btn-remove-card');
         if (btnRemove) {
-            e.stopPropagation(); // Tránh kích hoạt sự kiện kéo/click khác của thẻ
+            e.stopPropagation();
             const card = btnRemove.closest('.card-item');
             if (card) card.remove();
         }
@@ -268,13 +292,11 @@ function initKhoaNganhDropdowns() {
         return;
     }
 
-    // Lấy danh sách Khoa duy nhất
     const uniqueKhoas = [...new Set(danhMucNganh.map(item => item.khoa))];
     khoaSelect.innerHTML = uniqueKhoas
         .map(k => `<option value="${k}">${k}</option>`)
         .join('');
 
-    // Hàm cập nhật danh sách Ngành theo Khoa đang chọn
     const updateNganhOptions = (selectedKhoa, preselectNganh = '') => {
         const filteredNganhs = danhMucNganh.filter(item => item.khoa === selectedKhoa);
         nganhSelect.innerHTML = filteredNganhs
@@ -289,15 +311,12 @@ function initKhoaNganhDropdowns() {
         }
     };
 
-    // Khởi tạo danh sách Ngành cho Khoa đầu tiên
     updateNganhOptions(khoaSelect.value);
 
-    // Lắng nghe sự kiện đổi Khoa -> tự động lọc lại danh sách Ngành
     khoaSelect.addEventListener('change', () => {
         updateNganhOptions(khoaSelect.value);
     });
 
-    // Lưu helper lên window để dùng khi nạp file Excel SV tự động nhảy đúng Khoa/Ngành
     window.syncKhoaNganhFromLop = (lopStr) => {
         const info = findNganhInfoByLop(lopStr);
         if (info) {
@@ -337,12 +356,19 @@ function renderSinhVienPool(svList) {
     pool.innerHTML = '';
 
     svList.forEach(sv => {
+        const maGVDisplay = sv.maGVHD ? ` [${sv.maGVHD}]` : '';
         const cardHTML = `
             <div class="card-item position-relative mb-2 p-2 pe-4 border rounded bg-white shadow-sm" 
-                 data-id="${sv.maSV}" data-name="${sv.hoTen}" data-lop="${sv.lop}" data-detai="${sv.deTai}" data-gvhd="${sv.gvhd}" data-nganh="${sv.nganh || ''}">
+                 data-id="${sv.maSV}" 
+                 data-name="${sv.hoTen}" 
+                 data-lop="${sv.lop}" 
+                 data-detai="${sv.deTai}" 
+                 data-magvhd="${sv.maGVHD || ''}" 
+                 data-gvhd="${sv.gvhd || ''}" 
+                 data-nganh="${sv.nganh || ''}">
                 <button type="button" class="btn btn-sm btn-link text-danger text-decoration-none fw-bold position-absolute top-0 end-0 px-2 py-1 btn-remove-card" title="Xóa sinh viên này">✕</button>
                 <div class="fw-bold text-primary">${sv.hoTen} (${sv.maSV})</div>
-                <div class="text-muted small">Lớp: ${sv.lop} | GVHD: <span class="fw-bold text-dark">${sv.gvhd || 'Chưa rõ'}</span></div>
+                <div class="text-muted small">Lớp: ${sv.lop} | GVHD: <span class="fw-bold text-dark">${sv.gvhd || 'Chưa rõ'}${maGVDisplay}</span></div>
                 <div class="text-dark small text-truncate" title="${sv.deTai}">Đề tài: ${sv.deTai}</div>
             </div>`;
         pool.insertAdjacentHTML('beforeend', cardHTML);
@@ -365,6 +391,7 @@ function renderGiangVienPool(gvList) {
         pool.insertAdjacentHTML('beforeend', cardHTML);
     });
 }
+
 function collectExportData(meta, includeEmptyHD = false) {
     const exportData = [];
 
@@ -429,15 +456,14 @@ function collectExportData(meta, includeEmptyHD = false) {
                     lop: svEl.getAttribute('data-lop') || '',
                     de_tai: svEl.getAttribute('data-detai') || '',
                     gvhd: svEl.getAttribute('data-gvhd') || '',
-                    diem_gvhd: scoreObj.gvhd ?? '',
-                    diem_ct: scoreObj.ct ?? '',
-                    diem_pb: scoreObj.pb ?? '',
-                    diem_tk: scoreObj.tk ?? '',
+                    diem_gvhd: scoreObj.gvhd ?? svEl.getAttribute('data-diem-gvhd') ?? '',
+                    diem_ct: scoreObj.ct ?? svEl.getAttribute('data-diem-ct') ?? '',
+                    diem_pb: scoreObj.pb ?? svEl.getAttribute('data-diem-pb') ?? '',
+                    diem_tk: scoreObj.tk ?? svEl.getAttribute('data-diem-tk') ?? '',
                     diem_chu: scoreObj.chu ?? ''
                 });
             });
         } else if (includeEmptyHD) {
-            // Hội đồng chưa có sinh viên nhưng vẫn xuất khung Hội đồng & Giảng viên
             exportData.push({
                 ...baseHD,
                 ho_ten: '',
