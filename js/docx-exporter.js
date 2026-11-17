@@ -76,3 +76,12 @@ export async function exportWordZIP(exportData, meta = {}) {
     const zipContent = await zip.generateAsync({ type: "blob" });
     saveAs(zipContent, "Ho_So_Hoi_Dong_DATN.zip");
 }
+
+// Bổ sung vào cuối file js/docx-exporter.js
+export function previewPhieuHDTemplate() {
+    if (!templates.phieuHD) return alert("Chưa nạp được mẫu 4. Phiếu Hội đồng!");
+    const blob = new Blob([templates.phieuHD], {
+        type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    });
+    saveAs(blob, "4_Phieu_Hoi_Dong_Phien_Hien_Tai.docx");
+}
