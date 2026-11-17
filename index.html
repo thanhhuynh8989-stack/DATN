@@ -219,5 +219,92 @@
     <script src="lib/docxtemplater.js"></script>
     <script src="lib/FileSaver.min.js"></script>
     <script type="module" src="js/main.js"></script>
+
+    <!-- NÚT NỔI TIPS HƯỚNG DẪN SỬ DỤNG -->
+<button type="button" id="btn-app-tips" class="btn btn-warning rounded-circle shadow-lg d-flex align-items-center justify-content-center" 
+        data-bs-toggle="modal" data-bs-target="#tipsModal" title="Hướng dẫn & Mẹo sử dụng từng khu vực">
+    <span style="font-size: 1.25rem;">💡</span>
+</button>
+
+<!-- MODAL HƯỚNG DẪN TỪNG KHU VỰC GIAO DIỆN -->
+<div class="modal fade" id="tipsModal" tabindex="-1" aria-labelledby="tipsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-primary text-white py-2">
+                <h6 class="modal-title fw-bold" id="tipsModalLabel">💡 HƯỚNG DẪN & MẸO SỬ DỤNG THEO TỪNG KHU VỰC</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <div class="modal-body p-3">
+                <!-- Thanh Tab chuyển nhanh từng giao diện -->
+                <ul class="nav nav-pills nav-fill mb-3 gap-1 bg-light p-1 rounded border" id="tipsTab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active btn-sm fw-bold py-1" id="tab-setup" data-bs-toggle="pill" data-bs-target="#pane-setup" type="button" role="tab">1. Cài đặt & Nạp file</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link btn-sm fw-bold py-1" id="tab-pool" data-bs-toggle="pill" data-bs-target="#pane-pool" type="button" role="tab">2. Kho SV & GV</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link btn-sm fw-bold py-1" id="tab-hd" data-bs-toggle="pill" data-bs-target="#pane-hd" type="button" role="tab">3. Lập Hội đồng</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link btn-sm fw-bold py-1" id="tab-export" data-bs-toggle="pill" data-bs-target="#pane-export" type="button" role="tab">4. Nhập điểm & Xuất</button>
+                    </li>
+                </ul>
+
+                <!-- Nội dung chi tiết từng Tab -->
+                <div class="tab-content" id="tipsTabContent">
+                    <!-- TAB 1: CÀI ĐẶT & NẠP FILE -->
+                    <div class="tab-pane fade show active" id="pane-setup" role="tabpanel">
+                        <div class="alert alert-info py-2 small mb-2">
+                            <strong>Tự động nhận diện Ngành:</strong> Khi bạn tải file <em>Danh sách SV & Đề tài</em>, hệ thống tự đọc mã lớp (VD: <code>K27 CTP</code>) để tự nhảy đúng <strong>Khoa</strong> và <strong>Ngành</strong> tương ứng.
+                        </div>
+                        <ul class="list-group list-group-flush small">
+                            <li class="list-group-item px-0"><strong>Số Quyết định & Ngày ký QĐ:</strong> Chỉ cần nhập phần số (VD: <code>2071</code>), đuôi <code>/QĐ-ĐHDT-HĐTN</code> được gắn tự động. Nếu để trống khi xuất Excel, hệ thống tự thay bằng dòng dấu chấm (<code>................</code>) để điền tay sau.</li>
+                            <li class="list-group-item px-0"><strong>Nạp lại DS Hội đồng cũ:</strong> Bạn có thể tải lên file <code>Danh_Sach_Hoi_Dong_Da_Lap.xlsx</code> ở ô <em>DS Hội Đồng (Tùy chọn)</em> để khôi phục nhanh toàn bộ hội đồng đã xếp trước đó và tự động loại bỏ các SV đã xếp khỏi kho chờ.</li>
+                            <li class="list-group-item px-0"><strong>File mẫu:</strong> Bấm nút <span class="badge bg-secondary">File mẫu</span> cạnh từng ô chọn file nếu cần tải cấu trúc cột chuẩn.</li>
+                        </ul>
+                    </div>
+
+                    <!-- TAB 2: KHO SV & KHO GV -->
+                    <div class="tab-pane fade" id="pane-pool" role="tabpanel">
+                        <ul class="list-group list-group-flush small">
+                            <li class="list-group-item px-0"><strong>Kéo & Thả (Drag & Drop):</strong> Kéo thẻ Giảng viên từ <em>Kho Giảng viên</em> thả vào 1 trong 3 vị trí (<strong>Chủ tịch, Phản biện, Thư ký</strong>). Kéo thẻ Sinh viên từ <em>Sinh viên chờ phân công</em> thả vào khung <strong>Sinh viên bảo vệ</strong>.</li>
+                            <li class="list-group-item px-0"><strong>Nhân bản Giảng viên:</strong> Một Giảng viên có thể tham gia nhiều Hội đồng khác nhau — khi kéo GV vào Hội đồng, thẻ gốc ở Kho vẫn được giữ nguyên để tiếp tục phân công cho Hội đồng khác.</li>
+                            <li class="list-group-item px-0"><strong>Xóa nhanh khỏi kho chờ:</strong> Bấm dấu <span class="text-danger fw-bold">✕</span> góc trên bên phải mỗi thẻ SV/GV để loại bỏ những người không tham gia đợt bảo vệ này. (Nút ✕ tự ẩn khi thẻ đã nằm trong Hội đồng).</li>
+                        </ul>
+                    </div>
+
+                    <!-- TAB 3: KHU VỰC HỘI ĐỒNG -->
+                    <div class="tab-pane fade" id="pane-hd" role="tabpanel">
+                        <div class="alert alert-warning py-2 small mb-2">
+                            <strong>Mẹo dùng trên Điện thoại:</strong> Thay vì kéo thả trên màn hình nhỏ, hãy bấm nút <span class="badge bg-success">+ Thêm SV</span> ngay trong từng Hội đồng để mở danh sách chọn nhanh.
+                        </div>
+                        <ul class="list-group list-group-flush small">
+                            <li class="list-group-item px-0"><strong>Tự động lọc trùng GVHD:</strong> Khi bấm <code>+ Thêm SV</code>, hệ thống tự động ẩn những sinh viên có <strong>GVHD trùng với Chủ tịch, Phản biện hoặc Thư ký</strong> của Hội đồng đó để tránh vi phạm quy chế chấm.</li>
+                            <li class="list-group-item px-0"><strong>Thời gian & Địa điểm:</strong> Chọn đủ <em>Ngày, Giờ, Phòng, Cơ sở</em> cho từng Hội đồng. Các Hội đồng trùng <strong>Buổi + Phòng + Cơ sở</strong> sẽ được tự động gom chung vào 1 Sheet khi xuất Bảng điểm.</li>
+                            <li class="list-group-item px-0"><strong>Trả SV về lại kho chờ:</strong> Bạn có thể kéo trực tiếp thẻ SV từ khung <em>Sinh viên bảo vệ</em> thả ngược lại cột <em>Sinh viên chờ phân công</em>.</li>
+                        </ul>
+                    </div>
+
+                    <!-- TAB 4: NHẬP ĐIỂM & XUẤT HỒ SƠ -->
+                    <div class="tab-pane fade" id="pane-export" role="tabpanel">
+                        <ul class="list-group list-group-flush small">
+                            <li class="list-group-item px-0"><strong>📝 Nhập điểm:</strong> Cho phép nhập trực tiếp điểm GVHD (30%), Chủ tịch, Phản biện, Thư ký và điểm chữ ngay trên web trước khi xuất Bảng điểm.</li>
+                            <li class="list-group-item px-0"><strong>📦 Hồ sơ HĐ (.ZIP):</strong> Tạo thư mục riêng cho từng SV gồm đầy đủ 6 file Word (<em>Biên bản bảo vệ, Phiếu GVHD, Phiếu GVPB, và 3 Phiếu chấm riêng tên từng thành viên HĐ</em>).</li>
+                            <li class="list-group-item px-0"><strong>📊 Bảng điểm KQ:</strong> Xuất file Excel tự động tách Sheet theo <code>Buổi_Phòng_CơSở</code>, nối liền các HĐ cùng buổi và cài sẵn công thức tính điểm tổng kết.</li>
+                            <li class="list-group-item px-0"><strong>📋 DS Hội đồng & 📑 DS Phản biện:</strong> Xuất độc lập đúng chuẩn biểu mẫu Đại học Duy Tân. Riêng <em>DS Hội đồng</em> có thể xuất ngay cả khi chưa gán SV vào hội đồng.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer py-2 bg-light justify-content-between">
+                <span class="text-muted small">Mẹo: Nhấn phím <strong>F1</strong> bất kỳ lúc nào để mở nhanh bảng hướng dẫn này.</span>
+                <button type="button" class="btn btn-primary btn-sm px-3 fw-bold" data-bs-dismiss="modal">Đã hiểu</button>
+            </div>
+        </div>
+    </div>
+</div>
 </body>
 </html>
