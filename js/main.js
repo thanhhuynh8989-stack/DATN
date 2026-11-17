@@ -8,6 +8,12 @@ import {
     loadDanhSachNganhSilently, danhMucNganh, findNganhInfoByLop 
 } from './excel-reader.js';
 
+import { 
+    loadTemplatesSilently, templates, 
+    extractPhieuHDParagraphs, applyPhieuHDParagraphEdits, resetPhieuHDToOriginal 
+} from './templates.js';
+import { exportWordZIP, previewPhieuHDTemplate } from './docx-exporter.js';
+
 window.studentScores = window.studentScores || {};
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -260,6 +266,68 @@ function bindEvents() {
             lastActiveTipTab = 'tab-setup';
         }
     });
+
+    // 8. CHỈNH SỬA TẠM THỜI MẪU 4. PHIẾU HỘI ĐỒNG THEO PHIÊN LÀM VIỆC
+    const btnEditTplHD = document.getElementById('btn-edit-template-hd');
+    const modalEditTplEl = document.getElementById('modalEditTemplateHD');
+    const badgeModified = document.getElementById('badge-template-hd-modified');
+
+    const renderTemplateHDEditor = () => {
+        const listContainer = document.getElementById('template-hd-editor-list');
+        if (!listContainer) return;
+        listContainer.innerHTML = '';
+
+        const paragraphs = extractPhieuHDParagraphs();
+        if (paragraphs.length === 0) {
+            listContainer.innerHTML = '<div class="text-danger text-center py-3">Không đọc được nội dung file 4_Phieu_Hoi_Dong.docx!</div>';
+            return;
+        }
+
+        paragraphs.forEach((item, idx) => {
+            const hasPlaceholder = item.text.includes('{{') && item.text.includes('}}');
+            const badgeType = item.isInTable
+                ? '<span class="badge bg-info text-dark">Ô bảng</span>'
+                : '<span class="badge bg-secondary">Đoạn văn</span>';
+            const badgeVar = hasPlaceholder
+                ? '<span class="badge bg-warning text-dark">Chứa biến {{...}}</span>'
+                : '';
+
+            const rowHTML = `
+                <div class="bg-white p-2 rounded border shadow-sm">
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <span class="fw-bold text-muted small">#${idx + 1}</span>
+                        ${badgeType}
+                        ${badgeVar}
+                    </div>
+                    <textarea class="form-control form-control-sm tpl-hd-paragraph-input font-monospace" 
+                              data-pindex="${item.pIndex}" 
+                              rows="${item.text.length > 95 ? 2 : 1}">${item.text}</textarea>
+                </div>
+            `;
+            listContainer.insertAdjacentHTML('beforeend', rowHTML);
+        });
+    };
+
+    btnEditTplHD?.addEventListener('click', () => {
+        renderTemplateHDEditor();
+        if (modalEditTplEl && window.bootstrap) {
+            bootstrap.Modal.getOrCreateInstance(modalEditTplEl).show();
+        }
+    });
+
+    // Áp dụng các thay đổi vào bộ nhớ phiên làm việc hiện tại
+    document.getElementById('btn-apply-template-hd')?.addEventListener('click', () => {
+        const editedMap = {};
+        document.querySelectorAll('.tpl-hd-paragraph-input').forEach(textarea => {
+            const pIndex = textarea.getAttribute('data-pindex');
+            editedMap[pIndex] = textarea.value;
+        });
+
+        const ok = applyPhieuHDParagraphEdits(editedMap);
+        if (ok) {
+            badgeModified?.classList.remove('d-none');
+            if (modalEditTplEl && window.bootstrap) {
+                
 
     const tipsModalEl = document.getElementById('tipsModal');
     if (tipsModalEl) {
