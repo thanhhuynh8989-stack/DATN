@@ -4,17 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Hệ Thống Quản Lý Hội Đồng ĐATN</title>
-    <button type="button" id="btn-open-admin" class="btn btn-outline-light btn-sm fw-bold ms-auto" title="Cài đặt quản trị hệ thống">
-        ⚙️ Admin
-    </button>
+    
     <link rel="stylesheet" href="lib/bootstrap.min.css">
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body class="bg-light">
     <div class="app-container">
         
-        <!-- TIÊU ĐỀ -->
-        <h4 class="text-center fw-bold text-primary mb-1 setup-section app-title">PHẦN MỀM XUẤT HỒ SƠ & BẢNG ĐIỂM HỘI ĐỒNG</h4>
+        <!-- TIÊU ĐỀ CÙNG DÒNG VỚI NÚT ADMIN -->
+        <div class="d-flex align-items-center justify-content-between position-relative mb-1 setup-section">
+            <div style="width: 85px;" class="d-none d-sm-block"></div>
+            <h4 class="text-center fw-bold text-primary mb-0 app-title flex-grow-1">
+                PHẦN MỀM XUẤT HỒ SƠ & BẢNG ĐIỂM HỘI ĐỒNG
+            </h4>
+            <button type="button" id="btn-open-admin" class="btn btn-outline-secondary btn-sm fw-bold flex-shrink-0 ms-2" title="Cài đặt quản trị hệ thống">
+                ⚙️ Admin
+            </button>
+        </div>
 
         <!-- KHU VỰC 1: SETUP THÔNG TIN & TẢI FILE EXCEL -->
         <div class="card mb-1 shadow-sm border-0 setup-section">
