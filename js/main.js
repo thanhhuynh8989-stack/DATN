@@ -6,9 +6,13 @@ import {
     loadDanhSachNganhSilently, danhMucNganh, findNganhInfoByLop 
 } from './excel-reader.js';
 import { 
-    loadTemplatesSilently,
+    loadTemplatesSilently, templates,
     extractPhieuHDCriteriaTable, applyPhieuHDCriteriaTable, resetPhieuHDToOriginal 
 } from './templates.js';
+import { 
+    getAdminConfig, saveAdminConfig, resetAdminConfigText, 
+    saveAdminBinaryFile, deleteAdminBinaryFile 
+} from './admin-config.js';
 import { exportWordZIP, previewPhieuHDTemplate } from './docx-exporter.js';
 
 window.studentScores = window.studentScores || {};
@@ -27,6 +31,22 @@ document.addEventListener("DOMContentLoaded", async () => {
     initGlobalSortables();
     bindEvents();
 });
+
+// Hàm áp dụng cấu hình Admin lên giao diện chính ngay lập tức (đuôi QĐ + dropdown Cơ sở)
+function applyAdminConfigToUI() {
+    const cfg = getAdminConfig();
+    const qdSuffixEl = document.getElementById('so-qd')?.nextElementSibling;
+    if (qdSuffixEl) qdSuffixEl.textContent = cfg.qdSuffix;
+
+    // Cập nhật lại dropdown Cơ sở trên tất cả các Box Hội đồng đang mở
+    document.querySelectorAll('.hd-location').forEach(sel => {
+        const currVal = sel.value;
+        sel.innerHTML = [
+            `<option value="">-- Chọn cơ sở --</option>`,
+            ...cfg.campuses.map(c => `<option value="${c}" ${c === currVal ? 'selected' : ''}>${c}</option>`)
+        ].join('');
+    });
+}
 
 function bindEvents() {
     // 0. XỬ LÝ CHUYỂN TAB TRÊN ĐIỆN THOẠI ĐẶT DỌC (MOBILE VIEW)
@@ -454,6 +474,145 @@ function bindEvents() {
                 alert("🔄 Đã khôi phục Mẫu 4 về nguyên bản gốc!");
             }
         }
+    });
+
+    // 9. XỬ LÝ GIAO DIỆN QUẢN TRỊ (ADMIN) CÓ MẬT KHẨU
+    applyAdminConfigToUI();
+
+    document.getElementById('btn-open-admin')?.addEventListener('click', () => {
+        document.getElementById('admin-pass-input').value = '';
+        document.getElementById('admin-login-error')?.classList.add('d-none');
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('adminLoginModal')).show();
+    });
+
+    document.getElementById('form-admin-login')?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const inputPass = document.getElementById('admin-pass-input')?.value || '';
+        const cfg = getAdminConfig();
+
+        if (inputPass === cfg.password) {
+            bootstrap.Modal.getInstance(document.getElementById('adminLoginModal'))?.hide();
+
+            // Đổ dữ liệu cấu hình hiện tại vào form Admin
+            document.getElementById('adm-uni-name').value = cfg.universityName;
+            document.getElementById('adm-school-name').value = cfg.schoolName;
+            document.getElementById('adm-qd-suffix').value = cfg.qdSuffix;
+            document.getElementById('adm-campuses').value = cfg.campuses.join('\n');
+
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('adminPanelModal')).show();
+        } else {
+            document.getElementById('admin-login-error')?.classList.remove('d-none');
+        }
+    });
+
+    // Lưu Tab 1: Header, Đuôi QĐ & Cơ sở
+    document.getElementById('btn-adm-save-general')?.addEventListener('click', () => {
+        const campuses = document.getElementById('adm-campuses').value
+            .split('\n').map(s => s.trim()).filter(Boolean);
+
+        saveAdminConfig({
+            universityName: document.getElementById('adm-uni-name').value.trim() || 'ĐẠI HỌC DUY TÂN',
+            schoolName: document.getElementById('adm-school-name').value.trim() || 'TRƯỜNG CÔNG NGHỆ & KỸ THUẬT',
+            qdSuffix: document.getElementById('adm-qd-suffix').value.trim() || '/QĐ-ĐHDT-HĐTN',
+            campuses: campuses.length > 0 ? campuses : ['120 Hoàng Minh Thảo']
+        });
+        applyAdminConfigToUI();
+        alert("✅ Đã lưu cấu hình Header, đuôi Quyết định và Danh sách Cơ sở!");
+    });
+
+    document.getElementById('btn-adm-reset-general')?.addEventListener('click', () => {
+        if (confirm("Khôi phục Header, đuôi QĐ và Cơ sở về mặc định?")) {
+            const cfg = resetAdminConfigText();
+            document.getElementById('adm-uni-name').value = cfg.universityName;
+            document.getElementById('adm-school-name').value = cfg.schoolName;
+            document.getElementById('adm-qd-suffix').value = cfg.qdSuffix;
+            document.getElementById('adm-campuses').value = cfg.campuses.join('\n');
+            applyAdminConfigToUI();
+        }
+    });
+
+    // Tab 2: Tải về & Cập nhật Danh sách Ngành
+    document.getElementById('btn-adm-download-nganh')?.addEventListener('click', () => {
+        const aoa = [
+            ['Ma_Chuyen_nganh', 'Chuyen_nganh', 'Khoa'],
+            ...danhMucNganh.map(item => [item.maChuyenNganh, item.chuyenNganh, item.khoa])
+        ];
+        const ws = XLSX.utils.aoa_to_sheet(aoa);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'DANH_SACH_NGANH');
+        XLSX.writeFile(wb, 'DANH_SACH_NGANH.xlsx');
+    });
+
+    document.getElementById('btn-adm-save-nganh')?.addEventListener('click', async () => {
+        const file = document.getElementById('adm-upload-nganh')?.files[0];
+        if (!file) return alert("Vui lòng chọn file Excel Danh sách ngành!");
+        const buf = await file.arrayBuffer();
+        await saveAdminBinaryFile('danh_sach_nganh', buf);
+        await loadDanhSachNganhSilently();
+        initKhoaNganhDropdowns();
+        alert("✅ Đã cập nhật Danh sách Ngành & Khoa thành công!");
+    });
+
+    document.getElementById('btn-adm-reset-nganh')?.addEventListener('click', async () => {
+        if (confirm("Xóa file Danh sách ngành tùy chỉnh và dùng lại file gốc?")) {
+            await deleteAdminBinaryFile('danh_sach_nganh');
+            await loadDanhSachNganhSilently();
+            initKhoaNganhDropdowns();
+            alert("🔄 Đã khôi phục Danh sách ngành gốc!");
+        }
+    });
+
+    // Tab 3: Tải về & Cập nhật 4 file Template Word
+    const tplFileNames = {
+        bienBan: '1_BIEN_BAN_BAO_VE_DATN.docx',
+        phieuGVHD: '2_Phieu_GVHD.docx',
+        phieuGVPB: '3_Phieu_GVPB.docx',
+        phieuHD: '4_Phieu_Hoi_Dong.docx'
+    };
+
+    document.querySelectorAll('.btn-adm-dl-tpl').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const key = btn.getAttribute('data-tpl');
+            const bin = templates[key];
+            if (!bin) return alert("Chưa có dữ liệu file mẫu này!");
+            const blob = new Blob([bin], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+            saveAs(blob, tplFileNames[key]);
+        });
+    });
+
+    document.querySelectorAll('.btn-adm-save-tpl').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const key = btn.getAttribute('data-tpl');
+            const input = document.querySelector(`.adm-up-tpl[data-tpl="${key}"]`);
+            const file = input?.files[0];
+            if (!file) return alert("Vui lòng chọn file .docx trước khi bấm Lưu!");
+            const buf = await file.arrayBuffer();
+            await saveAdminBinaryFile(`tpl_${key}`, buf);
+            await loadTemplatesSilently();
+            alert(`✅ Đã cập nhật mẫu ${tplFileNames[key]} thành công!`);
+        });
+    });
+
+    document.getElementById('btn-adm-reset-all-tpl')?.addEventListener('click', async () => {
+        if (confirm("Khôi phục toàn bộ 4 file Word Template về bản gốc trên hệ thống?")) {
+            for (const key of Object.keys(tplFileNames)) {
+                await deleteAdminBinaryFile(`tpl_${key}`);
+            }
+            await loadTemplatesSilently();
+            alert("🔄 Đã khôi phục toàn bộ 4 file Template gốc!");
+        }
+    });
+
+    // Tab 4: Đổi mật khẩu Admin
+    document.getElementById('btn-adm-change-pass')?.addEventListener('click', () => {
+        const p1 = document.getElementById('adm-new-pass').value;
+        const p2 = document.getElementById('adm-confirm-pass').value;
+        if (!p1 || p1.length < 4) return alert("Mật khẩu mới phải có ít nhất 4 ký tự!");
+        if (p1 !== p2) return alert("Mật khẩu xác nhận không khớp!");
+        saveAdminConfig({ password: p1 });
+        document.getElementById('adm-new-pass').value = '';
+        document.getElementById('adm-confirm-pass').value = '';
+        alert("🔑 Đã đổi mật khẩu quản trị thành công!");
     });
 }
 
