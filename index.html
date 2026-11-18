@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Hệ Thống Quản Lý Hội Đồng ĐATN</title>
+    <button type="button" id="btn-open-admin" class="btn btn-outline-light btn-sm fw-bold ms-auto" title="Cài đặt quản trị hệ thống">
+        ⚙️ Admin
+    </button>
     <link rel="stylesheet" href="lib/bootstrap.min.css">
     <link rel="stylesheet" href="css/styles.css">
 </head>
@@ -374,5 +377,179 @@
     </div>
 </div>
 
+<!-- MODAL 1: ĐĂNG NHẬP ADMIN -->
+<div class="modal fade" id="adminLoginModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-dark text-white py-2">
+                <h6 class="modal-title fw-bold">🔐 ĐĂNG NHẬP QUẢN TRỊ</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="form-admin-login">
+                <div class="modal-body p-3">
+                    <label for="admin-pass-input" class="form-label small fw-bold">Mật khẩu quản trị:</label>
+                    <input type="password" id="admin-pass-input" class="form-control form-control-sm" placeholder="Nhập mật khẩu..." required>
+                    <div id="admin-login-error" class="text-danger small mt-1 d-none">❌ Mật khẩu không chính xác!</div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="submit" class="btn btn-primary btn-sm w-100 fw-bold">Đăng nhập</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL 2: BẢNG ĐIỀU KHIỂN ADMIN -->
+<div class="modal fade" id="adminPanelModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-dark text-white py-2">
+                <h6 class="modal-title fw-bold">⚙️ CẤU HÌNH QUẢN TRỊ HỆ THỐNG</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-3">
+                <ul class="nav nav-tabs mb-3 small fw-bold" role="tablist">
+                    <li class="nav-item">
+                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#adm-tab-general" type="button">1. Header, QĐ & Cơ sở</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#adm-tab-nganh" type="button">2. Danh sách Ngành</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#adm-tab-templates" type="button">3. File Mẫu Word</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#adm-tab-security" type="button">4. Đổi mật khẩu</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <!-- TAB 1: HEADER HỘI ĐỒNG, ĐUÔI QĐ & DANH SÁCH CƠ SỞ -->
+                    <div class="tab-pane fade show active" id="adm-tab-general">
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Tên Trường Đại học (Dòng 1 Header):</label>
+                                <input type="text" id="adm-uni-name" class="form-control form-control-sm" placeholder="ĐẠI HỌC DUY TÂN">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Tên Trường Thành viên / Đơn vị (Dòng 2 Header):</label>
+                                <input type="text" id="adm-school-name" class="form-control form-control-sm" placeholder="TRƯỜNG CÔNG NGHỆ & KỸ THUẬT">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Phần đuôi Số Quyết định:</label>
+                                <input type="text" id="adm-qd-suffix" class="form-control form-control-sm" placeholder="/QĐ-ĐHDT-HĐTN">
+                            </div>
+                        </div>
+
+                        <label class="form-label small fw-bold">Danh sách Cơ sở / Địa điểm bảo vệ (mỗi dòng 1 cơ sở):</label>
+                        <textarea id="adm-campuses" class="form-control form-control-sm font-monospace" rows="5" placeholder="120 Hoàng Minh Thảo&#10;254 Nguyễn Văn Linh"></textarea>
+                        <div class="d-flex justify-content-between mt-2">
+                            <button type="button" id="btn-adm-reset-general" class="btn btn-outline-secondary btn-sm">Khôi phục mặc định</button>
+                            <button type="button" id="btn-adm-save-general" class="btn btn-success btn-sm fw-bold px-3">💾 Lưu cấu hình chung</button>
+                        </div>
+                    </div>
+
+                    <!-- TAB 2: TẢI VỀ & CẬP NHẬT DANH SÁCH NGÀNH -->
+                    <div class="tab-pane fade" id="adm-tab-nganh">
+                        <div class="alert alert-info py-2 small">
+                            File <code>DANH_SACH_NGANH.xlsx</code> gồm 3 cột: <strong>Mã chuyên ngành</strong> | <strong>Tên chuyên ngành</strong> | <strong>Tên Khoa</strong>.
+                        </div>
+                        <div class="d-flex gap-2 mb-3">
+                            <button type="button" id="btn-adm-download-nganh" class="btn btn-outline-primary btn-sm fw-bold">
+                                ⬇️ Tải về file Danh sách ngành hiện tại (.xlsx)
+                            </button>
+                            <button type="button" id="btn-adm-reset-nganh" class="btn btn-outline-danger btn-sm">
+                                🔄 Dùng lại file gốc trên server
+                            </button>
+                        </div>
+                        <label class="form-label small fw-bold">Tải lên file Danh sách ngành mới (.xlsx):</label>
+                        <div class="input-group input-group-sm">
+                            <input type="file" id="adm-upload-nganh" class="form-control" accept=".xlsx, .xls">
+                            <button type="button" id="btn-adm-save-nganh" class="btn btn-success fw-bold">⬆️ Cập nhật Danh sách ngành</button>
+                        </div>
+                    </div>
+
+                    <!-- TAB 3: TẢI VỀ & CẬP NHẬT 4 FILE TEMPLATE WORD -->
+                    <div class="tab-pane fade" id="adm-tab-templates">
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-sm align-middle small">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Tên biểu mẫu Word (.docx)</th>
+                                        <th style="width: 115px;">Tải về</th>
+                                        <th>Cập nhật file mới</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td class="fw-bold">1. Biên bản bảo vệ ĐATN</td>
+                                        <td><button type="button" class="btn btn-outline-primary btn-sm py-0 btn-adm-dl-tpl" data-tpl="bienBan">⬇️ Tải về</button></td>
+                                        <td>
+                                            <div class="input-group input-group-sm">
+                                                <input type="file" class="form-control adm-up-tpl" data-tpl="bienBan" accept=".docx">
+                                                <button type="button" class="btn btn-success btn-adm-save-tpl" data-tpl="bienBan">Lưu</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-bold">2. Phiếu nhận xét GVHD</td>
+                                        <td><button type="button" class="btn btn-outline-primary btn-sm py-0 btn-adm-dl-tpl" data-tpl="phieuGVHD">⬇️ Tải về</button></td>
+                                        <td>
+                                            <div class="input-group input-group-sm">
+                                                <input type="file" class="form-control adm-up-tpl" data-tpl="phieuGVHD" accept=".docx">
+                                                <button type="button" class="btn btn-success btn-adm-save-tpl" data-tpl="phieuGVHD">Lưu</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-bold">3. Phiếu nhận xét GVPB</td>
+                                        <td><button type="button" class="btn btn-outline-primary btn-sm py-0 btn-adm-dl-tpl" data-tpl="phieuGVPB">⬇️ Tải về</button></td>
+                                        <td>
+                                            <div class="input-group input-group-sm">
+                                                <input type="file" class="form-control adm-up-tpl" data-tpl="phieuGVPB" accept=".docx">
+                                                <button type="button" class="btn btn-success btn-adm-save-tpl" data-tpl="phieuGVPB">Lưu</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-bold">4. Phiếu chấm điểm Hội đồng</td>
+                                        <td><button type="button" class="btn btn-outline-primary btn-sm py-0 btn-adm-dl-tpl" data-tpl="phieuHD">⬇️ Tải về</button></td>
+                                        <td>
+                                            <div class="input-group input-group-sm">
+                                                <input type="file" class="form-control adm-up-tpl" data-tpl="phieuHD" accept=".docx">
+                                                <button type="button" class="btn btn-success btn-adm-save-tpl" data-tpl="phieuHD">Lưu</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <button type="button" id="btn-adm-reset-all-tpl" class="btn btn-outline-danger btn-sm">
+                            🔄 Khôi phục toàn bộ 4 file Template gốc
+                        </button>
+                    </div>
+
+                    <!-- TAB 4: ĐỔI MẬT KHẨU ADMIN -->
+                    <div class="tab-pane fade" id="adm-tab-security">
+                        <div class="row g-2" style="max-width: 360px;">
+                            <div class="col-12">
+                                <label class="form-label small fw-bold">Mật khẩu mới:</label>
+                                <input type="password" id="adm-new-pass" class="form-control form-control-sm" placeholder="Nhập mật khẩu mới...">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label small fw-bold">Xác nhận mật khẩu mới:</label>
+                                <input type="password" id="adm-confirm-pass" class="form-control form-control-sm" placeholder="Nhập lại mật khẩu mới...">
+                            </div>
+                            <div class="col-12 mt-2">
+                                <button type="button" id="btn-adm-change-pass" class="btn btn-warning btn-sm fw-bold">🔑 Cập nhật mật khẩu</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+    
 </body>
 </html>
