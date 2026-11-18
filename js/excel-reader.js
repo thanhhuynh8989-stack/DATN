@@ -5,9 +5,12 @@ export let danhMucNganh = []; // Mảng lưu { maChuyenNganh, chuyenNganh, khoa 
 // 1. Tự động nạp file DANH_SACH_NGANH.xlsx khi khởi động ứng dụng
 export async function loadDanhSachNganhSilently(url = './sample_files/DANH_SACH_NGANH.xlsx') {
     try {
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`Không tìm thấy file ${url}`);
-        const arrayBuffer = await response.arrayBuffer();
+        let arrayBuffer = await getAdminBinaryFile('danh_sach_nganh');
+        if (!arrayBuffer) {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Không tìm thấy file ${url}`);
+            arrayBuffer = await response.arrayBuffer();
+        }
         const data = new Uint8Array(arrayBuffer);
         const workbook = XLSX.read(data, { type: 'array' });
         const firstSheet = workbook.SheetNames[0];
