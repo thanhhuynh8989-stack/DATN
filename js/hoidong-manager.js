@@ -1,5 +1,6 @@
 // js/hoidong-manager.js
 import { validateGVHDConflictWithHD, validateTeacherIsGVHDOfAnyStudent, checkScheduleConflict } from './validators.js';
+import { getAdminConfig } from './admin-config.js';
 
 let hoidongCount = 0;
 
@@ -19,7 +20,7 @@ export function initGlobalSortables() {
     initAddSVModalEvents();
 }
 
-// Export hàm 2: Tạo Box Hội Đồng mới (Không tự gán Giờ và Cơ sở mặc định nếu không truyền vào)
+// Export hàm 2: Tạo Box Hội Đồng mới (Lấy danh sách Cơ sở động từ cấu hình Admin)
 export function createHoiDongBox(titleText = null, initDate = '', initTime = '', initRoom = '', initLocation = '') {
     hoidongCount++;
     const hdTitle = titleText || `HĐ ${hoidongCount}`;
@@ -31,14 +32,7 @@ export function createHoiDongBox(titleText = null, initDate = '', initTime = '',
         formattedTime = `${parts[0].padStart(2, '0')}:${(parts[1] || '00').padStart(2, '0')}`;
     }
 
-    const locations = [
-        "120 Hoàng Minh Thảo",
-        "254 Nguyễn Văn Linh",
-        "137 Nguyễn Văn Linh",
-        "03 Quang Trung",
-        "K7/25 Quang Trung",
-        "Phan Văn Trị"
-    ];
+    const locations = getAdminConfig().campuses;
     const locationOptions = [
         `<option value="" ${!initLocation ? 'selected' : ''}>-- Chọn cơ sở --</option>`,
         ...locations.map(loc => 
