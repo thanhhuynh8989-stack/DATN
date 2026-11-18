@@ -1,4 +1,5 @@
 // js/templates.js
+import { getAdminBinaryFile } from './admin-config.js';
 
 export const templates = {
     bienBan: null,
@@ -10,7 +11,7 @@ export const templates = {
 };
 
 export async function loadTemplatesSilently() {
-    const loadFile = (url) => new Promise((resolve, reject) => {
+    const loadFileFromServer = (url) => new Promise((resolve, reject) => {
         if (typeof PizZipUtils === 'undefined') {
             return reject(new Error("PizZipUtils chưa được nạp từ lib/pizzip-utils.min.js"));
         }
@@ -19,17 +20,25 @@ export async function loadTemplatesSilently() {
         });
     });
 
+    const loadTemplateWithAdminOverride = async (adminKey, fallbackUrl) => {
+        const customBinary = await getAdminBinaryFile(`tpl_${adminKey}`);
+        if (customBinary) {
+            return customBinary;
+        }
+        return await loadFileFromServer(fallbackUrl);
+    };
+
     try {
-        templates.bienBan = await loadFile('./templates/1_BIEN_BAN_BAO_VE_DATN.docx');
-        templates.phieuGVHD = await loadFile('./templates/2_Phieu_GVHD.docx');
-        templates.phieuGVPB = await loadFile('./templates/3_Phieu_GVPB.docx');
-        const hdBinary = await loadFile('./templates/4_Phieu_Hoi_Dong.docx');
+        templates.bienBan = await loadTemplateWithAdminOverride('bienBan', './templates/1_BIEN_BAN_BAO_VE_DATN.docx');
+        templates.phieuGVHD = await loadTemplateWithAdminOverride('phieuGVHD', './templates/2_Phieu_GVHD.docx');
+        templates.phieuGVPB = await loadTemplateWithAdminOverride('phieuGVPB', './templates/3_Phieu_GVPB.docx');
+        const hdBinary = await loadTemplateWithAdminOverride('phieuHD', './templates/4_Phieu_Hoi_Dong.docx');
 
         templates.originalPhieuHD = hdBinary;
         templates.phieuHD = hdBinary.slice(0);
         templates.isPhieuHDModified = false;
 
-        console.log("✅ [Module Templates] Đã tải xong 4 file Word template!");
+        console.log("✅ [Module Templates] Đã tải xong 4 file Word template (đã đồng bộ cấu hình Admin)!");
         return true;
     } catch (e) {
         console.error("❌ [Module Templates] Lỗi tải template:", e);
