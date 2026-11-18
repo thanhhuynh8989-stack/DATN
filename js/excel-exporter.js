@@ -67,21 +67,25 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
         const ws = workbook.addWorksheet(sheetData.sheetName, { views: [{ showGridLines: true }] });
         let currentRow = 1;
 
-        // =========================================================================
+        /// =========================================================================
         // 1. VẼ HEADER CHUNG DUY NHẤT 1 LẦN Ở ĐẦU SHEET (DÒNG 1 -> 5)
         // =========================================================================
+        const admCfg = window.appAdminConfig || {};
+        const uniName = (admCfg.universityName || 'ĐẠI HỌC DUY TÂN').toUpperCase();
+        const schoolName = (admCfg.schoolName || 'TRƯỜNG CÔNG NGHỆ VÀ KỸ THUẬT').toUpperCase();
+
         ws.mergeCells(`A${currentRow}:C${currentRow}`);
         ws.getCell(`A${currentRow}`).value = 'BỘ GIÁO DỤC VÀ ĐÀO TẠO';
         ws.getCell(`A${currentRow}`).font = { name: 'Times New Roman', size: 10, bold: true };
         ws.getCell(`A${currentRow}`).alignment = { horizontal: 'center' };
 
         ws.mergeCells(`A${currentRow+1}:C${currentRow+1}`);
-        ws.getCell(`A${currentRow+1}`).value = 'ĐẠI HỌC DUY TÂN';
+        ws.getCell(`A${currentRow+1}`).value = uniName;
         ws.getCell(`A${currentRow+1}`).font = { name: 'Times New Roman', size: 10, bold: true };
         ws.getCell(`A${currentRow+1}`).alignment = { horizontal: 'center' };
 
         ws.mergeCells(`A${currentRow+2}:C${currentRow+2}`);
-        ws.getCell(`A${currentRow+2}`).value = 'TRƯỜNG CÔNG NGHỆ VÀ KỸ THUẬT';
+        ws.getCell(`A${currentRow+2}`).value = schoolName;
         ws.getCell(`A${currentRow+2}`).font = { name: 'Times New Roman', size: 10, bold: true };
         ws.getCell(`A${currentRow+2}`).alignment = { horizontal: 'center' };
 
