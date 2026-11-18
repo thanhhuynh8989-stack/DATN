@@ -22,7 +22,7 @@ export function initGlobalSortables() {
 // Export hàm 2: Tạo Box Hội Đồng mới (Không tự gán Giờ và Cơ sở mặc định nếu không truyền vào)
 export function createHoiDongBox(titleText = null, initDate = '', initTime = '', initRoom = '', initLocation = '') {
     hoidongCount++;
-    const hdTitle = titleText || `Hội Đồng ${hoidongCount}`;
+    const hdTitle = titleText || `HĐ ${hoidongCount}`;
     const boxId = `hd-box-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
     let formattedTime = initTime || '';
