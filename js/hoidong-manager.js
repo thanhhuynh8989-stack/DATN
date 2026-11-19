@@ -1,5 +1,6 @@
 // js/hoidong-manager.js
-import { validateGVHDConflictWithHD, validateTeacherIsGVHDOfAnyStudent, checkScheduleConflict } from './validators.js';
+
+import { validateGVHDConflictWithHD, validateTeacherIsGVHDOfAnyStudent, checkScheduleConflict, isSameTeacher } from './validators.js';
 import { getAdminConfig } from './admin-config.js';
 
 let hoidongCount = 0;
@@ -88,7 +89,11 @@ export function renderHoidongFromExcel(parsedHoidongs) {
     workspace.innerHTML = '';
     hoidongCount = 0;
 
+    const mergeLogs = parsedHoidongs.__mergeLogs || [];
+    const conflictLogs = [];
+
     Object.keys(parsedHoidongs).forEach(hdKey => {
+        if (hdKey === '__mergeLogs') return;
         const hd = parsedHoidongs[hdKey];
         const formattedDate = formatDateToInput(hd.ngayBV);
         const boxId = createHoiDongBox(
@@ -102,7 +107,7 @@ export function renderHoidongFromExcel(parsedHoidongs) {
         const boxEl = document.getElementById(boxId);
         if (!boxEl) return;
 
-        // 1. Render Giảng viên vào đúng chức danh theo Mã GV
+        // 1. Render Giảng viên vào đúng chức danh
         hd.thanhVien.forEach(gv => {
             let roleName = "";
             if (gv.chucDanh.includes("Chủ tịch")) roleName = "Chủ tịch";
@@ -124,8 +129,10 @@ export function renderHoidongFromExcel(parsedHoidongs) {
             }
         });
 
-        // 2. Render Sinh viên & XÓA KHỎI KHO CHỜ THEO MÃ SV (maSV)
+        // 2. Render Sinh viên & RÀ SOÁT TRÙNG MÃ/TÊN GVHD VỚI THÀNH VIÊN HĐ
         const svDropzone = boxEl.querySelector('.dropzone-sv');
+        const poolSV = document.getElementById('pool-sv');
+
         hd.sinhViens.forEach(sv => {
             const poolItem = document.querySelector(`#pool-sv .card-item[data-id="${sv.maSV}"]`);
             
@@ -137,6 +144,39 @@ export function renderHoidongFromExcel(parsedHoidongs) {
             const nganh = poolItem ? (poolItem.getAttribute('data-nganh') || '') : (sv.nganh || '');
             const maGVDisplay = maGVHD ? ` [${maGVHD}]` : '';
 
+            // Kiểm tra GVHD của SV có trùng với bất kỳ thành viên nào trong HĐ này không
+            let violatedMember = null;
+            for (const member of hd.thanhVien) {
+                if (isSameTeacher({ id1: maGVHD, name1: gvhd }, { id2: member.maGV, name2: member.hoTenGV })) {
+                    violatedMember = member;
+                    break;
+                }
+            }
+
+            if (violatedMember) {
+                // VI PHẠM: Tự động đẩy Sinh viên trả về Kho chờ (nếu chưa có trong kho chờ thì tạo thẻ mới ở kho chờ)
+                if (!poolItem && poolSV) {
+                    const returnHTML = `
+                        <div class="card-item position-relative mb-2 p-2 pe-4 border border-danger rounded bg-white shadow-sm" 
+                             data-id="${sv.maSV}" data-name="${hoTen}" data-lop="${lop}" data-detai="${deTai}" data-magvhd="${maGVHD}" data-gvhd="${gvhd}" data-nganh="${nganh}">
+                            <button type="button" class="btn btn-sm btn-link text-danger text-decoration-none fw-bold position-absolute top-0 end-0 px-2 py-1 btn-remove-card" title="Xóa sinh viên này">✕</button>
+                            <div class="fw-bold text-primary">${hoTen} (${sv.maSV})</div>
+                            <div class="text-muted small">Lớp: ${lop} | GVHD: <span class="fw-bold text-danger">${gvhd || 'Chưa rõ'}${maGVDisplay}</span></div>
+                            <div class="text-dark small text-truncate" title="${deTai}">Đề tài: ${deTai}</div>
+                        </div>`;
+                    poolSV.insertAdjacentHTML('afterbegin', returnHTML);
+                } else if (poolItem) {
+                    poolItem.classList.add('border-danger');
+                    poolSV?.prepend(poolItem); // Đưa lên đầu kho chờ để dễ thấy
+                }
+
+                conflictLogs.push(
+                    `• SV ${hoTen} (${sv.maSV}) - GVHD: ${gvhd || maGVHD} trùng với ${violatedMember.chucDanh} (${violatedMember.hoTenGV}) tại ${hd.soHD} → Đã đẩy về Kho chờ, đề nghị xếp sang Hội đồng khác!`
+                );
+                return;
+            }
+
+            // Hợp lệ -> Đưa vào Hội đồng và xóa khỏi Kho chờ
             const svHTML = `
                 <div class="card-item position-relative mb-2 p-2 pe-4 border rounded bg-white shadow-sm" 
                      data-id="${sv.maSV}" data-name="${hoTen}" data-lop="${lop}" data-detai="${deTai}" data-magvhd="${maGVHD}" data-gvhd="${gvhd}" data-nganh="${nganh}">
@@ -153,6 +193,9 @@ export function renderHoidongFromExcel(parsedHoidongs) {
             }
         });
     });
+
+    // Trả về danh sách thông báo để main.js hiển thị cho người dùng
+    return { mergeLogs, conflictLogs };
 }
 
 // ----------------------------------------------------
