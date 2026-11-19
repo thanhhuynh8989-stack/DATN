@@ -921,8 +921,20 @@ function bindEvents() {
         if (!confirm(confirmMsg)) return;
 
         const gasUrl = getGasWebAppUrl();
+        const bannerLockBtn = document.getElementById('btn-banner-toggle-lock');
+        if (bannerLockBtn) bannerLockBtn.disabled = true;
         showCloudStatus("⏳ Đang cập nhật trạng thái khóa Hội đồng...", "info");
+
         try {
+            // Nếu chuẩn bị Khóa HĐ -> tự động lưu bản dữ liệu HĐ mới nhất trước khi khóa
+            if (targetLockState) {
+                const saveRes = await saveCloudHoiDong(gasUrl, sessionState.sessionId, sessionState.pin, sessionState.otp);
+                if (!saveRes.ok) {
+                    showCloudStatus(`❌ Không thể lưu dữ liệu trước khi khóa: ${saveRes.message}`, "danger");
+                    return;
+                }
+            }
+
             const res = await toggleCloudHDLock(gasUrl, sessionState.sessionId, sessionState.pin, sessionState.otp, targetLockState);
             if (res.ok) {
                 sessionState.isHDLocked = Boolean(res.isHDLocked);
@@ -934,6 +946,15 @@ function bindEvents() {
             }
         } catch (err) {
             showCloudStatus(`❌ Lỗi kết nối GAS: ${err.message}`, "danger");
+        } finally {
+            if (bannerLockBtn) bannerLockBtn.disabled = false;
+        }
+    });
+
+    // Ủy quyền sự kiện click cho nút Khóa / Mở khóa nhanh trên thanh trạng thái #session-role-banner
+    document.addEventListener('click', (e) => {
+        if (e.target.closest('#btn-banner-toggle-lock')) {
+            document.getElementById('btn-cloud-toggle-lock')?.click();
         }
     });
 
