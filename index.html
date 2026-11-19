@@ -4,14 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Hệ Thống Quản Lý Hội Đồng ĐATN</title>
-    
+
     <link rel="stylesheet" href="lib/bootstrap.min.css">
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body class="bg-light">
     <div class="app-container">
-        
-        <!-- TIÊU ĐỀ CÙNG DÒNG VỚI NÚT ADMIN -->
+        <!-- TIÊU ĐỀ CÙNG DÒNG VỚI NÚT CLOUD & ADMIN -->
         <div class="d-flex align-items-center justify-content-between position-relative mb-1 setup-section">
             <div style="width: 175px;" class="d-none d-md-block"></div>
             <h4 class="text-center fw-bold text-primary mb-0 app-title flex-grow-1">
@@ -32,50 +31,47 @@
         <!-- KHU VỰC 1: SETUP THÔNG TIN & TẢI FILE EXCEL -->
         <div class="card mb-1 shadow-sm border-0 setup-section">
             <div class="card-body p-2">
-                <!-- HÀNG 1: KHOA - NGÀNH - ĐỢT - NĂM - SỐ QĐ - NGÀY KÝ QĐ -->
                 <div class="row g-2 align-items-end mb-2 setup-fields-row">
-                    <div class="col-6 col-md-2">
+                    <div class="col-12 col-sm-6 col-md-2">
                         <label class="fw-bold small mb-1 text-truncate d-block">Khoa:</label>
                         <select id="khoa-select" class="form-select form-select-sm">
                             <option value="">-- Đang tải --</option>
                         </select>
                     </div>
-                
-                    <div class="col-6 col-md-3">
+
+                    <div class="col-12 col-sm-6 col-md-3">
                         <label class="fw-bold small mb-1 text-truncate d-block">Ngành / Chuyên ngành:</label>
                         <select id="nganh-select" class="form-select form-select-sm">
                             <option value="">-- Chọn Ngành --</option>
                         </select>
                     </div>
-                
-                    <div class="col-6 col-md-1">
+
+                    <div class="col-6 col-sm-3 col-md-1">
                         <label class="fw-bold small mb-1 text-truncate d-block">Đợt:</label>
                         <input type="number" min="1" max="12" id="dot-thang" class="form-control form-control-sm text-center px-1" value="6">
                     </div>
-                
-                    <div class="col-6 col-md-1">
+
+                    <div class="col-6 col-sm-3 col-md-1">
                         <label class="fw-bold small mb-1 text-truncate d-block">Năm:</label>
                         <input type="number" id="nam-cham" class="form-control form-control-sm text-center px-1" value="2026">
                     </div>
-                
-                    <div class="col-7 col-md-3">
+
+                    <div class="col-12 col-sm-6 col-md-3">
                         <label class="fw-bold small mb-1 text-truncate d-block">Số Quyết định:</label>
                         <div class="input-group input-group-sm flex-nowrap">
-                            <input type="text" id="so-qd" class="form-control text-center px-1" value="2071" placeholder="Số QĐ" style="min-width: 48px;">
-                            <span class="input-group-text bg-light fw-bold text-secondary px-1" style="font-size: 0.72rem;">/QĐ-ĐHDT-HĐTN</span>
+                            <input type="text" id="so-qd" class="form-control text-center px-1" value="2071" placeholder="Số QĐ" style="min-width: 56px;">
+                            <span class="input-group-text bg-light fw-bold text-secondary px-2" style="font-size: 0.75rem;">/QĐ-ĐHDT-HĐTN</span>
                         </div>
                     </div>
-                
-                    <div class="col-5 col-md-2">
+
+                    <div class="col-12 col-sm-6 col-md-2">
                         <label class="fw-bold small mb-1 text-truncate d-block">Ngày ký QĐ:</label>
-                        <input type="date" id="ngay-ky-qd" class="form-control form-control-sm px-1" value="2026-08-05">
+                        <input type="date" id="ngay-ky-qd" class="form-control form-control-sm px-2" value="2026-08-05">
                     </div>
                 </div>
 
-                <!-- HÀNG 2: UPLOAD 3 FILE DỮ LIỆU THEO ĐÚNG THỨ TỰ (1) -> (2) -> (3) -->
                 <div class="row g-2 align-items-end">
-                    <!-- BƯỚC (1): NHẬP DANH SÁCH SV & ĐỒ ÁN -->
-                    <div class="col-md-3">
+                    <div class="col-12 col-md-3">
                         <div class="d-flex justify-content-between align-items-center mb-1">
                             <label for="upload-sv" class="form-label fw-bold small mb-0 text-primary">
                                 (1) Nhập Danh sách SV & Đồ án:
@@ -84,9 +80,8 @@
                         </div>
                         <input type="file" id="upload-sv" class="form-control form-control-sm" accept=".xlsx, .xls">
                     </div>
-                
-                    <!-- BƯỚC (2): NHẬP DANH SÁCH GV -->
-                    <div class="col-md-3">
+
+                    <div class="col-12 col-md-3">
                         <div class="d-flex justify-content-between align-items-center mb-1">
                             <label for="upload-gv" class="form-label fw-bold small mb-0 text-info text-dark">
                                 (2) Nhập Danh sách GV:
@@ -95,9 +90,8 @@
                         </div>
                         <input type="file" id="upload-gv" class="form-control form-control-sm" accept=".xlsx, .xls">
                     </div>
-                
-                    <!-- BƯỚC (3): NHẬP DANH SÁCH HĐ (NẾU CÓ) -->
-                    <div class="col-md-3">
+
+                    <div class="col-12 col-md-3">
                         <div class="d-flex justify-content-between align-items-center mb-1">
                             <label for="upload-hd" class="form-label fw-bold small mb-0 text-secondary">
                                 (3) Nhập Danh sách HĐ (nếu có):
@@ -106,9 +100,8 @@
                         </div>
                         <input type="file" id="upload-hd" class="form-control form-control-sm" accept=".xlsx, .xls">
                     </div>
-                
-                    <!-- NÚT THỰC HIỆN NẠP DỮ LIỆU -->
-                    <div class="col-md-3">
+
+                    <div class="col-12 col-md-3">
                         <button type="button" id="btn-read-files" class="btn btn-success btn-sm w-100 fw-bold py-2 shadow-sm">
                             ⚡ NẠP DỮ LIỆU EXCEL
                         </button>
@@ -126,144 +119,71 @@
             </div>
         </div>
 
-        <!-- KHU VỰC 2: WORKSPACE 3 CỘT (TỰ ĐỘNG CHUYỂN TAB VỪA MÀN HÌNH DI ĐỘNG) -->
+        <!-- KHU VỰC 2: WORKSPACE 3 CỘT -->
         <div class="row workspace-row">
-            <!-- Cột Trái: Sinh Viên -->
             <div class="col-md-3 h-100 mobile-col active" id="col-sv">
                 <div class="card shadow-sm column-card">
                     <div class="card-header bg-success text-white fw-bold py-2 text-center">
                         📋 SINH VIÊN CHỜ PHÂN CÔNG
                     </div>
-                    <div class="card-body" id="pool-sv">
-                        <!-- Danh sách SV render vào đây -->
-                    </div>
+                    <div class="card-body" id="pool-sv"></div>
                 </div>
             </div>
 
-            <!-- Cột Giữa: Không Gian Hội Đồng -->
             <div class="col-md-6 h-100 mobile-col" id="col-hd">
                 <div class="card shadow-sm column-card">
                     <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center py-1">
                         <span>🏛️ KHU VỰC HỘI ĐỒNG</span>
                         <button class="btn btn-primary btn-sm fw-bold" id="btn-add-hd">+ TẠO HỘI ĐỒNG</button>
                     </div>
-                    <div class="card-body bg-secondary bg-opacity-10" id="workspace-hd">
-                        <!-- Các Hội đồng render vào đây -->
-                    </div>
+                    <div class="card-body bg-secondary bg-opacity-10" id="workspace-hd"></div>
                 </div>
             </div>
 
-            <!-- Cột Phải: Giảng Viên -->
             <div class="col-md-3 h-100 mobile-col" id="col-gv">
                 <div class="card shadow-sm column-card">
                     <div class="card-header bg-info text-white fw-bold py-2 text-center">
                         👨‍🏫 KHO GIẢNG VIÊN
                     </div>
-                    <div class="card-body" id="pool-gv">
-                         <!-- Danh sách GV render vào đây -->
-                    </div>
+                    <div class="card-body" id="pool-gv"></div>
                 </div>
             </div>
         </div>
 
-        <footer class="footer-section bg-dark text-white py-2 px-3 shadow-lg">
-            <div class="d-flex flex-wrap justify-content-center align-items-center gap-2">
-                <!-- (1) XUẤT DANH SÁCH PHẢN BIỆN -->
-                <button type="button" id="btn-export-pb" class="btn btn-danger btn-sm fw-bold">
+        <footer class="footer-section bg-dark text-white py-2 px-2 shadow-lg">
+            <div class="footer-actions-grid">
+                <button type="button" id="btn-export-pb" class="btn btn-danger btn-sm fw-bold text-truncate">
                     📑 (1) Xuất DS Phản biện
                 </button>
-        
-                <!-- (2) CẬP NHẬT PHIẾU CHẤM HĐ (NẾU CẦN) -->
-                <button type="button" id="btn-open-upload-templates" class="btn btn-dark btn-sm fw-bold position-relative">
+
+                <button type="button" id="btn-open-upload-templates" class="btn btn-secondary btn-sm fw-bold position-relative text-truncate">
                     📄 Tải lên Mẫu Phiếu chấm
                     <span id="badge-template-modified" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark d-none" title="Đang dùng mẫu phiếu chấm tùy chỉnh">
                         Đã sửa
                     </span>
                 </button>
-        
-                <!-- (3) XUẤT DANH SÁCH HĐ -->
-                <button type="button" id="btn-export-hd" class="btn btn-info text-dark btn-sm fw-bold">
+
+                <button type="button" id="btn-export-hd" class="btn btn-info text-dark btn-sm fw-bold text-truncate">
                     📋 (3) Xuất DS Hội đồng
                 </button>
-        
-                <!-- XUẤT GÓI HỒ SƠ WORD (.ZIP) -->
-                <button type="button" id="btn-export-word" class="btn btn-primary btn-sm fw-bold">
+
+                <button type="button" id="btn-export-word" class="btn btn-primary btn-sm fw-bold text-truncate">
                     📦 Hồ sơ HĐ (.ZIP)
                 </button>
-        
-                <!-- (4) NHẬP ĐIỂM CHẤM -->
-                <button type="button" id="btn-nhap-diem" class="btn btn-warning text-dark btn-sm fw-bold">
+
+                <button type="button" id="btn-nhap-diem" class="btn btn-warning text-dark btn-sm fw-bold text-truncate">
                     📝 (4) Nhập điểm chấm
                 </button>
-        
-                <!-- (5) XUẤT BẢNG ĐIỂM -->
-                <button type="button" id="btn-export-diem" class="btn btn-success btn-sm fw-bold">
+
+                <button type="button" id="btn-export-diem" class="btn btn-success btn-sm fw-bold text-truncate">
                     📊 (5) Xuất Bảng điểm
                 </button>
             </div>
         </footer>
     </div>
 
-    <!-- MODAL NHẬP ĐIỂM TRỰC TIẾP -->
-    <div class="modal fade" id="modalNhapDiem" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-xl modal-dialog-scrollable">
-            <div class="modal-content">
-                <div class="modal-header bg-warning text-dark py-2">
-                    <h5 class="modal-title fw-bold">📝 BẢNG NHẬP ĐIỂM TRỰC TIẾP HỘI ĐỒNG</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-hover mb-0 align-middle text-center" id="table-nhap-diem">
-                            <thead class="table-dark">
-                                <tr>
-                                    <th>STT</th>
-                                    <th>MÃ SV</th>
-                                    <th>HỌ VÀ TÊN</th>
-                                    <th>HỘI ĐỒNG</th>
-                                    <th>ĐIỂM GVHD (30%)</th>
-                                    <th>ĐIỂM CT (70%)</th>
-                                    <th>ĐIỂM PB (70%)</th>
-                                    <th>ĐIỂM TK (70%)</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tbody-nhap-diem">
-                                <!-- Render SV vào đây -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <div class="modal-footer py-2">
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Đóng</button>
-                    <button type="button" class="btn btn-success btn-sm fw-bold" id="btn-save-diem">Lưu Điểm</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-<!-- MODAL PHÂN CÔNG SINH VIÊN NHANH -->
-<div class="modal fade" id="modalGanSinhVien" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header bg-success text-white py-2">
-                <h6 class="modal-title fw-bold" id="modalGanSVTitle">📋 CHỌN SINH VIÊN VÀO HỘI ĐỒNG</h6>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body p-2">
-                <div class="alert alert-info py-1 px-2 small mb-2">
-                    💡 <i>Hệ thống đã tự động lọc ẩn các Sinh viên có GVHD trùng với Thành viên của Hội đồng này.</i>
-                </div>
-                <div class="list-group" id="list-sv-phu-hop">
-                    <!-- Danh sách SV phù hợp sẽ render vào đây -->
-                </div>
-            </div>
-            <div class="modal-footer py-1">
-                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Đóng</button>
-                <button type="button" class="btn btn-success btn-sm fw-bold" id="btn-confirm-gan-sv">➕ Gán vào Hội đồng</button>
-            </div>
-        </div>
-    </div>
-</div>
+    <!-- VÙNG CHỨA CÁC PARTIAL MODALS ĐƯỢC NẠP ĐỘNG -->
+    <div id="partials-container"></div>
 
     <script src="lib/bootstrap.bundle.min.js"></script>
     <script src="lib/Sortable.min.js"></script>
@@ -277,475 +197,9 @@
     <script type="module" src="js/main.js"></script>
 
     <!-- NÚT NỔI TIPS HƯỚNG DẪN SỬ DỤNG -->
-<button type="button" id="btn-app-tips" class="btn btn-warning rounded-circle shadow-lg d-flex align-items-center justify-content-center" 
-        data-bs-toggle="modal" data-bs-target="#tipsModal" title="Hướng dẫn & Mẹo sử dụng từng khu vực">
-    <span style="font-size: 1.25rem;">💡</span>
-</button>
-
-<!-- MODAL TIPS HƯỚNG DẪN NHANH THEO TỪNG KHU VỰC (PHÍM TẮT F1) -->
-<div class="modal fade" id="tipsModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-primary text-white py-2">
-                <h6 class="modal-title fw-bold">💡 HƯỚNG DẪN NHANH THEO KHU VỰC (NHẤN F1 ĐỂ MỞ / ĐÓNG)</h6>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng"></button>
-            </div>
-            <div class="modal-body p-3 bg-light">
-                <ul class="nav nav-tabs nav-fill bg-white rounded border mb-3 small fw-bold" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="tab-setup" data-bs-toggle="tab" data-bs-target="#pane-setup" type="button" role="tab">
-                            1. Thiết lập & Nạp Excel
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="tab-pool" data-bs-toggle="tab" data-bs-target="#pane-pool" type="button" role="tab">
-                            2. Kho SV & Kho GV
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="tab-hd" data-bs-toggle="tab" data-bs-target="#pane-hd" type="button" role="tab">
-                            3. Hội đồng & Đồng bộ Cloud
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="tab-export" data-bs-toggle="tab" data-bs-target="#pane-export" type="button" role="tab">
-                            4. Nhập điểm & Xuất hồ sơ
-                        </button>
-                    </li>
-                </ul>
-
-                <div class="tab-content bg-white p-3 rounded border shadow-sm small">
-                    <!-- TAB 1: THIẾT LẬP & NẠP EXCEL -->
-                    <div class="tab-pane fade show active" id="pane-setup" role="tabpanel">
-                        <h6 class="fw-bold text-primary mb-2">📌 Thiết lập thông tin chung & Nạp dữ liệu Excel</h6>
-                        <ul class="mb-2 ps-3">
-                            <li class="mb-1"><strong>Thông tin chung:</strong> Chọn Khoa, Ngành/Chuyên ngành, nhập Đợt (tháng), Năm, Số Quyết định (tự ghép đuôi cấu hình Admin) và Ngày ký QĐ.</li>
-                            <li class="mb-1"><strong>File mẫu chuẩn:</strong> Bấm nút <strong>File mẫu</strong> ngay cạnh từng ô chọn file để tải file Excel mẫu (<code>Mau_Danh_Sach_SV_DoAn.xlsx</code>, <code>Mau_Danh_Sach_GV.xlsx</code>, <code>Mau_Danh_Sach_Hoi_Dong.xlsx</code>).</li>
-                            <li class="mb-1"><strong>Rà soát chéo tự động:</strong> Khi bấm <strong>⚡ NẠP DỮ LIỆU EXCEL</strong>, hệ thống kiểm tra giảng viên trùng tên nhưng khác Mã GV (hiện hộp thoại xác nhận/hủy), trùng Mã SV, vi phạm GVHD trùng thành viên Hội đồng và tự động gộp/đánh lại số Hội đồng.</li>
-                            <li><strong>Quản trị (⚙️ Admin):</strong> Đăng nhập mật khẩu quản trị để cấu hình Header, đuôi QĐ, danh sách Cơ sở, Danh sách Ngành và 4 mẫu Word gốc.</li>
-                        </ul>
-                    </div>
-
-                    <!-- TAB 2: KHO SV & KHO GV -->
-                    <div class="tab-pane fade" id="pane-pool" role="tabpanel">
-                        <h6 class="fw-bold text-success mb-2">📌 Quản lý Sinh viên chờ phân công & Kho Giảng viên</h6>
-                        <ul class="mb-2 ps-3">
-                            <li class="mb-1"><strong>Kéo - thả phân công:</strong> Kéo thẻ Sinh viên vào vùng <em>Sinh viên bảo vệ</em> của từng Hội đồng; kéo thẻ Giảng viên vào đúng vai trò <em>Chủ tịch</em>, <em>Phản biện</em> hoặc <em>Thư ký</em>.</li>
-                            <li class="mb-1"><strong>Xóa thẻ không cần thiết:</strong> Bấm dấu <code>✕</code> ở góc trên bên phải từng thẻ để loại thẻ khỏi kho chờ hoặc khỏi vị trí phân công.</li>
-                            <li><strong>Lưu ý xung đột GVHD:</strong> Nếu kéo nhầm Sinh viên vào Hội đồng có thành viên trùng với GVHD của sinh viên đó, hệ thống sẽ cảnh báo và đẩy thẻ về kho chờ.</li>
-                        </ul>
-                    </div>
-
-                    <!-- TAB 3: HỘI ĐỒNG & ĐỒNG BỘ CLOUD -->
-                    <div class="tab-pane fade" id="pane-hd" role="tabpanel">
-                        <h6 class="fw-bold text-info mb-2">📌 Xếp Hội đồng, Phân quyền OTP/PIN & Đồng bộ Cloud</h6>
-                        <ul class="mb-2 ps-3">
-                            <li class="mb-1"><strong>Tạo & Cấu hình khung Hội đồng:</strong> Bấm <strong>+ TẠO HỘI ĐỒNG</strong>, nhập số/tên Hội đồng, Ngày bảo vệ, Giờ, Phòng và chọn Cơ sở.</li>
-                            <li class="mb-1"><strong>Tạo phiên mới (Nhận OTP):</strong> Vào <strong>☁️ Phiên làm việc $\rightarrow$ Tab 2</strong>, nhập Mã phiên (tên JSON), Mã PIN nhập điểm và Email để nhận <strong>Mã OTP</strong> quản trị Hội đồng.</li>
-                            <li class="mb-1"><strong>Phân quyền Chủ phiên vs Thư ký:</strong> Chủ phiên nhập <strong>Mã phiên + PIN + OTP</strong> để sửa/khóa Hội đồng (tự đóng popup khi xác thực thành công); Thư ký chỉ cần <strong>Mã phiên + PIN</strong> để tải phiên và nhập điểm khi Hội đồng đã khóa.</li>
-                            <li><strong>Tự động lưu & Khóa khi đóng tab:</strong> Thay đổi ở vùng thông tin chung và Hội đồng tự động lưu sau 2,5 giây; khi tắt tab/đóng trình duyệt, hệ thống tự lưu bản mới nhất và khóa quyền sửa Hội đồng.</li>
-                        </ul>
-                    </div>
-
-                    <!-- TAB 4: NHẬP ĐIỂM & XUẤT HỒ SƠ -->
-                    <div class="tab-pane fade" id="pane-export" role="tabpanel">
-                        <h6 class="fw-bold text-danger mb-2">📌 Nhập điểm (1 số thập phân), Mẫu phiếu chấm & Xuất file</h6>
-                        <ul class="mb-2 ps-3">
-                            <li class="mb-1"><strong>Nhập điểm & Đồng bộ Delta:</strong> Khi bấm <strong>(4) Nhập điểm chấm</strong>, hệ thống tự kéo điểm mới nhất từ Cloud (nếu dùng phiên Cloud) và chỉ đẩy các ô điểm thay đổi lên Cloud khi bấm <strong>Lưu điểm</strong> (hợp nhất theo thời gian ghi nhận mới nhất trên server).</li>
-                            <li class="mb-1"><strong>Định dạng điểm & Cột CHỮ:</strong> Chấp nhận cả dấu <code>.</code> và <code>,</code> trong thang 0–10, chuẩn hóa 1 chữ số thập phân, để trống nếu không nhập. Cột <strong>CHỮ</strong> trong bảng điểm tự động đọc giá trị cột <strong>SỐ</strong> thành chữ tiếng Việt (VD: <code>8,6</code> $\rightarrow$ <code>tám phẩy sáu</code>).</li>
-                            <li class="mb-1"><strong>Tải lên Mẫu Phiếu chấm:</strong> Tải về mẫu hiện tại hoặc upload file <code>.docx</code> mới cho Phiếu GVHD, Phiếu GVPB, Phiếu HĐ trong phiên — <em>chỉ sửa mục tiêu chí chấm điểm, giữ nguyên thẻ <code>{{placeholder}}</code></em>.</li>
-                            <li><strong>Xuất hồ sơ:</strong> Xuất gói Word <code>Ho_So_Hoi_Dong_DATN.zip</code> (phân thư mục theo Hội đồng và Sinh viên) cùng 3 file Excel (DS Phản biện, DS Hội đồng đã lập, Bảng điểm tổng hợp).</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer py-2 bg-white">
-                <button type="button" class="btn btn-primary btn-sm fw-bold px-3" data-bs-dismiss="modal">Đóng</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- MODAL TẢI LÊN MẪU PHIẾU CHẤM (GVHD, GVPB, HỘI ĐỒNG) -->
-<div class="modal fade" id="modalUploadScoringTemplates" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-dark text-white py-2">
-                <h6 class="modal-title fw-bold">📄 TẢI VỀ & CẬP NHẬT MẪU PHIẾU CHẤM ĐIỂM (.DOCX)</h6>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng"></button>
-            </div>
-            <div class="modal-body p-3 bg-light">
-                <!-- LƯU Ý NỔI BẬT -->
-                <div class="alert alert-danger border-2 border-danger shadow-sm py-2 px-3 mb-3">
-                    <div class="fw-bold text-danger mb-1">⚠️ LƯU Ý QUAN TRỌNG KHI CHỈNH SỬA FILE MẪU:</div>
-                    <div class="small text-dark">
-                        • <strong>Chỉ được phép thay đổi nội dung các mục tiêu chí chấm điểm và thang điểm</strong> trong bảng đánh giá.<br>
-                        • <strong>TUYỆT ĐỐI KHÔNG xóa, sửa tên hoặc thay đổi định dạng các thẻ biến (placeholder)</strong> nằm trong dấu ngoặc nhọn như: 
-                        <code>{{KHOA}}</code>, <code>{{HỌ_VÀ_TÊN}}</code>, <code>{{MÃ_SỐ_SV}}</code>, <code>{{LỚP}}</code>, <code>{{TÊN_ĐỀ_TÀI_ĐỒ_ÁN_TỐT_NGHIỆP}}</code>, <code>{{GVHD}}</code>, <code>{{NGÀY_BẢO_VỆ}}</code>, <code>{{Ghi tên thành viên HĐ tại đây}}</code>... để hệ thống tự động điền thông tin chính xác.
-                    </div>
-                </div>
-
-                <!-- DANH SÁCH 3 MẪU PHIẾU CHẤM -->
-                <div class="d-flex flex-column gap-2">
-                    <!-- 1. PHIẾU CHẤM GVHD -->
-                    <div class="card border shadow-sm">
-                        <div class="card-body p-2">
-                            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-1">
-                                <div>
-                                    <span class="fw-bold text-primary">1. Phiếu chấm Giảng viên Hướng dẫn (GVHD)</span>
-                                    <span id="status-tpl-phieuGVHD" class="badge bg-secondary ms-1">Mặc định</span>
-                                </div>
-                                <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2 fw-bold btn-dl-scoring-tpl" data-tpl="phieuGVHD">
-                                    ⬇️ Tải file mẫu hiện tại
-                                </button>
-                            </div>
-                            <div class="input-group input-group-sm">
-                                <input type="file" class="form-control input-up-scoring-tpl" data-tpl="phieuGVHD" accept=".docx">
-                                <button type="button" class="btn btn-success fw-bold btn-apply-scoring-tpl" data-tpl="phieuGVHD">
-                                    ⬆️ Tải lên & Áp dụng
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 2. PHIẾU CHẤM GVPB -->
-                    <div class="card border shadow-sm">
-                        <div class="card-body p-2">
-                            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-1">
-                                <div>
-                                    <span class="fw-bold text-success">2. Phiếu chấm Giảng viên Phản biện (GVPB)</span>
-                                    <span id="status-tpl-phieuGVPB" class="badge bg-secondary ms-1">Mặc định</span>
-                                </div>
-                                <button type="button" class="btn btn-outline-success btn-sm py-0 px-2 fw-bold btn-dl-scoring-tpl" data-tpl="phieuGVPB">
-                                    ⬇️ Tải file mẫu hiện tại
-                                </button>
-                            </div>
-                            <div class="input-group input-group-sm">
-                                <input type="file" class="form-control input-up-scoring-tpl" data-tpl="phieuGVPB" accept=".docx">
-                                <button type="button" class="btn btn-success fw-bold btn-apply-scoring-tpl" data-tpl="phieuGVPB">
-                                    ⬆️ Tải lên & Áp dụng
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 3. PHIẾU CHẤM HỘI ĐỒNG -->
-                    <div class="card border shadow-sm">
-                        <div class="card-body p-2">
-                            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-1">
-                                <div>
-                                    <span class="fw-bold text-danger">3. Phiếu chấm Thành viên Hội đồng (HĐ)</span>
-                                    <span id="status-tpl-phieuHD" class="badge bg-secondary ms-1">Mặc định</span>
-                                </div>
-                                <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2 fw-bold btn-dl-scoring-tpl" data-tpl="phieuHD">
-                                    ⬇️ Tải file mẫu hiện tại
-                                </button>
-                            </div>
-                            <div class="input-group input-group-sm">
-                                <input type="file" class="form-control input-up-scoring-tpl" data-tpl="phieuHD" accept=".docx">
-                                <button type="button" class="btn btn-success fw-bold btn-apply-scoring-tpl" data-tpl="phieuHD">
-                                    ⬆️ Tải lên & Áp dụng
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer py-2 bg-white justify-content-between">
-                <button type="button" id="btn-reset-all-scoring-tpl" class="btn btn-outline-secondary btn-sm fw-bold">
-                    🔄 Khôi phục tất cả về mẫu gốc
-                </button>
-                <button type="button" class="btn btn-primary btn-sm fw-bold px-3" data-bs-dismiss="modal">
-                    Đóng
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- MODAL 1: ĐĂNG NHẬP ADMIN -->
-<div class="modal fade" id="adminLoginModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-sm modal-dialog-centered">
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header bg-dark text-white py-2">
-                <h6 class="modal-title fw-bold">🔐 ĐĂNG NHẬP QUẢN TRỊ</h6>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <form id="form-admin-login">
-                <div class="modal-body p-3">
-                    <label for="admin-pass-input" class="form-label small fw-bold">Mật khẩu quản trị:</label>
-                    <input type="password" id="admin-pass-input" class="form-control form-control-sm" placeholder="Nhập mật khẩu..." required>
-                    <div id="admin-login-error" class="text-danger small mt-1 d-none">❌ Mật khẩu không chính xác!</div>
-                </div>
-                <div class="modal-footer py-2">
-                    <button type="submit" class="btn btn-primary btn-sm w-100 fw-bold">Đăng nhập</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- MODAL 2: BẢNG ĐIỀU KHIỂN ADMIN -->
-<div class="modal fade" id="adminPanelModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header bg-dark text-white py-2">
-                <h6 class="modal-title fw-bold">⚙️ CẤU HÌNH QUẢN TRỊ HỆ THỐNG</h6>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body p-3">
-                <ul class="nav nav-tabs mb-3 small fw-bold" role="tablist">
-                    <li class="nav-item">
-                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#adm-tab-general" type="button">1. Header, QĐ & Cơ sở</button>
-                    </li>
-                    <li class="nav-item">
-                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#adm-tab-nganh" type="button">2. Danh sách Ngành</button>
-                    </li>
-                    <li class="nav-item">
-                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#adm-tab-templates" type="button">3. File Mẫu Word</button>
-                    </li>
-                    <li class="nav-item">
-                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#adm-tab-security" type="button">4. Đổi mật khẩu</button>
-                    </li>
-                </ul>
-
-                <div class="tab-content">
-                    <!-- TAB 1: HEADER HỘI ĐỒNG, ĐUÔI QĐ & DANH SÁCH CƠ SỞ -->
-                    <div class="tab-pane fade show active" id="adm-tab-general">
-                        <div class="row g-2 mb-3">
-                            <div class="col-md-6">
-                                <label class="form-label small fw-bold">Tên Trường Đại học (Dòng 1 Header):</label>
-                                <input type="text" id="adm-uni-name" class="form-control form-control-sm" placeholder="ĐẠI HỌC DUY TÂN">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label small fw-bold">Tên Trường Thành viên / Đơn vị (Dòng 2 Header):</label>
-                                <input type="text" id="adm-school-name" class="form-control form-control-sm" placeholder="TRƯỜNG CÔNG NGHỆ & KỸ THUẬT">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label small fw-bold">Phần đuôi Số Quyết định:</label>
-                                <input type="text" id="adm-qd-suffix" class="form-control form-control-sm" placeholder="/QĐ-ĐHDT-HĐTN">
-                            </div>
-                        </div>
-
-                        <label class="form-label small fw-bold">Danh sách Cơ sở / Địa điểm bảo vệ (mỗi dòng 1 cơ sở):</label>
-                        <textarea id="adm-campuses" class="form-control form-control-sm font-monospace" rows="5" placeholder="120 Hoàng Minh Thảo&#10;254 Nguyễn Văn Linh"></textarea>
-                        <div class="d-flex justify-content-between mt-2">
-                            <button type="button" id="btn-adm-reset-general" class="btn btn-outline-secondary btn-sm">Khôi phục mặc định</button>
-                            <button type="button" id="btn-adm-save-general" class="btn btn-success btn-sm fw-bold px-3">💾 Lưu cấu hình chung</button>
-                        </div>
-                    </div>
-
-                    <!-- TAB 2: TẢI VỀ & CẬP NHẬT DANH SÁCH NGÀNH -->
-                    <div class="tab-pane fade" id="adm-tab-nganh">
-                        <div class="alert alert-info py-2 small">
-                            File <code>DANH_SACH_NGANH.xlsx</code> gồm 3 cột: <strong>Mã chuyên ngành</strong> | <strong>Tên chuyên ngành</strong> | <strong>Tên Khoa</strong>.
-                        </div>
-                        <div class="d-flex gap-2 mb-3">
-                            <button type="button" id="btn-adm-download-nganh" class="btn btn-outline-primary btn-sm fw-bold">
-                                ⬇️ Tải về file Danh sách ngành hiện tại (.xlsx)
-                            </button>
-                            <button type="button" id="btn-adm-reset-nganh" class="btn btn-outline-danger btn-sm">
-                                🔄 Dùng lại file gốc trên server
-                            </button>
-                        </div>
-                        <label class="form-label small fw-bold">Tải lên file Danh sách ngành mới (.xlsx):</label>
-                        <div class="input-group input-group-sm">
-                            <input type="file" id="adm-upload-nganh" class="form-control" accept=".xlsx, .xls">
-                            <button type="button" id="btn-adm-save-nganh" class="btn btn-success fw-bold">⬆️ Cập nhật Danh sách ngành</button>
-                        </div>
-                    </div>
-
-                    <!-- TAB 3: TẢI VỀ & CẬP NHẬT 4 FILE TEMPLATE WORD -->
-                    <div class="tab-pane fade" id="adm-tab-templates">
-                        <div class="table-responsive">
-                            <table class="table table-bordered table-sm align-middle small">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Tên biểu mẫu Word (.docx)</th>
-                                        <th style="width: 115px;">Tải về</th>
-                                        <th>Cập nhật file mới</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td class="fw-bold">1. Biên bản bảo vệ ĐATN</td>
-                                        <td><button type="button" class="btn btn-outline-primary btn-sm py-0 btn-adm-dl-tpl" data-tpl="bienBan">⬇️ Tải về</button></td>
-                                        <td>
-                                            <div class="input-group input-group-sm">
-                                                <input type="file" class="form-control adm-up-tpl" data-tpl="bienBan" accept=".docx">
-                                                <button type="button" class="btn btn-success btn-adm-save-tpl" data-tpl="bienBan">Lưu</button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td class="fw-bold">2. Phiếu nhận xét GVHD</td>
-                                        <td><button type="button" class="btn btn-outline-primary btn-sm py-0 btn-adm-dl-tpl" data-tpl="phieuGVHD">⬇️ Tải về</button></td>
-                                        <td>
-                                            <div class="input-group input-group-sm">
-                                                <input type="file" class="form-control adm-up-tpl" data-tpl="phieuGVHD" accept=".docx">
-                                                <button type="button" class="btn btn-success btn-adm-save-tpl" data-tpl="phieuGVHD">Lưu</button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td class="fw-bold">3. Phiếu nhận xét GVPB</td>
-                                        <td><button type="button" class="btn btn-outline-primary btn-sm py-0 btn-adm-dl-tpl" data-tpl="phieuGVPB">⬇️ Tải về</button></td>
-                                        <td>
-                                            <div class="input-group input-group-sm">
-                                                <input type="file" class="form-control adm-up-tpl" data-tpl="phieuGVPB" accept=".docx">
-                                                <button type="button" class="btn btn-success btn-adm-save-tpl" data-tpl="phieuGVPB">Lưu</button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td class="fw-bold">4. Phiếu chấm điểm Hội đồng</td>
-                                        <td><button type="button" class="btn btn-outline-primary btn-sm py-0 btn-adm-dl-tpl" data-tpl="phieuHD">⬇️ Tải về</button></td>
-                                        <td>
-                                            <div class="input-group input-group-sm">
-                                                <input type="file" class="form-control adm-up-tpl" data-tpl="phieuHD" accept=".docx">
-                                                <button type="button" class="btn btn-success btn-adm-save-tpl" data-tpl="phieuHD">Lưu</button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                        <button type="button" id="btn-adm-reset-all-tpl" class="btn btn-outline-danger btn-sm">
-                            🔄 Khôi phục toàn bộ 4 file Template gốc
-                        </button>
-                    </div>
-
-                    <!-- TAB 4: ĐỔI MẬT KHẨU ADMIN -->
-                    <div class="tab-pane fade" id="adm-tab-security">
-                        <div class="row g-2" style="max-width: 360px;">
-                            <div class="col-12">
-                                <label class="form-label small fw-bold">Mật khẩu mới:</label>
-                                <input type="password" id="adm-new-pass" class="form-control form-control-sm" placeholder="Nhập mật khẩu mới...">
-                            </div>
-                            <div class="col-12">
-                                <label class="form-label small fw-bold">Xác nhận mật khẩu mới:</label>
-                                <input type="password" id="adm-confirm-pass" class="form-control form-control-sm" placeholder="Nhập lại mật khẩu mới...">
-                            </div>
-                            <div class="col-12 mt-2">
-                                <button type="button" id="btn-adm-change-pass" class="btn btn-warning btn-sm fw-bold">🔑 Cập nhật mật khẩu</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-    <!-- MODAL BÁO CÁO & XÁC NHẬN RÀ SOÁT DỮ LIỆU EXCEL (RỘNG RÃI, CÓ THANH CUỘN) -->
-<div class="modal fade" id="modalExcelReviewReport" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-dark text-white py-2" id="review-modal-header">
-                <h6 class="modal-title fw-bold" id="review-modal-title">📋 KẾT QUẢ RÀ SOÁT & NẠP DỮ LIỆU EXCEL</h6>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" id="btn-review-close-x"></button>
-            </div>
-            <div class="modal-body p-3 bg-light" id="review-modal-body" style="max-height: 70vh; overflow-y: auto;">
-                <!-- Nội dung báo cáo phân nhóm màu sắc sẽ được render động tại đây -->
-            </div>
-            <div class="modal-footer py-2 bg-white justify-content-end gap-2" id="review-modal-footer">
-                <button type="button" class="btn btn-outline-danger btn-sm fw-bold px-3 d-none" id="btn-review-cancel">
-                    ❌ Hủy để kiểm tra lại file
-                </button>
-                <button type="button" class="btn btn-success btn-sm fw-bold px-3" id="btn-review-confirm">
-                    ✅ Đã hiểu
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- MODAL ĐỒNG BỘ PHIÊN LÀM VIỆC TRỰC TUYẾN (PHÂN QUYỀN OTP & PIN) -->
-<div class="modal fade" id="modalCloudSession" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-primary text-white py-2">
-                <h6 class="modal-title fw-bold">☁️ ĐỒNG BỘ & PHÂN QUYỀN PHIÊN LÀM VIỆC</h6>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body p-3 bg-light">
-                <div class="mb-2">
-                    <label class="form-label small fw-bold mb-1">URL Web App Google Apps Script:</label>
-                    <input type="url" id="cloud-gas-url" class="form-control form-control-sm" placeholder="https://script.google.com/macros/s/.../exec">
-                </div>
-
-                <!-- 2 Tab: Tải phiên hiện có vs Tạo phiên mới lần đầu -->
-                <ul class="nav nav-pills nav-fill bg-white p-1 rounded border mb-2 small fw-bold" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active py-1" id="tab-cloud-existing" data-bs-toggle="pill" data-bs-target="#pane-cloud-existing" type="button" role="tab">
-                            1. Tải & Thao tác Phiên
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link py-1" id="tab-cloud-create" data-bs-toggle="pill" data-bs-target="#pane-cloud-create" type="button" role="tab">
-                            2. Tạo Phiên Mới (Nhận OTP)
-                        </button>
-                    </li>
-                </ul>
-
-                <div class="tab-content">
-                    <!-- TAB 1: TẢI PHIÊN HIỆN CÓ (THƯ KÝ NHẬP PIN / CHỦ PHIÊN NHẬP THÊM OTP) -->
-                    <div class="tab-pane fade show active" id="pane-cloud-existing" role="tabpanel">
-                        <div class="row g-2 mb-2">
-                            <div class="col-7">
-                                <label class="form-label small fw-bold mb-1">Mã phiên (Tên JSON):</label>
-                                <input type="text" id="cloud-session-id" class="form-control form-control-sm text-uppercase fw-bold" placeholder="VD: TNM-2026-06">
-                            </div>
-                            <div class="col-5">
-                                <label class="form-label small fw-bold mb-1">Mã PIN (Bắt buộc):</label>
-                                <input type="password" id="cloud-session-pin" class="form-control form-control-sm" placeholder="Nhập PIN">
-                            </div>
-                        </div>
-                        <div class="mb-2">
-                            <label class="form-label small fw-bold mb-1">Mã OTP Quản trị Hội đồng <span class="text-muted fw-normal">(Chỉ nhập nếu bạn là người xếp/khóa HĐ)</span>:</label>
-                            <input type="text" id="cloud-session-otp" class="form-control form-control-sm font-monospace" placeholder="Để trống nếu chỉ vào nhập điểm">
-                        </div>
-
-                        <div class="d-flex flex-wrap gap-2 mt-2">
-                            <button type="button" id="btn-cloud-load" class="btn btn-primary btn-sm fw-bold flex-grow-1">
-                                ⬇️ Tải phiên từ Cloud
-                            </button>
-                            <button type="button" id="btn-cloud-save-hd" class="btn btn-success btn-sm fw-bold d-none">
-                                💾 Lưu thay đổi HĐ
-                            </button>
-                            <button type="button" id="btn-cloud-toggle-lock" class="btn btn-warning btn-sm fw-bold d-none">
-                                🔒 Chốt & Khóa HĐ
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- TAB 2: TẠO PHIÊN MỚI LẦN ĐẦU (NHẬP EMAIL ĐỂ NHẬN OTP) -->
-                    <div class="tab-pane fade" id="pane-cloud-create" role="tabpanel">
-                        <div class="row g-2 mb-2">
-                            <div class="col-7">
-                                <label class="form-label small fw-bold mb-1">Đặt Mã phiên (Tên JSON):</label>
-                                <input type="text" id="create-session-id" class="form-control form-control-sm text-uppercase fw-bold" placeholder="VD: TNM-2026-06">
-                            </div>
-                            <div class="col-5">
-                                <label class="form-label small fw-bold mb-1">Đặt Mã PIN nhập điểm:</label>
-                                <input type="password" id="create-session-pin" class="form-control form-control-sm" placeholder="VD: 1234">
-                            </div>
-                        </div>
-                        <div class="mb-2">
-                            <label class="form-label small fw-bold mb-1">Email nhận thông tin phiên & Mã OTP sửa Hội đồng:</label>
-                            <input type="email" id="create-session-email" class="form-control form-control-sm" placeholder="nhapemail@duytan.edu.vn">
-                        </div>
-                        <button type="button" id="btn-cloud-create" class="btn btn-success btn-sm fw-bold w-100 mt-1">
-                            🚀 Khởi tạo Phiên & Gửi Mã OTP qua Email
-                        </button>
-                    </div>
-                </div>
-
-                <div id="cloud-sync-status" class="alert alert-secondary py-2 px-2 small mt-2 mb-0 d-none"></div>
-            </div>
-        </div>
-    </div>
-</div>
-    
+    <button type="button" id="btn-app-tips" class="btn btn-warning rounded-circle shadow-lg d-flex align-items-center justify-content-center"
+            data-bs-toggle="modal" data-bs-target="#tipsModal" title="Hướng dẫn & Mẹo sử dụng từng khu vực">
+        <span style="font-size: 1.25rem;">💡</span>
+    </button>
 </body>
 </html>
