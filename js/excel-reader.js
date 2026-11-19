@@ -474,7 +474,7 @@ export function parseHoiDongRows(rows) {
             ...item,
             memSig,
             assignedNum,
-            soHD: `Hội Đồng ${assignedNum}`
+            soHD: String(assignedNum)
         });
     });
 
