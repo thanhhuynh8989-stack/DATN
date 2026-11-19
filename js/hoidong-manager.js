@@ -82,15 +82,43 @@ export function createHoiDongBox(titleText = null, initDate = '', initTime = '',
     return boxId;
 }
 
-// Export hàm 3: Bóc tách file Excel Hội đồng, đổ thông tin đầy đủ & XÓA SV ĐÃ PHÂN CÔNG KHỎI KHO CHỜ
+// Export hàm 3: Bóc tách file Excel Hội đồng, rà soát trùng Mã SV + trùng GVHD & đẩy SV vi phạm GVHD về Kho chờ
 export function renderHoidongFromExcel(parsedHoidongs) {
     const workspace = document.getElementById('workspace-hd');
-    if (!workspace) return;
+    if (!workspace) return { mergeLogs: [], conflictLogs: [], duplicateSVLogs: [] };
     workspace.innerHTML = '';
     hoidongCount = 0;
 
     const mergeLogs = parsedHoidongs.__mergeLogs || [];
     const conflictLogs = [];
+    const duplicateSVLogs = [];
+
+    // Bước tiền rà soát: Thống kê mỗi Mã SV xuất hiện ở những Hội đồng nào
+    const svAppearances = new Map(); // maSV -> { hoTen, hoidongs: [] }
+    Object.keys(parsedHoidongs).forEach(hdKey => {
+        if (hdKey === '__mergeLogs') return;
+        const hd = parsedHoidongs[hdKey];
+        const hdLabel = `${hd.soHD}${hd.ngayBV ? ` (${hd.gioBV ? hd.gioBV + ' ' : ''}${hd.ngayBV})` : ''}`;
+
+        hd.sinhViens.forEach(sv => {
+            const ma = String(sv.maSV || '').trim().toUpperCase();
+            if (!ma) return;
+            if (!svAppearances.has(ma)) {
+                svAppearances.set(ma, { hoTen: sv.hoTenSV || sv.hoTen || ma, hoidongs: [] });
+            }
+            svAppearances.get(ma).hoidongs.push(hdLabel);
+        });
+    });
+
+    svAppearances.forEach((info, ma) => {
+        if (info.hoidongs.length > 1) {
+            duplicateSVLogs.push(
+                `• SV ${info.hoTen} (${ma}) bị lặp lại ${info.hoidongs.length} lần tại: ${info.hoidongs.join(' ; ')} → Đã giữ ở HĐ đầu tiên và loại bỏ bản lặp phía sau, đề nghị kiểm tra sửa lại!`
+            );
+        }
+    });
+
+    const renderedSVSet = new Set(); // Đảm bảo mỗi Mã SV chỉ render 1 lần duy nhất trên giao diện
 
     Object.keys(parsedHoidongs).forEach(hdKey => {
         if (hdKey === '__mergeLogs') return;
@@ -129,11 +157,18 @@ export function renderHoidongFromExcel(parsedHoidongs) {
             }
         });
 
-        // 2. Render Sinh viên & RÀ SOÁT TRÙNG MÃ/TÊN GVHD VỚI THÀNH VIÊN HĐ
+        // 2. Render Sinh viên & RÀ SOÁT TRÙNG MÃ SV + TRÙNG GVHD
         const svDropzone = boxEl.querySelector('.dropzone-sv');
         const poolSV = document.getElementById('pool-sv');
 
         hd.sinhViens.forEach(sv => {
+            const maSVNorm = String(sv.maSV || '').trim().toUpperCase();
+            if (!maSVNorm) return;
+
+            // Bỏ qua nếu Mã SV này đã được xử lý ở Hội đồng trước đó (tránh lặp trùng)
+            if (renderedSVSet.has(maSVNorm)) return;
+            renderedSVSet.add(maSVNorm);
+
             const poolItem = document.querySelector(`#pool-sv .card-item[data-id="${sv.maSV}"]`);
             
             const hoTen = poolItem ? poolItem.getAttribute('data-name') : (sv.hoTenSV || sv.hoTen);
@@ -144,7 +179,7 @@ export function renderHoidongFromExcel(parsedHoidongs) {
             const nganh = poolItem ? (poolItem.getAttribute('data-nganh') || '') : (sv.nganh || '');
             const maGVDisplay = maGVHD ? ` [${maGVHD}]` : '';
 
-            // Kiểm tra GVHD của SV có trùng với bất kỳ thành viên nào trong HĐ này không
+            // Kiểm tra GVHD của SV có trùng với thành viên nào trong HĐ này không
             let violatedMember = null;
             for (const member of hd.thanhVien) {
                 if (isSameTeacher({ id1: maGVHD, name1: gvhd }, { id2: member.maGV, name2: member.hoTenGV })) {
@@ -154,7 +189,6 @@ export function renderHoidongFromExcel(parsedHoidongs) {
             }
 
             if (violatedMember) {
-                // VI PHẠM: Tự động đẩy Sinh viên trả về Kho chờ (nếu chưa có trong kho chờ thì tạo thẻ mới ở kho chờ)
                 if (!poolItem && poolSV) {
                     const returnHTML = `
                         <div class="card-item position-relative mb-2 p-2 pe-4 border border-danger rounded bg-white shadow-sm" 
@@ -167,7 +201,7 @@ export function renderHoidongFromExcel(parsedHoidongs) {
                     poolSV.insertAdjacentHTML('afterbegin', returnHTML);
                 } else if (poolItem) {
                     poolItem.classList.add('border-danger');
-                    poolSV?.prepend(poolItem); // Đưa lên đầu kho chờ để dễ thấy
+                    poolSV?.prepend(poolItem);
                 }
 
                 conflictLogs.push(
@@ -194,8 +228,7 @@ export function renderHoidongFromExcel(parsedHoidongs) {
         });
     });
 
-    // Trả về danh sách thông báo để main.js hiển thị cho người dùng
-    return { mergeLogs, conflictLogs };
+    return { mergeLogs, conflictLogs, duplicateSVLogs };
 }
 
 // ----------------------------------------------------
