@@ -7,14 +7,18 @@ import {
 } from './excel-reader.js';
 import { 
     loadTemplatesSilently, templates,
-    extractPhieuHDCriteriaTable, applyPhieuHDCriteriaTable, resetPhieuHDToOriginal 
+    updateScoringTemplate, resetAllScoringTemplates 
 } from './templates.js';
 import { 
     getAdminConfig, saveAdminConfig, resetAdminConfigText, 
     saveAdminBinaryFile, deleteAdminBinaryFile 
 } from './admin-config.js';
-import { exportWordZIP, previewPhieuHDTemplate } from './docx-exporter.js';
+import { exportWordZIP } from './docx-exporter.js';
 import { detectDuplicateTeacherNameDifferentId } from './validators.js';
+import { 
+    getGasWebAppUrl, setGasWebAppUrl, getSavedSessionMeta, saveSessionMeta,
+    syncSessionToCloud, loadSessionFromCloud, restoreSessionFromPayload 
+} from './session-sync.js';
 
 window.studentScores = window.studentScores || {};
 
@@ -506,169 +510,85 @@ function bindEvents() {
         });
     }
 
-    // 8. CHỈNH SỬA TẠM THỜI BẢNG MỤC II - MẪU 4. PHIẾU HỘI ĐỒNG (2 CỘT, THÊM/XÓA HÀNG, TỰ TÍNH TỔNG)
-    const btnEditTplHD = document.getElementById('btn-edit-template-hd');
-    const modalEditTplEl = document.getElementById('modalEditTemplateHD');
-    const badgeModified = document.getElementById('badge-template-hd-modified');
+    // 8. QUẢN LÝ TẢI VỀ & UPLOAD MẪU PHIẾU CHẤM (GVHD, GVPB, HỘI ĐỒNG)
+    const scoringTplFileNames = {
+        phieuGVHD: '2_Phieu_GVHD.docx',
+        phieuGVPB: '3_Phieu_GVPB.docx',
+        phieuHD: '4_Phieu_Hoi_Dong.docx'
+    };
 
-    const recalcTemplateHDTotal = () => {
-        let sum = 0;
-        let hasComma = false;
-        document.querySelectorAll('.tpl-hd-score-input').forEach(inp => {
-            const raw = inp.value.trim();
-            if (raw.includes(',')) hasComma = true;
-            const num = parseFloat(raw.replace(',', '.'));
-            if (!isNaN(num)) sum += num;
+    const syncScoringTemplateBadges = () => {
+        let anyModified = false;
+        Object.keys(scoringTplFileNames).forEach(key => {
+            const isMod = Boolean(templates.modifiedFlags?.[key]);
+            if (isMod) anyModified = true;
+            const statusEl = document.getElementById(`status-tpl-${key}`);
+            if (statusEl) {
+                statusEl.textContent = isMod ? 'Đã tải mẫu mới' : 'Mặc định';
+                statusEl.className = isMod ? 'badge bg-warning text-dark ms-1' : 'badge bg-secondary ms-1';
+            }
         });
 
-        const totalInput = document.getElementById('tpl-hd-total-score');
-        if (totalInput) {
-            const formatted = Number.isInteger(sum) ? String(sum) : sum.toFixed(1);
-            totalInput.value = hasComma ? formatted.replace('.', ',') : formatted;
+        const mainBadge = document.getElementById('badge-template-modified');
+        if (mainBadge) {
+            mainBadge.classList.toggle('d-none', !anyModified);
         }
     };
 
-    const createCriteriaRowHTML = (content = '', score = '') => `
-        <tr class="tpl-hd-row">
-            <td class="align-middle p-1">
-                <textarea class="form-control form-control-sm tpl-hd-content-input" 
-                          rows="${content.length > 55 ? 2 : 1}" 
-                          placeholder="Nhập nội dung đánh giá...">${content}</textarea>
-            </td>
-            <td class="align-middle p-1" style="width: 105px;">
-                <input type="text" class="form-control form-control-sm text-center fw-bold tpl-hd-score-input" 
-                       value="${score}" placeholder="0,0">
-            </td>
-            <td class="align-middle text-center p-1" style="width: 42px;">
-                <button type="button" class="btn btn-sm btn-outline-danger px-2 py-0 fw-bold btn-remove-tpl-row" title="Xóa hàng này">✕</button>
-            </td>
-        </tr>
-    `;
-
-    const renderTemplateHDEditor = () => {
-        const listContainer = document.getElementById('template-hd-editor-list');
-        if (!listContainer) return;
-
-        const { rows, totalScore } = extractPhieuHDCriteriaTable();
-        if (rows.length === 0) {
-            listContainer.innerHTML = '<div class="text-danger text-center py-3">Không đọc được bảng Mục II trong file 4_Phieu_Hoi_Dong.docx!</div>';
-            return;
+    document.getElementById('btn-open-upload-templates')?.addEventListener('click', () => {
+        syncScoringTemplateBadges();
+        const modalEl = document.getElementById('modalUploadScoringTemplates');
+        if (modalEl && window.bootstrap) {
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
         }
+    });
 
-        const rowsHTML = rows.map(r => createCriteriaRowHTML(r.content, r.score)).join('');
+    document.querySelectorAll('.btn-dl-scoring-tpl').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const key = btn.getAttribute('data-tpl');
+            const bin = templates[key];
+            if (!bin) return alert("Chưa nạp được dữ liệu file mẫu này!");
+            const blob = new Blob([bin], {
+                type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            });
+            saveAs(blob, scoringTplFileNames[key]);
+        });
+    });
 
-        listContainer.innerHTML = `
-            <div class="table-responsive bg-white rounded border shadow-sm">
-                <table class="table table-bordered table-sm mb-0 align-middle">
-                    <thead class="table-primary text-center small">
-                        <tr>
-                            <th>Nội dung đánh giá</th>
-                            <th style="width: 105px;">Thang điểm</th>
-                            <th style="width: 42px;">Xóa</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tpl-hd-tbody">
-                        ${rowsHTML}
-                    </tbody>
-                    <tfoot class="table-light">
-                        <tr>
-                            <td class="text-end fw-bold small pe-2">TỔNG ĐIỂM:</td>
-                            <td class="p-1">
-                                <input type="text" id="tpl-hd-total-score" class="form-control form-control-sm text-center fw-bold text-danger bg-white" value="${totalScore}">
-                            </td>
-                            <td></td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
-            <div class="mt-2">
-                <button type="button" id="btn-add-tpl-row" class="btn btn-outline-primary btn-sm fw-bold">
-                    ➕ Chèn thêm hàng tiêu chí
-                </button>
-            </div>
-        `;
-    };
+    document.querySelectorAll('.btn-apply-scoring-tpl').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const key = btn.getAttribute('data-tpl');
+            const inputEl = document.querySelector(`.input-up-scoring-tpl[data-tpl="${key}"]`);
+            const file = inputEl?.files[0];
 
-    document.addEventListener('click', (e) => {
-        if (e.target.closest('#btn-add-tpl-row')) {
-            const tbody = document.getElementById('tpl-hd-tbody');
-            tbody?.insertAdjacentHTML('beforeend', createCriteriaRowHTML('', '0,0'));
-            recalcTemplateHDTotal();
-        }
-        const btnDelRow = e.target.closest('.btn-remove-tpl-row');
-        if (btnDelRow) {
-            const tbody = document.getElementById('tpl-hd-tbody');
-            if (tbody && tbody.querySelectorAll('.tpl-hd-row').length <= 1) {
-                return alert("Bảng đánh giá phải có ít nhất 1 hàng nội dung!");
+            if (!file) {
+                return alert("Vui lòng chọn file Word (.docx) trước khi bấm Tải lên & Áp dụng!");
             }
-            btnDelRow.closest('.tpl-hd-row')?.remove();
-            recalcTemplateHDTotal();
-        }
-    });
+            if (!file.name.toLowerCase().endsWith('.docx')) {
+                return alert("⚠️ Chỉ hỗ trợ định dạng file Word (.docx)!");
+            }
 
-    document.addEventListener('input', (e) => {
-        if (e.target.classList.contains('tpl-hd-score-input')) {
-            recalcTemplateHDTotal();
-        }
-    });
-
-    const collectEditedTableData = () => {
-        const editedRows = [];
-        document.querySelectorAll('#tpl-hd-tbody .tpl-hd-row').forEach(tr => {
-            const content = tr.querySelector('.tpl-hd-content-input')?.value.trim() || '';
-            const score = tr.querySelector('.tpl-hd-score-input')?.value.trim() || '';
-            if (content || score) {
-                editedRows.push({ content, score });
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const ok = updateScoringTemplate(key, arrayBuffer);
+                if (!ok) {
+                    return alert("❌ File .docx không hợp lệ hoặc bị hỏng. Vui lòng kiểm tra lại!");
+                }
+                syncScoringTemplateBadges();
+                if (inputEl) inputEl.value = '';
+                alert(`✅ Đã áp dụng mẫu "${file.name}" cho ${scoringTplFileNames[key]} trong phiên làm việc này!`);
+            } catch (err) {
+                alert("Lỗi khi đọc file mẫu: " + err.message);
             }
         });
-        const totalScore = document.getElementById('tpl-hd-total-score')?.value.trim() || '10';
-        return { editedRows, totalScore };
-    };
-
-    btnEditTplHD?.addEventListener('click', () => {
-        renderTemplateHDEditor();
-        if (modalEditTplEl && window.bootstrap) {
-            bootstrap.Modal.getOrCreateInstance(modalEditTplEl).show();
-        }
     });
 
-    document.getElementById('btn-apply-template-hd')?.addEventListener('click', () => {
-        const { editedRows, totalScore } = collectEditedTableData();
-        if (editedRows.length === 0) return alert("Vui lòng nhập ít nhất 1 hàng tiêu chí đánh giá!");
-
-        const ok = applyPhieuHDCriteriaTable(editedRows, totalScore);
-        if (ok) {
-            badgeModified?.classList.remove('d-none');
-            if (modalEditTplEl && window.bootstrap) {
-                bootstrap.Modal.getInstance(modalEditTplEl)?.hide();
-            }
-            alert("✅ Đã áp dụng chỉnh sửa tạm thời cho Mẫu 4. Phiếu Hội đồng trong phiên làm việc này!");
-        } else {
-            alert("❌ Có lỗi khi cập nhật nội dung file mẫu!");
-        }
-    });
-
-    document.getElementById('btn-preview-template-hd')?.addEventListener('click', async () => {
-        const { editedRows, totalScore } = collectEditedTableData();
-        if (editedRows.length === 0) return alert("Vui lòng nhập ít nhất 1 hàng tiêu chí đánh giá!");
-
-        const ok = applyPhieuHDCriteriaTable(editedRows, totalScore);
-        if (ok) {
-            badgeModified?.classList.remove('d-none');
-            if (typeof previewPhieuHDTemplate === 'function') {
-                await previewPhieuHDTemplate();
-            }
-        }
-    });
-
-    document.getElementById('btn-reset-template-hd')?.addEventListener('click', () => {
-        if (confirm("Khôi phục Mẫu 4. Phiếu Hội đồng về đúng nguyên bản ban đầu?")) {
-            const ok = resetPhieuHDToOriginal();
-            if (ok) {
-                badgeModified?.classList.add('d-none');
-                renderTemplateHDEditor();
-                alert("🔄 Đã khôi phục Mẫu 4 về nguyên bản gốc!");
-            }
+    document.getElementById('btn-reset-all-scoring-tpl')?.addEventListener('click', () => {
+        if (confirm("Khôi phục toàn bộ 3 mẫu Phiếu chấm (GVHD, GVPB, Hội đồng) về đúng nguyên bản gốc?")) {
+            resetAllScoringTemplates();
+            document.querySelectorAll('.input-up-scoring-tpl').forEach(inp => inp.value = '');
+            syncScoringTemplateBadges();
+            alert("🔄 Đã khôi phục toàn bộ mẫu phiếu chấm về nguyên bản gốc!");
         }
     });
 
@@ -784,6 +704,7 @@ function bindEvents() {
             const buf = await file.arrayBuffer();
             await saveAdminBinaryFile(`tpl_${key}`, buf);
             await loadTemplatesSilently();
+            syncScoringTemplateBadges();
             alert(`✅ Đã cập nhật mẫu ${tplFileNames[key]} thành công!`);
         });
     });
@@ -794,6 +715,7 @@ function bindEvents() {
                 await deleteAdminBinaryFile(`tpl_${key}`);
             }
             await loadTemplatesSilently();
+            syncScoringTemplateBadges();
             alert("🔄 Đã khôi phục toàn bộ 4 file Template gốc!");
         }
     });
@@ -810,6 +732,74 @@ function bindEvents() {
         alert("🔑 Đã đổi mật khẩu quản trị thành công!");
     });
 }
+
+// 10. ĐỒNG BỘ PHIÊN LÀM VIỆC TRỰC TUYẾN QUA GOOGLE APPS SCRIPT
+    const showCloudStatus = (msg, type = 'info') => {
+        const el = document.getElementById('cloud-sync-status');
+        if (!el) return;
+        el.className = `alert alert-${type} py-2 px-2 small mb-0`;
+        el.textContent = msg;
+        el.classList.remove('d-none');
+    };
+
+    document.getElementById('btn-open-cloud-sync')?.addEventListener('click', () => {
+        const savedMeta = getSavedSessionMeta();
+        document.getElementById('cloud-gas-url').value = getGasWebAppUrl();
+        document.getElementById('cloud-session-id').value = savedMeta.sessionId || '';
+        document.getElementById('cloud-session-pin').value = savedMeta.pin || '';
+        document.getElementById('cloud-sync-status')?.classList.add('d-none');
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCloudSession')).show();
+    });
+
+    document.getElementById('btn-cloud-save')?.addEventListener('click', async () => {
+        const gasUrl = document.getElementById('cloud-gas-url').value.trim();
+        const sessionId = document.getElementById('cloud-session-id').value.trim().toUpperCase();
+        const pin = document.getElementById('cloud-session-pin').value.trim();
+
+        if (!gasUrl) return showCloudStatus("⚠️ Vui lòng nhập URL Web App Google Apps Script!", "warning");
+        if (!sessionId) return showCloudStatus("⚠️ Vui lòng nhập Mã phiên làm việc!", "warning");
+
+        setGasWebAppUrl(gasUrl);
+        saveSessionMeta({ sessionId, pin });
+        showCloudStatus("⏳ Đang đồng bộ dữ liệu lên Google Drive...", "info");
+
+        try {
+            const res = await syncSessionToCloud(gasUrl, sessionId, pin);
+            if (res.ok) {
+                showCloudStatus(`✅ ${res.message}`, "success");
+            } else {
+                showCloudStatus(`❌ ${res.message}`, "danger");
+            }
+        } catch (err) {
+            showCloudStatus(`❌ Lỗi kết nối GAS: ${err.message}`, "danger");
+        }
+    });
+
+    document.getElementById('btn-cloud-load')?.addEventListener('click', async () => {
+        const gasUrl = document.getElementById('cloud-gas-url').value.trim();
+        const sessionId = document.getElementById('cloud-session-id').value.trim().toUpperCase();
+        const pin = document.getElementById('cloud-session-pin').value.trim();
+
+        if (!gasUrl) return showCloudStatus("⚠️ Vui lòng nhập URL Web App Google Apps Script!", "warning");
+        if (!sessionId) return showCloudStatus("⚠️ Vui lòng nhập Mã phiên làm việc!", "warning");
+
+        setGasWebAppUrl(gasUrl);
+        saveSessionMeta({ sessionId, pin });
+        showCloudStatus("⏳ Đang tải phiên làm việc từ Google Drive...", "info");
+
+        try {
+            const res = await loadSessionFromCloud(gasUrl, sessionId, pin);
+            if (res.ok && res.payload) {
+                restoreSessionFromPayload(res.payload);
+                syncScoringTemplateBadges();
+                showCloudStatus(`✅ Đã khôi phục phiên [${res.sessionId}] (${res.summary})!`, "success");
+            } else {
+                showCloudStatus(`❌ ${res.message}`, "danger");
+            }
+        } catch (err) {
+            showCloudStatus(`❌ Lỗi kết nối GAS: ${err.message}`, "danger");
+        }
+    });
 
 function initKhoaNganhDropdowns() {
     const khoaSelect = document.getElementById('khoa-select');
