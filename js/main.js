@@ -928,15 +928,27 @@ function collectExportData(meta, includeEmptyHD = false) {
 
     document.querySelectorAll('.box-hoidong').forEach(box => {
         const hdName = box.querySelector('.hd-title')?.value.trim() || 'Hội Đồng';
-        const rawDate = box.querySelector('.hd-date')?.value || '';
+        
         const gio = box.querySelector('.hd-time')?.value || '';
         const phong = box.querySelector('.hd-room')?.value.trim() || '';
         const diaDiem = box.querySelector('.hd-location')?.value || '';
 
+        const rawDate = (box.querySelector('.hd-date')?.value || '').trim();
         let ngay = rawDate;
+        let dPart = '', mPart = '', yPart = '';
+
         if (rawDate.includes('-')) {
-            const parts = rawDate.split('-');
-            if (parts.length === 3) ngay = `${parts[2]}/${parts[1]}/${parts[0]}`;
+            const parts = rawDate.split('-'); // [yyyy, mm, dd]
+            if (parts.length === 3) {
+                [yPart, mPart, dPart] = parts;
+                ngay = `${dPart}/${mPart}/${yPart}`;
+            }
+        } else if (rawDate.includes('/')) {
+            const parts = rawDate.split('/'); // [dd, mm, yyyy]
+            if (parts.length === 3) {
+                [dPart, mPart, yPart] = parts;
+                ngay = `${dPart.padStart(2, '0')}/${mPart.padStart(2, '0')}/${yPart}`;
+            }
         }
 
         const getGVInfo = (role) => {
