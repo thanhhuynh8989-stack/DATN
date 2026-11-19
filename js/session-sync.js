@@ -4,9 +4,18 @@ import { templates } from './templates.js';
 
 const GAS_URL_STORAGE_KEY = 'datn_gas_webapp_url';
 const LAST_SESSION_META_KEY = 'datn_last_cloud_session';
+const DEFAULT_GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxWmG5jDte-EkGQdvchrD1wQjw_8jRdC3XoOT2ly9K_30op7El4GAsZ87GWDr7CUiLS/exec'; // Dán URL Web App GAS của bạn vào đây nếu muốn dùng chung mặc định
 
-// Lưu URL Web App GAS vào cấu hình trình duyệt (hoặc gán URL mặc định của bạn tại đây)
-const DEFAULT_GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxWmG5jDte-EkGQdvchrD1wQjw_8jRdC3XoOT2ly9K_30op7El4GAsZ87GWDr7CUiLS/exec'; // Dán URL https://script.google.com/macros/s/.../exec của bạn vào đây nếu muốn dùng chung cho mọi máy
+// Trạng thái phiên làm việc hiện tại trên Client
+export const sessionState = {
+    isCloudConnected: false,
+    sessionId: '',
+    pin: '',
+    otp: '',
+    canEditHD: true,     // Mặc định true khi làm việc offline; khi lên Cloud chỉ true nếu có OTP hợp lệ
+    isHDLocked: false,   // Khi true: khóa vùng Hội đồng, mở khóa Nhập điểm & Xuất file
+    lastSyncedScores: {} // Bản chụp điểm lần gần nhất đồng bộ với Cloud để tính Delta Diff
+};
 
 export function getGasWebAppUrl() {
     return localStorage.getItem(GAS_URL_STORAGE_KEY) || DEFAULT_GAS_WEBAPP_URL;
@@ -28,7 +37,135 @@ export function saveSessionMeta(meta) {
     localStorage.setItem(LAST_SESSION_META_KEY, JSON.stringify(meta));
 }
 
-// Helper chuyển ArrayBuffer <-> Base64 để đồng bộ cả file Word Template tùy chỉnh nếu có
+function clonePlainScores(scoresObj) {
+    const clean = {};
+    Object.keys(scoresObj || {}).forEach(maSV => {
+        const s = scoresObj[maSV] || {};
+        clean[maSV] = {
+            gvhd: String(s.gvhd ?? ''),
+            ct: String(s.ct ?? ''),
+            pb: String(s.pb ?? ''),
+            tk: String(s.tk ?? ''),
+            chu: String(s.chu ?? '')
+        };
+    });
+    return clean;
+}
+
+// Áp dụng điểm từ Cloud lên cả window.studentScores lẫn thuộc tính data-* trên thẻ SV
+export function applyScoresToUI(scoresObj) {
+    window.studentScores = scoresObj || {};
+    sessionState.lastSyncedScores = clonePlainScores(window.studentScores);
+
+    Object.keys(window.studentScores).forEach(maSV => {
+        const sc = window.studentScores[maSV] || {};
+        const svCard = document.querySelector(`.dropzone-sv .card-item[data-id="${maSV}"]`);
+        if (svCard) {
+            svCard.setAttribute('data-diem-gvhd', sc.gvhd ?? '');
+            svCard.setAttribute('data-diem-ct', sc.ct ?? '');
+            svCard.setAttribute('data-diem-pb', sc.pb ?? '');
+            svCard.setAttribute('data-diem-tk', sc.tk ?? '');
+        }
+    });
+}
+
+// Tính toán phần điểm thực sự thay đổi so với lần đồng bộ gần nhất (Delta Sync)
+export function computeScoreDelta(currentScores) {
+    const delta = {};
+    let changedCount = 0;
+
+    Object.keys(currentScores || {}).forEach(maSV => {
+        const curr = currentScores[maSV] || {};
+        const prev = sessionState.lastSyncedScores[maSV] || {};
+        const diffFields = {};
+
+        ['gvhd', 'ct', 'pb', 'tk', 'chu'].forEach(field => {
+            const currVal = String(curr[field] ?? '').trim();
+            const prevVal = String(prev[field] ?? '').trim();
+            if (currVal !== prevVal) {
+                diffFields[field] = currVal;
+                changedCount++;
+            }
+        });
+
+        if (Object.keys(diffFields).length > 0) {
+            delta[maSV] = diffFields;
+        }
+    });
+
+    return { delta, changedCount };
+}
+
+// Áp dụng trạng thái Khóa/Mở khóa giao diện theo đúng phân quyền & trạng thái phiên
+export function applySessionPermissionsToUI() {
+    const hdEditable = !sessionState.isCloudConnected
+        ? true
+        : (sessionState.canEditHD && !sessionState.isHDLocked);
+
+    // 1. Vùng Thiết lập, Nạp Excel, Kho SV, Kho GV & Khu vực Hội đồng
+    const setupInputs = document.querySelectorAll(
+        '#khoa-select, #nganh-select, #dot-thang, #nam-cham, #so-qd, #ngay-ky-qd, #upload-sv, #upload-gv, #upload-hd, #btn-read-files, #btn-add-hd'
+    );
+    setupInputs.forEach(el => { el.disabled = !hdEditable; });
+
+    document.querySelectorAll('.box-hoidong input, .box-hoidong select, .box-hoidong button').forEach(el => {
+        el.disabled = !hdEditable;
+    });
+
+    // Ẩn/hiện nút Xóa thẻ X trên các card SV/GV
+    document.querySelectorAll('.btn-remove-card').forEach(btn => {
+        btn.classList.toggle('d-none', !hdEditable);
+    });
+
+    // Khóa thao tác kéo thả SortableJS nếu vùng Hội đồng không được phép sửa
+    document.querySelectorAll('#pool-sv, #pool-gv, .dropzone-sv, .dropzone-gv').forEach(zone => {
+        zone.style.pointerEvents = hdEditable ? 'auto' : 'none';
+        zone.style.opacity = hdEditable ? '1' : '0.88';
+    });
+
+    // 2. Nhóm tác vụ Nhập điểm & Xuất file:
+    // Nếu đã kết nối Cloud -> CHỈ MỞ KHI HỘI ĐỒNG ĐÃ KHÓA (isHDLocked === true)
+    const allowScoringAndExport = !sessionState.isCloudConnected ? true : sessionState.isHDLocked;
+    const actionBtnIds = [
+        'btn-nhap-diem',
+        'btn-export-pb',
+        'btn-open-upload-templates',
+        'btn-export-hd',
+        'btn-export-word',
+        'btn-export-diem'
+    ];
+    actionBtnIds.forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) {
+            btn.disabled = !allowScoringAndExport;
+            btn.title = allowScoringAndExport
+                ? ''
+                : 'Chỉ mở khi Chủ phiên đã Chốt & Khóa vùng Hội đồng!';
+        }
+    });
+
+    // 3. Thanh trạng thái phiên trên Header
+    const banner = document.getElementById('session-role-banner');
+    if (banner) {
+        if (!sessionState.isCloudConnected) {
+            banner.classList.add('d-none');
+        } else {
+            banner.classList.remove('d-none');
+            const roleText = sessionState.canEditHD
+                ? '👑 Chủ phiên (Có OTP)'
+                : '✍️ Thư ký nhập điểm (Chỉ có PIN)';
+            const lockText = sessionState.isHDLocked
+                ? '🔒 Hội đồng ĐÃ KHÓA (Đang mở Nhập điểm & Xuất file)'
+                : '🔓 Hội đồng ĐANG MỞ SỬA (Tạm khóa Nhập điểm & Xuất file)';
+
+            banner.innerHTML = `
+                <span>Phiên: <strong>${sessionState.sessionId}</strong> | ${roleText} | <strong>${lockText}</strong></span>
+            `;
+            banner.className = `alert ${sessionState.isHDLocked ? 'alert-success' : 'alert-warning'} py-1 px-2 mb-1 small d-flex justify-content-between align-items-center`;
+        }
+    }
+}
+
 function arrayBufferToBase64(buffer) {
     if (!buffer) return null;
     const bytes = new Uint8Array(buffer);
@@ -45,7 +182,6 @@ function base64ToArrayBuffer(base64) {
     return bytes.buffer;
 }
 
-// 1. ĐÓNG GÓI TOÀN BỘ PHIÊN LÀM VIỆC HIỆN TẠI THÀNH JSON
 export function serializeCurrentSession() {
     const setup = {
         khoa: document.getElementById('khoa-select')?.value || '',
@@ -63,11 +199,7 @@ export function serializeCurrentSession() {
         deTai: el.getAttribute('data-detai') || '',
         maGVHD: el.getAttribute('data-magvhd') || '',
         gvhd: el.getAttribute('data-gvhd') || '',
-        nganh: el.getAttribute('data-nganh') || '',
-        diem_gvhd: el.getAttribute('data-diem-gvhd') || '',
-        diem_ct: el.getAttribute('data-diem-ct') || '',
-        diem_pb: el.getAttribute('data-diem-pb') || '',
-        diem_tk: el.getAttribute('data-diem-tk') || ''
+        nganh: el.getAttribute('data-nganh') || ''
     });
 
     const readGVCard = (el) => ({
@@ -97,7 +229,6 @@ export function serializeCurrentSession() {
         };
     });
 
-    // Lưu kèm các file mẫu phiếu chấm nếu người dùng có tải mẫu riêng trong phiên này
     const customTemplates = {};
     ['phieuGVHD', 'phieuGVPB', 'phieuHD'].forEach(k => {
         if (templates.modifiedFlags?.[k] && templates[k]) {
@@ -110,7 +241,7 @@ export function serializeCurrentSession() {
     return {
         summary,
         payload: {
-            version: 1,
+            version: 2,
             setup,
             poolSV,
             poolGV,
@@ -121,11 +252,9 @@ export function serializeCurrentSession() {
     };
 }
 
-// 2. KHÔI PHỤC TOÀN BỘ PHIÊN LÀM VIỆC TỪ DỮ LIỆU JSON CLOUD
 export function restoreSessionFromPayload(payload) {
     if (!payload) return;
 
-    // A. Khôi phục Setup Metadata
     const s = payload.setup || {};
     const khoaSel = document.getElementById('khoa-select');
     if (khoaSel && s.khoa) {
@@ -139,10 +268,6 @@ export function restoreSessionFromPayload(payload) {
     if (document.getElementById('so-qd')) document.getElementById('so-qd').value = s.soQD || '';
     if (document.getElementById('ngay-ky-qd')) document.getElementById('ngay-ky-qd').value = s.ngayKyQD || '';
 
-    // B. Khôi phục Bảng điểm
-    window.studentScores = payload.studentScores || {};
-
-    // C. Khôi phục Kho SV
     const poolSVEl = document.getElementById('pool-sv');
     if (poolSVEl) {
         poolSVEl.innerHTML = '';
@@ -160,7 +285,6 @@ export function restoreSessionFromPayload(payload) {
         });
     }
 
-    // D. Khôi phục Kho GV
     const poolGVEl = document.getElementById('pool-gv');
     if (poolGVEl) {
         poolGVEl.innerHTML = '';
@@ -175,7 +299,6 @@ export function restoreSessionFromPayload(payload) {
         });
     }
 
-    // E. Khôi phục Khu vực Hội đồng
     const workspace = document.getElementById('workspace-hd');
     if (workspace) {
         workspace.innerHTML = '';
@@ -207,9 +330,7 @@ export function restoreSessionFromPayload(payload) {
                 svZone?.insertAdjacentHTML('beforeend', `
                     <div class="card-item position-relative mb-2 p-2 pe-4 border rounded bg-white shadow-sm" 
                          data-id="${sv.maSV}" data-name="${sv.hoTen}" data-lop="${sv.lop}" data-detai="${sv.deTai}" 
-                         data-magvhd="${sv.maGVHD || ''}" data-gvhd="${sv.gvhd || ''}" data-nganh="${sv.nganh || ''}"
-                         data-diem-gvhd="${sv.diem_gvhd || ''}" data-diem-ct="${sv.diem_ct || ''}" 
-                         data-diem-pb="${sv.diem_pb || ''}" data-diem-tk="${sv.diem_tk || ''}">
+                         data-magvhd="${sv.maGVHD || ''}" data-gvhd="${sv.gvhd || ''}" data-nganh="${sv.nganh || ''}">
                         <button type="button" class="btn btn-sm btn-link text-danger text-decoration-none fw-bold position-absolute top-0 end-0 px-2 py-1 btn-remove-card">✕</button>
                         <div class="fw-bold text-primary">${sv.hoTen} (${sv.maSV})</div>
                         <div class="text-muted small">Lớp: ${sv.lop} | GVHD: <span class="fw-bold text-dark">${sv.gvhd || 'Chưa rõ'}${maGVDisplay}</span></div>
@@ -219,7 +340,6 @@ export function restoreSessionFromPayload(payload) {
         });
     }
 
-    // F. Khôi phục các file Word Template tùy chỉnh nếu có
     if (payload.customTemplates) {
         ['phieuGVHD', 'phieuGVPB', 'phieuHD'].forEach(k => {
             if (payload.customTemplates[k]) {
@@ -228,24 +348,94 @@ export function restoreSessionFromPayload(payload) {
             }
         });
     }
+
+    applyScoresToUI(payload.studentScores || {});
+    applySessionPermissionsToUI();
 }
 
-// 3. GỌI API GOOGLE APPS SCRIPT (LƯU & TẢI PHIÊN)
-export async function syncSessionToCloud(gasUrl, sessionId, pin) {
+// --- CÁC HÀM GỌI API GOOGLE APPS SCRIPT ---
+async function callGasApi(gasUrl, bodyObj) {
+    const res = await fetch(gasUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(bodyObj)
+    });
+    return await res.json();
+}
+
+export async function createCloudSession(gasUrl, sessionId, pin, email) {
     const { summary, payload } = serializeCurrentSession();
-    const res = await fetch(gasUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'save', sessionId, pin, summary, payload })
+    return await callGasApi(gasUrl, {
+        action: 'create_session',
+        sessionId,
+        pin,
+        email,
+        summary,
+        payload
     });
-    return await res.json();
 }
 
-export async function loadSessionFromCloud(gasUrl, sessionId, pin) {
-    const res = await fetch(gasUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'load', sessionId, pin })
+export async function loadCloudSession(gasUrl, sessionId, pin, otp = '') {
+    return await callGasApi(gasUrl, {
+        action: 'load',
+        sessionId,
+        pin,
+        otp
     });
-    return await res.json();
+}
+
+export async function saveCloudHoiDong(gasUrl, sessionId, pin, otp) {
+    const { summary, payload } = serializeCurrentSession();
+    return await callGasApi(gasUrl, {
+        action: 'save_hd',
+        sessionId,
+        pin,
+        otp,
+        summary,
+        payload
+    });
+}
+
+export async function toggleCloudHDLock(gasUrl, sessionId, pin, otp, isHDLocked) {
+    return await callGasApi(gasUrl, {
+        action: 'toggle_hd_lock',
+        sessionId,
+        pin,
+        otp,
+        isHDLocked
+    });
+}
+
+export async function pullLatestScoresFromCloud() {
+    if (!sessionState.isCloudConnected) return { ok: true, offline: true };
+    const gasUrl = getGasWebAppUrl();
+    const res = await callGasApi(gasUrl, {
+        action: 'pull_scores',
+        sessionId: sessionState.sessionId,
+        pin: sessionState.pin
+    });
+    if (res.ok) {
+        applyScoresToUI(res.studentScores || {});
+    }
+    return res;
+}
+
+export async function pushDeltaScoresToCloud() {
+    if (!sessionState.isCloudConnected) return { ok: true, offline: true };
+    const { delta, changedCount } = computeScoreDelta(window.studentScores);
+    if (changedCount === 0) {
+        return { ok: true, noChange: true, message: 'Không có ô điểm nào thay đổi so với Cloud.' };
+    }
+
+    const gasUrl = getGasWebAppUrl();
+    const res = await callGasApi(gasUrl, {
+        action: 'merge_scores',
+        sessionId: sessionState.sessionId,
+        pin: sessionState.pin,
+        deltaScores: delta
+    });
+    if (res.ok) {
+        applyScoresToUI(res.studentScores || {});
+    }
+    return res;
 }
