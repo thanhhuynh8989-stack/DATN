@@ -67,6 +67,14 @@ html, body {
     z-index: 1000;
 }
 
+.footer-actions-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+}
+
 /* CARD KÉO THẢ */
 .card-item {
     cursor: grab;
@@ -93,45 +101,7 @@ html, body {
     display: none !important;
 }
 
-/* ĐIỀU CHỈNH CHUẨN RIÊNG CHO ĐIỆN THOẠI ĐẶT DỌC (< 768px) */
-@media (max-width: 767.98px) {
-    .app-container {
-        padding: 4px 6px;
-    }
-
-    .app-title {
-        font-size: 0.95rem !important;
-        margin-bottom: 2px !important;
-    }
-
-    /* Đổi 3 cột thành ẩn/hiện dạng Tab */
-    .mobile-col {
-        display: none !important;
-        width: 100% !important;
-    }
-
-    .mobile-col.active {
-        display: block !important;
-    }
-
-    /* Giao diện nút Footer bám đáy cực đẹp */
-    .footer-section {
-        display: flex;
-        gap: 6px;
-        padding: 6px;
-    }
-
-    .footer-section .btn {
-        flex: 1 1 auto; font-size: 0.72rem !important; padding: 6px 4px !important;
-        font-size: 0.75rem !important;
-        padding: 8px 4px !important;
-        margin: 0 !important;
-        white-space: nowrap;
-        border-radius: 6px;
-    }
-}
-
-/* Tối ưu & chống tràn màn hình cho các trường cài đặt trên Mobile */
+/* Tối ưu & chống tràn màn hình cho các trường cài đặt */
 .setup-fields-row input,
 .setup-fields-row select,
 .setup-fields-row .input-group {
@@ -139,30 +109,11 @@ html, body {
     min-width: 0;
 }
 
-@media (max-width: 767.98px) {
-    .setup-fields-row .form-control-sm,
-    .setup-fields-row .form-select-sm {
-        font-size: 0.78rem;
-        padding-left: 0.35rem;
-        padding-right: 0.35rem;
-    }
-
-    .setup-fields-row .input-group-text {
-        font-size: 0.66rem !important;
-        padding-left: 0.25rem !important;
-        padding-right: 0.25rem !important;
-    }
-
-    .setup-fields-row input[type="date"] {
-        font-size: 0.74rem;
-    }
-}
-
 /* Nút nổi Tips Hướng dẫn sử dụng */
 #btn-app-tips {
     position: fixed;
     right: 16px;
-    bottom: 64px; /* Nằm ngay phía trên thanh Footer cố định */
+    bottom: 64px;
     width: 44px;
     height: 44px;
     z-index: 1040;
@@ -184,20 +135,6 @@ html, body {
     color: #fff;
 }
 
-@media (max-width: 767.98px) {
-    #btn-app-tips {
-        right: 12px;
-        bottom: 84px; /* Tránh thanh Footer 2 hàng trên màn hình điện thoại */
-        width: 40px;
-        height: 40px;
-    }
-
-    #tipsTab .nav-link {
-        font-size: 0.72rem;
-        padding: 4px 6px;
-    }
-}
-
 /* Custom Scrollbar */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: #f1f1f1; }
@@ -207,68 +144,80 @@ html, body {
    TỐI ƯU BỐ CỤC GIAO DIỆN ĐIỆN THOẠI (MOBILE <= 767.98px)
    ========================================================= */
 @media (max-width: 767.98px) {
-    body {
-        padding-bottom: 132px !important; /* Chừa đủ chỗ cho thanh nút đáy, tránh che nội dung */
+    html, body {
+        height: auto;
+        min-height: 100%;
+        overflow-y: auto !important;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
         font-size: 13px;
     }
 
-    /* 1. Header & Thanh trạng thái phiên: xếp dọc gọn gàng, không làm mờ nút Phiên làm việc / Admin */
-    .header-section,
-    header {
-        flex-direction: column !important;
-        align-items: stretch !important;
-        gap: 6px !important;
-        padding: 8px 10px !important;
+    body {
+        padding-bottom: 136px !important;
     }
 
-    .header-section h1,
-    .header-section h4,
-    .header-section h5,
-    header h1,
-    header h4,
-    header h5 {
-        font-size: 15px !important;
-        text-align: center !important;
-        margin-bottom: 4px !important;
+    .app-container {
+        height: auto !important;
+        min-height: 100dvh;
+        padding: 6px 8px;
+        overflow: visible;
     }
 
-    .header-section .d-flex,
-    header .d-flex {
-        justify-content: center !important;
-        flex-wrap: wrap !important;
-        gap: 6px !important;
+    /* 1. Header & Thanh trạng thái phiên */
+    .app-title {
+        font-size: 0.95rem !important;
+        text-align: left !important;
+        margin-bottom: 2px !important;
     }
 
     #btn-open-cloud-sync,
     #btn-open-admin {
         opacity: 1 !important;
         pointer-events: auto !important;
-        font-size: 12px !important;
-        padding: 4px 10px !important;
+        font-size: 0.75rem !important;
+        padding: 4px 8px !important;
     }
 
     #session-role-banner {
-        font-size: 11.5px !important;
+        font-size: 0.75rem !important;
         line-height: 1.35 !important;
         padding: 6px 8px !important;
     }
 
-    /* 2. Vùng Thông tin chung: mỗi trường 1 hàng hoặc chia tỷ lệ hợp lý để không cắt chữ Ngành */
-    .setup-section .row > [class*="col-"],
-    .setup-fields-row > [class*="col-"] {
-        width: 100% !important;
-        flex: 0 0 100% !important;
-        max-width: 100% !important;
-        margin-bottom: 6px !important;
+    /* 2. Thông tin chung: giữ Đợt & Năm chia đôi trên 1 hàng, các ô dài full chiều ngang */
+    .setup-fields-row .form-control-sm,
+    .setup-fields-row .form-select-sm {
+        font-size: 0.82rem;
+        padding-left: 0.45rem;
+        padding-right: 0.45rem;
+    }
+
+    .setup-fields-row .input-group-text {
+        font-size: 0.72rem !important;
+        padding-left: 0.35rem !important;
+        padding-right: 0.35rem !important;
     }
 
     #khoa-select,
     #nganh-select {
-        font-size: 12.5px !important;
         text-overflow: ellipsis;
     }
 
-    /* 3. Khu vực Hội đồng: các ô ngày, giờ, phòng, cơ sở xếp lưới 2 cột đều nhau */
+    /* 3. Khu vực 3 cột chuyển thành Tab trên mobile */
+    .mobile-col {
+        display: none !important;
+        width: 100% !important;
+    }
+
+    .mobile-col.active {
+        display: block !important;
+    }
+
+    .column-card > .card-body {
+        max-height: 60vh;
+    }
+
     .box-hoidong {
         padding: 8px !important;
     }
@@ -282,33 +231,51 @@ html, body {
 
     .box-hoidong input,
     .box-hoidong select {
-        font-size: 12.5px !important;
+        font-size: 0.8rem !important;
         width: 100% !important;
     }
 
-    /* 4. Thanh nút chức năng cố định dưới đáy: lưới 2 cột đều nhau, chữ không tràn */
-    .footer-section,
-    .bottom-actions-bar,
-    footer {
-        display: grid !important;
-        grid-template-columns: 1fr 1fr !important;
-        gap: 6px !important;
+    /* 4. Thanh nút chức năng cố định dưới đáy: lưới 2 cột đều nhau */
+    .footer-section {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        border-radius: 0;
         padding: 6px 8px !important;
     }
 
-    .footer-section button,
-    .bottom-actions-bar button,
-    footer button {
-        width: 100% !important;
-        font-size: 11.5px !important;
-        padding: 6px 6px !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
+    .footer-actions-grid {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 6px !important;
     }
 
-    /* Nút số 5 (Xuất Bảng điểm) kéo ngang 2 cột cho nổi bật */
+    .footer-actions-grid .btn {
+        width: 100%;
+        font-size: 0.74rem !important;
+        padding: 6px 6px !important;
+        margin: 0 !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        border-radius: 6px;
+    }
+
     #btn-export-diem {
         grid-column: 1 / -1 !important;
+    }
+
+    /* 5. Nút Tips nổi nằm gọn trên thanh footer 3 hàng */
+    #btn-app-tips {
+        right: 12px;
+        bottom: 126px;
+        width: 40px;
+        height: 40px;
+    }
+
+    #tipsTab .nav-link {
+        font-size: 0.72rem;
+        padding: 4px 6px;
     }
 }
