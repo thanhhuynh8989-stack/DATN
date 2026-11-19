@@ -326,7 +326,7 @@ function buildMembersSignature(thanhVienList) {
     return parts.join('|');
 }
 
-// 8. Bóc tách file Excel Danh sách Hội đồng (Có gộp HĐ trùng buổi/phòng & đổi số HĐ cùng ban giám khảo)
+// 8. Bóc tách file Excel Danh sách Hội đồng (Tách block mới mỗi khi gặp chức danh "Chủ tịch")
 export function parseHoiDongRows(rows) {
     const rawList = [];
     let currentObj = null;
@@ -339,6 +339,16 @@ export function parseHoiDongRows(rows) {
             break;
         }
     }
+
+    const normalizeRole = (cd) => {
+        const l = String(cd || '').toLowerCase();
+        if (l.includes('chủ tịch')) return 'Chủ tịch';
+        if (l.includes('phản biện')) return 'Phản biện';
+        if (l.includes('thư ký')) return 'Thư ký';
+        return '';
+    };
+
+    let lastRawNum = '';
 
     rows.forEach((row, idx) => {
         if (idx < 1 || !row || row.length === 0) return;
@@ -356,6 +366,7 @@ export function parseHoiDongRows(rows) {
 
         const upperRow = row.join(' ').toUpperCase();
 
+        // Chặn dòng tiêu đề và phần chữ ký cuối trang
         if (
             colA.toUpperCase().includes('HỘI ĐỒNG') ||
             maGV.toUpperCase().includes('MÃ') ||
@@ -369,9 +380,16 @@ export function parseHoiDongRows(rows) {
         }
 
         if (colA && !isNaN(colA)) {
+            lastRawNum = colA;
+        }
+
+        const roleKey = normalizeRole(chucDanh);
+
+        // QUY TẮC TÁCH HĐ: Cứ gặp chức danh "Chủ tịch" (hoặc chưa có block nào) là bắt đầu 1 HĐ mới
+        if (roleKey === 'Chủ tịch' || (!currentObj && (maGV || maSV))) {
             const parsedInfo = extractScheduleAndPlace(ngayBV);
             currentObj = {
-                rawIndex: colA,
+                rawIndex: lastRawNum || String(rawList.length + 1),
                 ngayBV: parsedInfo.ngay || defaultHeaderPlace.ngay || '',
                 gioBV: parsedInfo.gio || defaultHeaderPlace.gio || '',
                 phongBV: parsedInfo.phong || defaultHeaderPlace.phong || '',
@@ -383,19 +401,26 @@ export function parseHoiDongRows(rows) {
         }
 
         if (currentObj) {
-            if (maGV && hoTenGV) {
-                const existGV = currentObj.thanhVien.find(g => g.maGV === maGV);
-                if (!existGV) {
-                    currentObj.thanhVien.push({ maGV, hoTenGV, donVi, chucDanh });
+            // Bổ sung thông tin ngày/giờ/phòng nếu nằm ở dòng kế tiếp trong cùng HĐ
+            if (ngayBV) {
+                const parsedInfo = extractScheduleAndPlace(ngayBV);
+                if (!currentObj.ngayBV && parsedInfo.ngay) currentObj.ngayBV = parsedInfo.ngay;
+                if (!currentObj.gioBV && parsedInfo.gio) currentObj.gioBV = parsedInfo.gio;
+                if (!currentObj.phongBV && parsedInfo.phong) currentObj.phongBV = parsedInfo.phong;
+                if (!currentObj.diaDiemBV && parsedInfo.diaDiem) currentObj.diaDiemBV = parsedInfo.diaDiem;
+            }
+
+            if (maGV && hoTenGV && roleKey) {
+                const existRole = currentObj.thanhVien.find(g => normalizeRole(g.chucDanh) === roleKey);
+                if (!existRole) {
+                    currentObj.thanhVien.push({ maGV, hoTenGV, donVi, chucDanh: roleKey });
                 }
             }
 
             if (maSV && hoTenSV) {
-                const existSV = currentObj.sinhViens.find(s => s.maSV === maSV);
-                if (!existSV) {
-                    const nganh = detectNganhFromLop(lop);
-                    currentObj.sinhViens.push({ maSV, hoTenSV, lop, deTai, nganh });
-                }
+                // Ghi nhận tất cả SV (kể cả trùng trong cùng 1 HĐ để bộ rà soát phát hiện và báo cáo)
+                const nganh = detectNganhFromLop(lop);
+                currentObj.sinhViens.push({ maSV, hoTenSV, lop, deTai, nganh });
             }
         }
     });
@@ -403,16 +428,17 @@ export function parseHoiDongRows(rows) {
     // RÀ SOÁT GỘP HỘI ĐỒNG & ĐỔI SỐ HỘI ĐỒNG THEO QUY TẮC
     const mergedList = [];
     const logs = [];
-    const memberSigToNumber = new Map(); // Lưu chữ ký Thành viên -> Số HĐ nhỏ nhất tiếp theo
+    const memberSigToNumber = new Map();
     let nextHDNumber = 1;
 
     rawList.forEach(item => {
+        if (item.thanhVien.length === 0 && item.sinhViens.length === 0) return;
+
         const memSig = buildMembersSignature(item.thanhVien);
         const sessionKey = getSessionKey(item.gioBV);
         const roomKey = String(item.phongBV || '').trim().toUpperCase();
         const dateKey = String(item.ngayBV || '').trim();
 
-        // Tìm xem đã có HĐ nào trước đó trùng Thành viên + Chức danh + Ngày + Buổi + Phòng chưa
         const sameSlotTarget = mergedList.find(existing =>
             memSig &&
             existing.memSig === memSig &&
@@ -422,20 +448,16 @@ export function parseHoiDongRows(rows) {
         );
 
         if (sameSlotTarget) {
-            // GỘP CHUNG SINH VIÊN VÀO HỘI ĐỒNG ĐÃ CÓ
             item.sinhViens.forEach(sv => {
-                if (!sameSlotTarget.sinhViens.some(s => s.maSV === sv.maSV)) {
-                    sameSlotTarget.sinhViens.push(sv);
-                }
+                sameSlotTarget.sinhViens.push(sv);
             });
             if (!sameSlotTarget.gioBV && item.gioBV) sameSlotTarget.gioBV = item.gioBV;
             if (!sameSlotTarget.diaDiemBV && item.diaDiemBV) sameSlotTarget.diaDiemBV = item.diaDiemBV;
 
-            logs.push(`• Gộp HĐ ${item.rawIndex} vào ${sameSlotTarget.soHD} (cùng Thành viên, Ngày, Buổi & Phòng).`);
+            logs.push(`• Gộp ca bảo vệ của HĐ ${item.rawIndex} vào ${sameSlotTarget.soHD} (cùng Thành viên, Ngày, Buổi & Phòng).`);
             return;
         }
 
-        // Nếu không cùng buổi/phòng: Kiểm tra xem bộ Thành viên + Chức danh này đã xuất hiện trước đó chưa
         let assignedNum;
         if (memSig && memberSigToNumber.has(memSig)) {
             assignedNum = memberSigToNumber.get(memSig);
@@ -456,7 +478,6 @@ export function parseHoiDongRows(rows) {
         });
     });
 
-    // Trả về object đánh key theo thứ tự 0, 1, 2... để giữ nguyên các khung riêng biệt cùng số HĐ
     const resultMap = {};
     mergedList.forEach((hd, idx) => {
         resultMap[`hd_${idx}`] = hd;
