@@ -4,7 +4,7 @@
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-dark text-white py-2" id="review-modal-header">
                 <h6 class="modal-title fw-bold" id="review-modal-title">📋 KẾT QUẢ RÀ SOÁT & NẠP DỮ LIỆU EXCEL</h6>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" id="btn-review-close-x"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng" id="btn-review-close-x"></button>
             </div>
             <div class="modal-body p-3 bg-light" id="review-modal-body" style="max-height: 70vh; overflow-y: auto;"></div>
             <div class="modal-footer py-2 bg-white justify-content-end gap-2" id="review-modal-footer">
@@ -21,15 +21,15 @@
 
 <!-- MODAL ĐỒNG BỘ PHIÊN LÀM VIỆC TRỰC TUYẾN (PHÂN QUYỀN OTP & PIN) -->
 <div class="modal fade" id="modalCloudSession" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-primary text-white py-2">
                 <h6 class="modal-title fw-bold">☁️ ĐỒNG BỘ & PHÂN QUYỀN PHIÊN LÀM VIỆC</h6>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng"></button>
             </div>
             <div class="modal-body p-3 bg-light">
                 <div class="mb-2">
-                    <label class="form-label small fw-bold mb-1">URL Web App Google Apps Script:</label>
+                    <label for="cloud-gas-url" class="form-label small fw-bold mb-1">URL Web App Google Apps Script:</label>
                     <input type="url" id="cloud-gas-url" class="form-control form-control-sm" placeholder="https://script.google.com/macros/s/.../exec">
                 </div>
 
@@ -49,46 +49,50 @@
                 <div class="tab-content">
                     <div class="tab-pane fade show active" id="pane-cloud-existing" role="tabpanel">
                         <div class="row g-2 mb-2">
-                            <div class="col-7">
-                                <label class="form-label small fw-bold mb-1">Mã phiên (Tên JSON):</label>
+                            <div class="col-12 col-sm-7">
+                                <label for="cloud-session-id" class="form-label small fw-bold mb-1">Mã phiên (Tên JSON):</label>
                                 <input type="text" id="cloud-session-id" class="form-control form-control-sm text-uppercase fw-bold" placeholder="VD: TNM-2026-06">
                             </div>
-                            <div class="col-5">
-                                <label class="form-label small fw-bold mb-1">Mã PIN (Bắt buộc):</label>
+                            <div class="col-12 col-sm-5">
+                                <label for="cloud-session-pin" class="form-label small fw-bold mb-1">Mã PIN (Bắt buộc):</label>
                                 <input type="password" id="cloud-session-pin" class="form-control form-control-sm" placeholder="Nhập PIN">
                             </div>
                         </div>
                         <div class="mb-2">
-                            <label class="form-label small fw-bold mb-1">Mã OTP Quản trị Hội đồng <span class="text-muted fw-normal">(Chỉ nhập nếu bạn là người xếp/khóa HĐ)</span>:</label>
+                            <label for="cloud-session-otp" class="form-label small fw-bold mb-1">
+                                Mã OTP Quản trị Hội đồng <span class="text-muted fw-normal">(Chỉ nhập nếu bạn là người xếp/khóa HĐ)</span>:
+                            </label>
                             <input type="text" id="cloud-session-otp" class="form-control form-control-sm font-monospace" placeholder="Để trống nếu chỉ vào nhập điểm">
                         </div>
 
-                        <div class="d-flex flex-wrap gap-2 mt-2">
-                            <button type="button" id="btn-cloud-load" class="btn btn-primary btn-sm fw-bold flex-grow-1">
+                        <div class="d-grid gap-2 mt-2">
+                            <button type="button" id="btn-cloud-load" class="btn btn-primary btn-sm fw-bold">
                                 ⬇️ Tải phiên từ Cloud
                             </button>
-                            <button type="button" id="btn-cloud-save-hd" class="btn btn-success btn-sm fw-bold d-none">
-                                💾 Lưu thay đổi HĐ
-                            </button>
-                            <button type="button" id="btn-cloud-toggle-lock" class="btn btn-warning btn-sm fw-bold d-none">
-                                🔒 Chốt & Khóa HĐ
-                            </button>
+                            <div class="d-flex gap-2">
+                                <button type="button" id="btn-cloud-save-hd" class="btn btn-success btn-sm fw-bold flex-fill d-none">
+                                    💾 Lưu thay đổi HĐ
+                                </button>
+                                <button type="button" id="btn-cloud-toggle-lock" class="btn btn-warning btn-sm fw-bold flex-fill d-none">
+                                    🔒 Chốt & Khóa HĐ
+                                </button>
+                            </div>
                         </div>
                     </div>
 
                     <div class="tab-pane fade" id="pane-cloud-create" role="tabpanel">
                         <div class="row g-2 mb-2">
-                            <div class="col-7">
-                                <label class="form-label small fw-bold mb-1">Đặt Mã phiên (Tên JSON):</label>
+                            <div class="col-12 col-sm-7">
+                                <label for="create-session-id" class="form-label small fw-bold mb-1">Đặt Mã phiên (Tên JSON):</label>
                                 <input type="text" id="create-session-id" class="form-control form-control-sm text-uppercase fw-bold" placeholder="VD: TNM-2026-06">
                             </div>
-                            <div class="col-5">
-                                <label class="form-label small fw-bold mb-1">Đặt Mã PIN nhập điểm:</label>
+                            <div class="col-12 col-sm-5">
+                                <label for="create-session-pin" class="form-label small fw-bold mb-1">Đặt Mã PIN nhập điểm:</label>
                                 <input type="password" id="create-session-pin" class="form-control form-control-sm" placeholder="VD: 1234">
                             </div>
                         </div>
                         <div class="mb-2">
-                            <label class="form-label small fw-bold mb-1">Email nhận thông tin phiên & Mã OTP sửa Hội đồng:</label>
+                            <label for="create-session-email" class="form-label small fw-bold mb-1">Email nhận thông tin phiên & Mã OTP sửa Hội đồng:</label>
                             <input type="email" id="create-session-email" class="form-control form-control-sm" placeholder="nhapemail@duytan.edu.vn">
                         </div>
                         <button type="button" id="btn-cloud-create" class="btn btn-success btn-sm fw-bold w-100 mt-1">
