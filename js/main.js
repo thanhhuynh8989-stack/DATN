@@ -16,8 +16,10 @@ import {
 import { exportWordZIP } from './docx-exporter.js';
 import { detectDuplicateTeacherNameDifferentId } from './validators.js';
 import { 
-    getGasWebAppUrl, setGasWebAppUrl, getSavedSessionMeta, saveSessionMeta,
-    syncSessionToCloud, loadSessionFromCloud, restoreSessionFromPayload 
+    sessionState, getGasWebAppUrl, setGasWebAppUrl, getSavedSessionMeta, saveSessionMeta,
+    createCloudSession, loadCloudSession, saveCloudHoiDong, toggleCloudHDLock,
+    pullLatestScoresFromCloud, pushDeltaScoresToCloud, restoreSessionFromPayload,
+    applySessionPermissionsToUI
 } from './session-sync.js';
 
 window.studentScores = window.studentScores || {};
@@ -339,9 +341,29 @@ function bindEvents() {
         createHoiDongBox();
     });
 
-    // 3. SỰ KIỆN MỞ MODAL NHẬP ĐIỂM TRỰC TIẾP
+    // 3. SỰ KIỆN MỞ MODAL NHẬP ĐIỂM TRỰC TIẾP (TỰ ĐỘNG KÉO ĐIỂM MỚI NHẤT TỪ CLOUD)
     const btnNhapDiem = document.getElementById('btn-nhap-diem');
-    btnNhapDiem?.addEventListener('click', () => {
+    btnNhapDiem?.addEventListener('click', async () => {
+        if (sessionState.isCloudConnected) {
+            if (!sessionState.isHDLocked) {
+                return alert("⛔ Vùng Hội đồng chưa được Chủ phiên Chốt & Khóa! Chưa thể nhập điểm.");
+            }
+            btnNhapDiem.disabled = true;
+            const oldText = btnNhapDiem.textContent;
+            btnNhapDiem.textContent = "⏳ Đang tải điểm mới nhất...";
+            try {
+                const pullRes = await pullLatestScoresFromCloud();
+                if (!pullRes.ok) {
+                    return alert("❌ Không thể đồng bộ điểm từ Cloud: " + pullRes.message);
+                }
+            } catch (err) {
+                return alert("❌ Lỗi kết nối khi kéo điểm mới nhất: " + err.message);
+            } finally {
+                btnNhapDiem.disabled = false;
+                btnNhapDiem.textContent = oldText;
+            }
+        }
+
         const meta = getSetupMetadata();
         const exportData = collectExportData(meta);
 
@@ -373,9 +395,9 @@ function bindEvents() {
         modalDiem.show();
     });
 
-    // 4. SỰ KIỆN NÚT "LƯU ĐIỂM" TRONG MODAL
+    // 4. SỰ KIỆN NÚT "LƯU ĐIỂM" TRONG MODAL (CHỈ ĐẨY CÁC Ô ĐIỂM THAY ĐỔI & TRỘN VỚI CLOUD)
     const btnSaveDiem = document.getElementById('btn-save-diem');
-    btnSaveDiem?.addEventListener('click', () => {
+    btnSaveDiem?.addEventListener('click', async () => {
         document.querySelectorAll('#tbody-nhap-diem tr').forEach(tr => {
             const maSV = tr.querySelector('.input-diem-gvhd')?.getAttribute('data-masv');
             if (!maSV) return;
@@ -402,10 +424,27 @@ function bindEvents() {
             }
         });
 
-        const modalEl = document.getElementById('modalNhapDiem');
-        const modalInstance = bootstrap.Modal.getInstance(modalEl);
-        modalInstance?.hide();
+        if (sessionState.isCloudConnected) {
+            btnSaveDiem.disabled = true;
+            const oldText = btnSaveDiem.textContent;
+            btnSaveDiem.textContent = "⏳ Đang đồng bộ điểm...";
+            try {
+                const pushRes = await pushDeltaScoresToCloud();
+                if (!pushRes.ok) {
+                    return alert("❌ Lỗi đồng bộ điểm lên Cloud: " + pushRes.message);
+                }
+                bootstrap.Modal.getInstance(document.getElementById('modalNhapDiem'))?.hide();
+                alert(pushRes.message || "✅ Đã lưu & đồng bộ điểm mới nhất lên Cloud!");
+            } catch (err) {
+                alert("❌ Lỗi kết nối Cloud khi lưu điểm: " + err.message);
+            } finally {
+                btnSaveDiem.disabled = false;
+                btnSaveDiem.textContent = oldText;
+            }
+            return;
+        }
 
+        bootstrap.Modal.getInstance(document.getElementById('modalNhapDiem'))?.hide();
         alert("✅ Đã lưu điểm trực tiếp thành công!");
     });
 
@@ -733,13 +772,34 @@ function bindEvents() {
     });
 }
 
-// 10. ĐỒNG BỘ PHIÊN LÀM VIỆC TRỰC TUYẾN QUA GOOGLE APPS SCRIPT
+    // 10. ĐỒNG BỘ & PHÂN QUYỀN PHIÊN LÀM VIỆC QUA GOOGLE APPS SCRIPT
     const showCloudStatus = (msg, type = 'info') => {
         const el = document.getElementById('cloud-sync-status');
         if (!el) return;
-        el.className = `alert alert-${type} py-2 px-2 small mb-0`;
+        el.className = `alert alert-${type} py-2 px-2 small mt-2 mb-0`;
         el.textContent = msg;
         el.classList.remove('d-none');
+    };
+
+    const syncCloudModalButtons = () => {
+        const btnSaveHD = document.getElementById('btn-cloud-save-hd');
+        const btnToggleLock = document.getElementById('btn-cloud-toggle-lock');
+        if (!btnSaveHD || !btnToggleLock) return;
+
+        if (sessionState.isCloudConnected && sessionState.canEditHD) {
+            btnToggleLock.classList.remove('d-none');
+            btnToggleLock.textContent = sessionState.isHDLocked
+                ? '🔓 Mở khóa sửa Hội đồng'
+                : '🔒 Chốt & Khóa Hội đồng';
+            btnToggleLock.className = sessionState.isHDLocked
+                ? 'btn btn-outline-warning btn-sm fw-bold'
+                : 'btn btn-warning btn-sm fw-bold';
+
+            btnSaveHD.classList.toggle('d-none', sessionState.isHDLocked);
+        } else {
+            btnSaveHD.classList.add('d-none');
+            btnToggleLock.classList.add('d-none');
+        }
     };
 
     document.getElementById('btn-open-cloud-sync')?.addEventListener('click', () => {
@@ -747,24 +807,102 @@ function bindEvents() {
         document.getElementById('cloud-gas-url').value = getGasWebAppUrl();
         document.getElementById('cloud-session-id').value = savedMeta.sessionId || '';
         document.getElementById('cloud-session-pin').value = savedMeta.pin || '';
+        document.getElementById('cloud-session-otp').value = savedMeta.otp || '';
         document.getElementById('cloud-sync-status')?.classList.add('d-none');
+        syncCloudModalButtons();
         bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCloudSession')).show();
     });
 
-    document.getElementById('btn-cloud-save')?.addEventListener('click', async () => {
+    // 10A. Tạo phiên làm việc mới lần đầu (Gửi OTP về Email)
+    document.getElementById('btn-cloud-create')?.addEventListener('click', async () => {
+        const gasUrl = document.getElementById('cloud-gas-url').value.trim();
+        const sessionId = document.getElementById('create-session-id').value.trim().toUpperCase();
+        const pin = document.getElementById('create-session-pin').value.trim();
+        const email = document.getElementById('create-session-email').value.trim();
+
+        if (!gasUrl) return showCloudStatus("⚠️ Vui lòng nhập URL Web App Google Apps Script!", "warning");
+        if (!sessionId) return showCloudStatus("⚠️ Vui lòng đặt Mã phiên làm việc!", "warning");
+        if (!pin) return showCloudStatus("⚠️ Vui lòng đặt Mã PIN cho các thư ký nhập điểm!", "warning");
+        if (!email || !email.includes('@')) return showCloudStatus("⚠️ Vui lòng nhập Email hợp lệ để nhận mã OTP!", "warning");
+
+        setGasWebAppUrl(gasUrl);
+        showCloudStatus("⏳ Đang khởi tạo phiên & gửi mã OTP qua Email...", "info");
+
+        try {
+            const res = await createCloudSession(gasUrl, sessionId, pin, email);
+            if (res.ok) {
+                sessionState.isCloudConnected = true;
+                sessionState.sessionId = sessionId;
+                sessionState.pin = pin;
+                sessionState.otp = res.otp || '';
+                sessionState.canEditHD = true;
+                sessionState.isHDLocked = false;
+
+                saveSessionMeta({ sessionId, pin, otp: sessionState.otp });
+                document.getElementById('cloud-session-id').value = sessionId;
+                document.getElementById('cloud-session-pin').value = pin;
+                document.getElementById('cloud-session-otp').value = sessionState.otp;
+
+                applySessionPermissionsToUI();
+                syncCloudModalButtons();
+                showCloudStatus(`✅ ${res.message}`, "success");
+            } else {
+                showCloudStatus(`❌ ${res.message}`, "danger");
+            }
+        } catch (err) {
+            showCloudStatus(`❌ Lỗi kết nối GAS: ${err.message}`, "danger");
+        }
+    });
+
+    // 10B. Tải phiên từ Cloud (Thư ký nhập PIN; Chủ phiên nhập thêm OTP)
+    document.getElementById('btn-cloud-load')?.addEventListener('click', async () => {
         const gasUrl = document.getElementById('cloud-gas-url').value.trim();
         const sessionId = document.getElementById('cloud-session-id').value.trim().toUpperCase();
         const pin = document.getElementById('cloud-session-pin').value.trim();
+        const otp = document.getElementById('cloud-session-otp').value.trim();
 
         if (!gasUrl) return showCloudStatus("⚠️ Vui lòng nhập URL Web App Google Apps Script!", "warning");
         if (!sessionId) return showCloudStatus("⚠️ Vui lòng nhập Mã phiên làm việc!", "warning");
+        if (!pin) return showCloudStatus("⚠️ Vui lòng nhập Mã PIN!", "warning");
 
         setGasWebAppUrl(gasUrl);
-        saveSessionMeta({ sessionId, pin });
-        showCloudStatus("⏳ Đang đồng bộ dữ liệu lên Google Drive...", "info");
+        showCloudStatus("⏳ Đang tải phiên làm việc từ Cloud...", "info");
 
         try {
-            const res = await syncSessionToCloud(gasUrl, sessionId, pin);
+            const res = await loadCloudSession(gasUrl, sessionId, pin, otp);
+            if (res.ok && res.payload) {
+                sessionState.isCloudConnected = true;
+                sessionState.sessionId = res.sessionId;
+                sessionState.pin = pin;
+                sessionState.otp = res.canEditHD ? otp : '';
+                sessionState.canEditHD = Boolean(res.canEditHD);
+                sessionState.isHDLocked = Boolean(res.isHDLocked);
+
+                saveSessionMeta({ sessionId: res.sessionId, pin, otp: sessionState.otp });
+                restoreSessionFromPayload(res.payload);
+                if (typeof syncScoringTemplateBadges === 'function') {
+                    syncScoringTemplateBadges();
+                }
+                syncCloudModalButtons();
+
+                const modeMsg = sessionState.canEditHD
+                    ? 'Quyền Chủ phiên (Có OTP)'
+                    : 'Quyền Thư ký nhập điểm (Chỉ xem HĐ)';
+                showCloudStatus(`✅ Đã tải phiên [${res.sessionId}] — ${modeMsg}!`, "success");
+            } else {
+                showCloudStatus(`❌ ${res.message}`, "danger");
+            }
+        } catch (err) {
+            showCloudStatus(`❌ Lỗi kết nối GAS: ${err.message}`, "danger");
+        }
+    });
+
+    // 10C. Lưu thay đổi vùng Hội đồng (Chỉ Chủ phiên có OTP & HĐ đang mở)
+    document.getElementById('btn-cloud-save-hd')?.addEventListener('click', async () => {
+        const gasUrl = getGasWebAppUrl();
+        showCloudStatus("⏳ Đang lưu thay đổi Hội đồng lên Cloud...", "info");
+        try {
+            const res = await saveCloudHoiDong(gasUrl, sessionState.sessionId, sessionState.pin, sessionState.otp);
             if (res.ok) {
                 showCloudStatus(`✅ ${res.message}`, "success");
             } else {
@@ -775,26 +913,23 @@ function bindEvents() {
         }
     });
 
-    document.getElementById('btn-cloud-load')?.addEventListener('click', async () => {
-        const gasUrl = document.getElementById('cloud-gas-url').value.trim();
-        const sessionId = document.getElementById('cloud-session-id').value.trim().toUpperCase();
-        const pin = document.getElementById('cloud-session-pin').value.trim();
+    // 10D. Chốt & Khóa / Mở khóa vùng Hội đồng (Chỉ Chủ phiên có OTP)
+    document.getElementById('btn-cloud-toggle-lock')?.addEventListener('click', async () => {
+        const targetLockState = !sessionState.isHDLocked;
+        const confirmMsg = targetLockState
+            ? "Xác nhận CHỐT & KHÓA vùng Hội đồng? Sau khi khóa, không ai sửa được lịch/thành viên HĐ và các Thư ký sẽ bắt đầu Nhập điểm được."
+            : "Mở khóa vùng Hội đồng để chỉnh sửa? Lưu ý: Trong lúc mở khóa, các Thư ký sẽ tạm thời không nhập điểm hay xuất file được.";
+        if (!confirm(confirmMsg)) return;
 
-        if (!gasUrl) return showCloudStatus("⚠️ Vui lòng nhập URL Web App Google Apps Script!", "warning");
-        if (!sessionId) return showCloudStatus("⚠️ Vui lòng nhập Mã phiên làm việc!", "warning");
-
-        setGasWebAppUrl(gasUrl);
-        saveSessionMeta({ sessionId, pin });
-        showCloudStatus("⏳ Đang tải phiên làm việc từ Google Drive...", "info");
-
+        const gasUrl = getGasWebAppUrl();
+        showCloudStatus("⏳ Đang cập nhật trạng thái khóa Hội đồng...", "info");
         try {
-            const res = await loadSessionFromCloud(gasUrl, sessionId, pin);
-            if (res.ok && res.payload) {
-                restoreSessionFromPayload(res.payload);
-                if (typeof syncScoringTemplateBadges === 'function') {
-                    syncScoringTemplateBadges();
-                }
-                showCloudStatus(`✅ Đã khôi phục phiên [${res.sessionId}] (${res.summary})!`, "success");
+            const res = await toggleCloudHDLock(gasUrl, sessionState.sessionId, sessionState.pin, sessionState.otp, targetLockState);
+            if (res.ok) {
+                sessionState.isHDLocked = Boolean(res.isHDLocked);
+                applySessionPermissionsToUI();
+                syncCloudModalButtons();
+                showCloudStatus(res.message, "success");
             } else {
                 showCloudStatus(`❌ ${res.message}`, "danger");
             }
