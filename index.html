@@ -167,9 +167,9 @@
                 </button>
         
                 <!-- (2) CẬP NHẬT PHIẾU CHẤM HĐ (NẾU CẦN) -->
-                <button type="button" id="btn-edit-template-hd" class="btn btn-outline-light btn-sm fw-bold position-relative">
-                    ✏️ (2) Cập nhật Phiếu chấm HĐ
-                    <span id="badge-template-hd-modified" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark d-none" title="Đã chỉnh sửa tạm thời trong phiên này">
+                <button type="button" id="btn-open-upload-templates" class="btn btn-dark btn-sm fw-bold position-relative">
+                    📄 Tải lên Mẫu Phiếu chấm
+                    <span id="badge-template-modified" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark d-none" title="Đang dùng mẫu phiếu chấm tùy chỉnh">
                         Đã sửa
                     </span>
                 </button>
@@ -358,26 +358,98 @@
     </div>
 </div>
 
-<!-- MODAL CHỈNH SỬA TẠM THỜI MẪU 4. PHIẾU HỘI ĐỒNG -->
-<div class="modal fade" id="modalEditTemplateHD" tabindex="-1" aria-hidden="true">
+<!-- MODAL TẢI LÊN MẪU PHIẾU CHẤM (GVHD, GVPB, HỘI ĐỒNG) -->
+<div class="modal fade" id="modalUploadScoringTemplates" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow">
+        <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-dark text-white py-2">
-                <h6 class="modal-title fw-bold">✏️ CHỈNH SỬA PHIẾU HỘI ĐỒNG</h6>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <h6 class="modal-title fw-bold">📄 TẢI VỀ & CẬP NHẬT MẪU PHIẾU CHẤM ĐIỂM (.DOCX)</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng"></button>
             </div>
-            <div class="modal-body bg-light p-3">
-                <div class="alert alert-warning py-2 small mb-2">
-                    <strong>Lưu ý:</strong> Thay đổi chỉ áp dụng cho phiên làm việc hiện tại (tải lại trang sẽ về mẫu gốc). Giữ nguyên các thẻ biến dạng <code>{{...}}</code> nếu có để hệ thống tự điền thông tin.
+            <div class="modal-body p-3 bg-light">
+                <!-- LƯU Ý NỔI BẬT -->
+                <div class="alert alert-danger border-2 border-danger shadow-sm py-2 px-3 mb-3">
+                    <div class="fw-bold text-danger mb-1">⚠️ LƯU Ý QUAN TRỌNG KHI CHỈNH SỬA FILE MẪU:</div>
+                    <div class="small text-dark">
+                        • <strong>Chỉ được phép thay đổi nội dung các mục tiêu chí chấm điểm và thang điểm</strong> trong bảng đánh giá.<br>
+                        • <strong>TUYỆT ĐỐI KHÔNG xóa, sửa tên hoặc thay đổi định dạng các thẻ biến (placeholder)</strong> nằm trong dấu ngoặc nhọn như: 
+                        <code>{{KHOA}}</code>, <code>{{HỌ_VÀ_TÊN}}</code>, <code>{{MÃ_SỐ_SV}}</code>, <code>{{LỚP}}</code>, <code>{{TÊN_ĐỀ_TÀI_ĐỒ_ÁN_TỐT_NGHIỆP}}</code>, <code>{{GVHD}}</code>, <code>{{NGÀY_BẢO_VỆ}}</code>, <code>{{Ghi tên thành viên HĐ tại đây}}</code>... để hệ thống tự động điền thông tin chính xác.
+                    </div>
                 </div>
-                <div id="template-hd-editor-list" class="d-flex flex-column gap-2"></div>
+
+                <!-- DANH SÁCH 3 MẪU PHIẾU CHẤM -->
+                <div class="d-flex flex-column gap-2">
+                    <!-- 1. PHIẾU CHẤM GVHD -->
+                    <div class="card border shadow-sm">
+                        <div class="card-body p-2">
+                            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-1">
+                                <div>
+                                    <span class="fw-bold text-primary">1. Phiếu chấm Giảng viên Hướng dẫn (GVHD)</span>
+                                    <span id="status-tpl-phieuGVHD" class="badge bg-secondary ms-1">Mặc định</span>
+                                </div>
+                                <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2 fw-bold btn-dl-scoring-tpl" data-tpl="phieuGVHD">
+                                    ⬇️ Tải file mẫu hiện tại
+                                </button>
+                            </div>
+                            <div class="input-group input-group-sm">
+                                <input type="file" class="form-control input-up-scoring-tpl" data-tpl="phieuGVHD" accept=".docx">
+                                <button type="button" class="btn btn-success fw-bold btn-apply-scoring-tpl" data-tpl="phieuGVHD">
+                                    ⬆️ Tải lên & Áp dụng
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. PHIẾU CHẤM GVPB -->
+                    <div class="card border shadow-sm">
+                        <div class="card-body p-2">
+                            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-1">
+                                <div>
+                                    <span class="fw-bold text-success">2. Phiếu chấm Giảng viên Phản biện (GVPB)</span>
+                                    <span id="status-tpl-phieuGVPB" class="badge bg-secondary ms-1">Mặc định</span>
+                                </div>
+                                <button type="button" class="btn btn-outline-success btn-sm py-0 px-2 fw-bold btn-dl-scoring-tpl" data-tpl="phieuGVPB">
+                                    ⬇️ Tải file mẫu hiện tại
+                                </button>
+                            </div>
+                            <div class="input-group input-group-sm">
+                                <input type="file" class="form-control input-up-scoring-tpl" data-tpl="phieuGVPB" accept=".docx">
+                                <button type="button" class="btn btn-success fw-bold btn-apply-scoring-tpl" data-tpl="phieuGVPB">
+                                    ⬆️ Tải lên & Áp dụng
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. PHIẾU CHẤM HỘI ĐỒNG -->
+                    <div class="card border shadow-sm">
+                        <div class="card-body p-2">
+                            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-1">
+                                <div>
+                                    <span class="fw-bold text-danger">3. Phiếu chấm Thành viên Hội đồng (HĐ)</span>
+                                    <span id="status-tpl-phieuHD" class="badge bg-secondary ms-1">Mặc định</span>
+                                </div>
+                                <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2 fw-bold btn-dl-scoring-tpl" data-tpl="phieuHD">
+                                    ⬇️ Tải file mẫu hiện tại
+                                </button>
+                            </div>
+                            <div class="input-group input-group-sm">
+                                <input type="file" class="form-control input-up-scoring-tpl" data-tpl="phieuHD" accept=".docx">
+                                <button type="button" class="btn btn-success fw-bold btn-apply-scoring-tpl" data-tpl="phieuHD">
+                                    ⬆️ Tải lên & Áp dụng
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="modal-footer py-2 justify-content-between">
-                <button type="button" id="btn-reset-template-hd" class="btn btn-outline-danger btn-sm fw-bold">🔄 Khôi phục mẫu gốc</button>
-                <div class="d-flex gap-2">
-                    <button type="button" id="btn-preview-template-hd" class="btn btn-outline-primary btn-sm fw-bold">👁️ Tải thử bản xem trước</button>
-                    <button type="button" id="btn-apply-template-hd" class="btn btn-success btn-sm fw-bold px-3">✅ Áp dụng cho phiên này</button>
-                </div>
+            <div class="modal-footer py-2 bg-white justify-content-between">
+                <button type="button" id="btn-reset-all-scoring-tpl" class="btn btn-outline-secondary btn-sm fw-bold">
+                    🔄 Khôi phục tất cả về mẫu gốc
+                </button>
+                <button type="button" class="btn btn-primary btn-sm fw-bold px-3" data-bs-dismiss="modal">
+                    Đóng
+                </button>
             </div>
         </div>
     </div>
