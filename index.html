@@ -13,13 +13,18 @@
         
         <!-- TIÊU ĐỀ CÙNG DÒNG VỚI NÚT ADMIN -->
         <div class="d-flex align-items-center justify-content-between position-relative mb-1 setup-section">
-            <div style="width: 85px;" class="d-none d-sm-block"></div>
+            <div style="width: 175px;" class="d-none d-md-block"></div>
             <h4 class="text-center fw-bold text-primary mb-0 app-title flex-grow-1">
                 PHẦN MỀM XUẤT HỒ SƠ & BẢNG ĐIỂM HỘI ĐỒNG
             </h4>
-            <button type="button" id="btn-open-admin" class="btn btn-outline-secondary btn-sm fw-bold flex-shrink-0 ms-2" title="Cài đặt quản trị hệ thống">
-                ⚙️ Admin
-            </button>
+            <div class="d-flex gap-1 flex-shrink-0 ms-2">
+                <button type="button" id="btn-open-cloud-sync" class="btn btn-outline-primary btn-sm fw-bold" title="Lưu hoặc mở phiên làm việc trực tuyến qua Google Apps Script">
+                    ☁️ Phiên làm việc
+                </button>
+                <button type="button" id="btn-open-admin" class="btn btn-outline-secondary btn-sm fw-bold" title="Cài đặt quản trị hệ thống">
+                    ⚙️ Admin
+                </button>
+            </div>
         </div>
 
         <!-- KHU VỰC 1: SETUP THÔNG TIN & TẢI FILE EXCEL -->
@@ -646,6 +651,46 @@
                 </button>
                 <button type="button" class="btn btn-success btn-sm fw-bold px-3" id="btn-review-confirm">
                     ✅ Đã hiểu
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL ĐỒNG BỘ PHIÊN LÀM VIỆC TRỰC TUYẾN (GOOGLE APPS SCRIPT) -->
+<div class="modal fade" id="modalCloudSession" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white py-2">
+                <h6 class="modal-title fw-bold">☁️ ĐỒNG BỘ PHIÊN LÀM VIỆC TRỰC TUYẾN</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-3 bg-light">
+                <div class="mb-2">
+                    <label class="form-label small fw-bold mb-1">URL Web App Google Apps Script:</label>
+                    <input type="url" id="cloud-gas-url" class="form-control form-control-sm" placeholder="https://script.google.com/macros/s/.../exec">
+                    <div class="form-text" style="font-size: 0.72rem;">Dán URL triển khai Web App GAS của bạn (tự động ghi nhớ trên trình duyệt).</div>
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-7">
+                        <label class="form-label small fw-bold mb-1">Mã phiên làm việc (Session ID):</label>
+                        <input type="text" id="cloud-session-id" class="form-control form-control-sm text-uppercase fw-bold" placeholder="VD: TNM-2026-06">
+                    </div>
+                    <div class="col-5">
+                        <label class="form-label small fw-bold mb-1">Mã PIN bảo vệ:</label>
+                        <input type="password" id="cloud-session-pin" class="form-control form-control-sm" placeholder="Nhập PIN (tùy chọn)">
+                    </div>
+                </div>
+
+                <div id="cloud-sync-status" class="alert alert-secondary py-2 px-2 small mb-0 d-none"></div>
+            </div>
+            <div class="modal-footer py-2 bg-white justify-content-between">
+                <button type="button" id="btn-cloud-load" class="btn btn-outline-primary btn-sm fw-bold">
+                    ⬇️ Tải phiên từ Cloud
+                </button>
+                <button type="button" id="btn-cloud-save" class="btn btn-success btn-sm fw-bold">
+                    ⬆️ Lưu phiên hiện tại lên Cloud
                 </button>
             </div>
         </div>
