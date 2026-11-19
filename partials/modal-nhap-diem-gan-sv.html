@@ -1,0 +1,60 @@
+<!-- MODAL NHẬP ĐIỂM TRỰC TIẾP -->
+<div class="modal fade" id="modalNhapDiem" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark py-2">
+                <h5 class="modal-title fw-bold">📝 BẢNG NHẬP ĐIỂM TRỰC TIẾP HỘI ĐỒNG</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover mb-0 align-middle text-center" id="table-nhap-diem">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>STT</th>
+                                <th>MÃ SV</th>
+                                <th>HỌ VÀ TÊN</th>
+                                <th>HỘI ĐỒNG</th>
+                                <th>ĐIỂM GVHD (30%)</th>
+                                <th>ĐIỂM CT (70%)</th>
+                                <th>ĐIỂM PB (70%)</th>
+                                <th>ĐIỂM TK (70%)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-nhap-diem">
+                            <!-- Render SV vào đây -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-success btn-sm fw-bold" id="btn-save-diem">Lưu Điểm</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL PHÂN CÔNG SINH VIÊN NHANH -->
+<div class="modal fade" id="modalGanSinhVien" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white py-2">
+                <h6 class="modal-title fw-bold" id="modalGanSVTitle">📋 CHỌN SINH VIÊN VÀO HỘI ĐỒNG</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-2">
+                <div class="alert alert-info py-1 px-2 small mb-2">
+                    💡 <i>Hệ thống đã tự động lọc ẩn các Sinh viên có GVHD trùng với Thành viên của Hội đồng này.</i>
+                </div>
+                <div class="list-group" id="list-sv-phu-hop">
+                    <!-- Danh sách SV phù hợp sẽ render vào đây -->
+                </div>
+            </div>
+            <div class="modal-footer py-1">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-success btn-sm fw-bold" id="btn-confirm-gan-sv">➕ Gán vào Hội đồng</button>
+            </div>
+        </div>
+    </div>
+</div>
