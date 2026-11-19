@@ -14,6 +14,7 @@ import {
     saveAdminBinaryFile, deleteAdminBinaryFile 
 } from './admin-config.js';
 import { exportWordZIP, previewPhieuHDTemplate } from './docx-exporter.js';
+import { detectDuplicateTeacherNameDifferentId } from './validators.js';
 
 window.studentScores = window.studentScores || {};
 
@@ -38,13 +39,74 @@ function applyAdminConfigToUI() {
     const qdSuffixEl = document.getElementById('so-qd')?.nextElementSibling;
     if (qdSuffixEl) qdSuffixEl.textContent = cfg.qdSuffix;
 
-    // Cập nhật lại dropdown Cơ sở trên tất cả các Box Hội đồng đang mở
     document.querySelectorAll('.hd-location').forEach(sel => {
         const currVal = sel.value;
         sel.innerHTML = [
             `<option value="">-- Chọn cơ sở --</option>`,
             ...cfg.campuses.map(c => `<option value="${c}" ${c === currVal ? 'selected' : ''}>${c}</option>`)
         ].join('');
+    });
+}
+
+// Hàm hiển thị Modal báo cáo rà soát rộng rãi, có thanh cuộn (trả về Promise<boolean>: true = Tiếp tục, false = Hủy)
+function showExcelReviewModal({ title, requireConfirm = false, htmlSections = [] }) {
+    return new Promise((resolve) => {
+        const modalEl = document.getElementById('modalExcelReviewReport');
+        if (!modalEl || !window.bootstrap) {
+            alert(htmlSections.map(s => s.replace(/<[^>]+>/g, ' ')).join('\n\n'));
+            return resolve(true);
+        }
+
+        const titleEl = document.getElementById('review-modal-title');
+        const bodyEl = document.getElementById('review-modal-body');
+        const btnCancel = document.getElementById('btn-review-cancel');
+        const btnConfirm = document.getElementById('btn-review-confirm');
+        const btnCloseX = document.getElementById('btn-review-close-x');
+
+        if (titleEl) titleEl.textContent = title || '📋 KẾT QUẢ RÀ SOÁT & NẠP DỮ LIỆU EXCEL';
+        if (bodyEl) {
+            bodyEl.innerHTML = htmlSections.join('');
+            bodyEl.scrollTop = 0;
+        }
+
+        if (requireConfirm) {
+            btnCancel?.classList.remove('d-none');
+            btnCloseX?.classList.add('d-none');
+            if (btnConfirm) {
+                btnConfirm.textContent = '✅ Xác nhận file đã đúng, tiếp tục nạp';
+                btnConfirm.className = 'btn btn-success btn-sm fw-bold px-3';
+            }
+        } else {
+            btnCancel?.classList.add('d-none');
+            btnCloseX?.classList.remove('d-none');
+            if (btnConfirm) {
+                btnConfirm.textContent = '✅ Đã hiểu';
+                btnConfirm.className = 'btn btn-primary btn-sm fw-bold px-3';
+            }
+        }
+
+        const modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
+        let settled = false;
+
+        const finish = (result) => {
+            if (settled) return;
+            settled = true;
+            btnConfirm?.removeEventListener('click', onConfirm);
+            btnCancel?.removeEventListener('click', onCancel);
+            modalEl.removeEventListener('hidden.bs.modal', onHidden);
+            modalInstance.hide();
+            resolve(result);
+        };
+
+        const onConfirm = () => finish(true);
+        const onCancel = () => finish(false);
+        const onHidden = () => finish(!requireConfirm);
+
+        btnConfirm?.addEventListener('click', onConfirm);
+        btnCancel?.addEventListener('click', onCancel);
+        modalEl.addEventListener('hidden.bs.modal', onHidden);
+
+        modalInstance.show();
     });
 }
 
@@ -70,7 +132,7 @@ function bindEvents() {
     tabHD?.addEventListener('click', () => switchTab(tabHD, colHD));
     tabGV?.addEventListener('click', () => switchTab(tabGV, colGV));
 
-    // 1. SỰ KIỆN NẠP DỮ LIỆU EXCEL
+    // 1. SỰ KIỆN NẠP DỮ LIỆU EXCEL (RÀ SOÁT CHÉO TOÀN BỘ FILE & HIỂN THỊ MODAL LỚN CÓ THANH CUỘN)
     const btnReadFiles = document.getElementById('btn-read-files');
     btnReadFiles?.addEventListener('click', async () => {
         const fileSV = document.getElementById('upload-sv')?.files[0];
@@ -89,9 +151,13 @@ function bindEvents() {
 
         try {
             let gvMapById = {};
+            let gvList = [];
+            let svList = [];
+            let parsedHoidongs = {};
+
             if (fileGV) {
                 const rows = await readExcelFile(fileGV);
-                const gvList = parseGiangVienRows(rows);
+                gvList = parseGiangVienRows(rows);
                 gvList.forEach(gv => {
                     if (gv.maGV) gvMapById[gv.maGV.toUpperCase()] = gv.hoTenGV;
                 });
@@ -100,7 +166,7 @@ function bindEvents() {
 
             if (fileSV) {
                 const rows = await readExcelFile(fileSV);
-                const svList = parseSinhVienRows(rows);
+                svList = parseSinhVienRows(rows);
 
                 svList.forEach(sv => {
                     if (!sv.gvhd && sv.maGVHD && gvMapById[sv.maGVHD.toUpperCase()]) {
@@ -116,29 +182,151 @@ function bindEvents() {
                 }
             }
 
-            let hdSummaryMsg = '';
             if (fileHD) {
                 const rows = await readExcelFile(fileHD);
-                const parsedHoidongs = parseHoiDongRows(rows);
-                const { mergeLogs, conflictLogs, duplicateSVLogs } = renderHoidongFromExcel(parsedHoidongs);
+                parsedHoidongs = parseHoiDongRows(rows);
+            }
 
-                if (mergeLogs.length > 0) {
-                    hdSummaryMsg += `\n\n🔄 TỰ ĐỘNG GỘP & ĐÁNH LẠI SỐ HỘI ĐỒNG:\n${mergeLogs.join('\n')}`;
-                }
-                if (duplicateSVLogs.length > 0) {
-                    hdSummaryMsg += `\n\n⚠️ CẢNH BÁO TRÙNG LẶP SINH VIÊN TRONG FILE HỘI ĐỒNG:\n${duplicateSVLogs.join('\n')}`;
-                }
-                if (conflictLogs.length > 0) {
-                    hdSummaryMsg += `\n\n⛔ CẢNH BÁO VI PHẠM GVHD TRONG FILE HỘI ĐỒNG:\n${conflictLogs.join('\n')}`;
+            // BƯỚC RÀ SOÁT CHÉO 1: GIẢNG VIÊN TRÙNG TÊN CHUẨN HÓA (BỎ HỌC VỊ, BỎ DẤU, BỎ KHOẢNG TRẮNG) NHƯNG KHÁC MÃ GV
+            const dupNameDiffIdList = detectDuplicateTeacherNameDifferentId({ svList, gvList, parsedHoidongs });
+
+            if (dupNameDiffIdList.length > 0 && fileHD) {
+                const dupItemsHTML = dupNameDiffIdList.map((item, idx) => {
+                    const variantsHTML = item.variants.map(v => `
+                        <li class="mb-1">
+                            <span class="badge bg-dark font-monospace">Mã GV: ${v.maGV}</span> 
+                            <strong>${v.names}</strong>
+                            <div class="text-muted small ps-2">↳ Xuất hiện tại: ${v.locations.join(' | ')}</div>
+                        </li>
+                    `).join('');
+
+                    return `
+                        <div class="bg-white border border-warning rounded p-2 mb-2 shadow-sm">
+                            <div class="fw-bold text-danger small mb-1">#${idx + 1}. Trùng họ tên giảng viên nhưng khác Mã GV:</div>
+                            <ul class="mb-0 ps-3 small">${variantsHTML}</ul>
+                        </div>
+                    `;
+                }).join('');
+
+                const confirmSection = `
+                    <div class="alert alert-warning py-2 small mb-2">
+                        <strong>⚠️ PHÁT HIỆN GIẢNG VIÊN TRÙNG TÊN NHƯNG KHÁC MÃ GV:</strong><br>
+                        Vui lòng kiểm tra các vị trí bên dưới xem đây là <strong>2 giảng viên khác nhau trùng họ tên</strong> hay <strong>nhập sai Mã GV</strong>. Nếu file đã chính xác, bấm <em>"Xác nhận file đã đúng, tiếp tục nạp"</em>; nếu cần sửa lại file Excel, bấm <em>"Hủy"</em>.
+                    </div>
+                    ${dupItemsHTML}
+                `;
+
+                const userConfirmed = await showExcelReviewModal({
+                    title: '⚠️ XÁC NHẬN RÀ SOÁT MÃ GIẢNG VIÊN TRÙNG TÊN',
+                    requireConfirm: true,
+                    htmlSections: [confirmSection]
+                });
+
+                if (!userConfirmed) {
+                    // Người dùng bấm Hủy -> Dừng không render Hội đồng, vẫn giữ nguyên SV & GV đã nạp ở bước 1 & 2
+                    return;
                 }
             }
 
-            alert(`✅ Nạp dữ liệu Excel thành công!${hdSummaryMsg}`);
+            // BƯỚC 2: RENDER HỘI ĐỒNG & TỔNG HỢP BÁO CÁO (GỘP HĐ, TRÙNG MÃ SV, VI PHẠM GVHD)
+            const reportSections = [
+                `<div class="alert alert-success py-2 small mb-2 fw-bold">✅ Đã nạp dữ liệu Excel thành công!</div>`
+            ];
+
+            if (dupNameDiffIdList.length > 0 && !fileHD) {
+                const dupHTML = dupNameDiffIdList.map(item =>
+                    `<li>${item.variants.map(v => `<strong>${v.names}</strong> (Mã: <code>${v.maGV}</code> — ${v.locations.join(', ')})`).join(' <strong>vs</strong> ')}</li>`
+                ).join('');
+                reportSections.push(`
+                    <div class="card border-warning mb-2">
+                        <div class="card-header bg-warning text-dark fw-bold small py-1">⚠️ Cảnh báo Giảng viên trùng tên nhưng khác Mã GV</div>
+                        <div class="card-body p-2 small"><ul class="mb-0 ps-3">${dupHTML}</ul></div>
+                    </div>
+                `);
+            }
+
+            if (fileHD) {
+                const { mergeLogs, conflictLogs, duplicateSVLogs } = renderHoidongFromExcel(parsedHoidongs);
+
+                if (conflictLogs.length > 0) {
+                    reportSections.push(`
+                        <div class="card border-danger mb-2">
+                            <div class="card-header bg-danger text-white fw-bold small py-1">⛔ Vi phạm GVHD trùng Thành viên Hội đồng (Đã đẩy về Kho chờ)</div>
+                            <div class="card-body p-2 small"><ul class="mb-0 ps-3">${conflictLogs.map(l => `<li class="mb-1">${l.replace(/^•\s*/, '')}</li>`).join('')}</ul></div>
+                        </div>
+                    `);
+                }
+
+                if (duplicateSVLogs.length > 0) {
+                    reportSections.push(`
+                        <div class="card border-warning mb-2">
+                            <div class="card-header bg-warning text-dark fw-bold small py-1">⚠️ Trùng lặp Sinh viên trong file Hội đồng</div>
+                            <div class="card-body p-2 small"><ul class="mb-0 ps-3">${duplicateSVLogs.map(l => `<li class="mb-1">${l.replace(/^•\s*/, '')}</li>`).join('')}</ul></div>
+                        </div>
+                    `);
+                }
+
+                if (mergeLogs.length > 0) {
+                    reportSections.push(`
+                        <div class="card border-info mb-2">
+                            <div class="card-header bg-info text-dark fw-bold small py-1">🔄 Tự động gộp & Đánh lại số Hội đồng</div>
+                            <div class="card-body p-2 small"><ul class="mb-0 ps-3">${mergeLogs.map(l => `<li class="mb-1">${l.replace(/^•\s*/, '')}</li>`).join('')}</ul></div>
+                        </div>
+                    `);
+                }
+            }
+
+            await showExcelReviewModal({
+                title: '📋 KẾT QUẢ RÀ SOÁT & NẠP DỮ LIỆU EXCEL',
+                requireConfirm: false,
+                htmlSections: reportSections
+            });
 
         } catch (err) {
             console.error("Lỗi đọc Excel:", err);
             alert("Lỗi khi đọc file Excel: " + err.message);
         }
+    });
+
+    // 1B. SỰ KIỆN TẢI 3 FILE MẪU EXCEL (.XLSX)
+    const downloadExcelArray = (aoaData, colWidths, sheetName, fileName) => {
+        if (typeof XLSX === 'undefined') {
+            return alert("Thư viện XLSX chưa được nạp!");
+        }
+        const ws = XLSX.utils.aoa_to_sheet(aoaData);
+        ws['!cols'] = colWidths.map(w => ({ wch: w }));
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+        XLSX.writeFile(wb, fileName);
+    };
+
+    document.getElementById('btn-sample-sv')?.addEventListener('click', () => {
+        const dataSV = [
+            ["STT", "MSSV", "Họ và tên", "Lớp", "Tên đề tài", "GVHD", "Mã GVHD"],
+            [1, "27206635615", "Võ Thị Thùy Diễm", "K27 TNM", "Nghiên cứu quy trình sản xuất trà Cascara từ vỏ cà phê", "ThS. Phạm Thị Nga", "230114084"],
+            [2, "27216601361", "Trần Nhật Hoàng", "K27 TNM", "Nghiên cứu quy trình sản xuất sữa đậu lăng kết hợp hạt sen", "ThS. Nguyễn Thị Phúc Lộc", "240114106"]
+        ];
+        downloadExcelArray(dataSV, [6, 15, 24, 12, 48, 24, 15], "DS_Sinh_Vien", "Mau_Danh_Sach_SV_DoAn.xlsx");
+    });
+
+    document.getElementById('btn-sample-gv')?.addEventListener('click', () => {
+        const dataGV = [
+            ["Mã GV", "Họ và tên Giảng viên", "Đơn vị công tác"],
+            ["230114084", "ThS. Phạm Thị Nga", "Khoa Công nghệ Thực phẩm - ĐH Duy Tân"],
+            ["240114106", "ThS. Nguyễn Thị Phúc Lộc", "Khoa Công nghệ Thực phẩm - ĐH Duy Tân"],
+            ["110114025", "TS. Phan Thị Việt Hà", "Khoa Công nghệ Thực phẩm - ĐH Duy Tân"]
+        ];
+        downloadExcelArray(dataGV, [15, 28, 38], "DS_Giang_Vien", "Mau_Danh_Sach_GV.xlsx");
+    });
+
+    document.getElementById('btn-sample-hd')?.addEventListener('click', () => {
+        const dataHD = [
+            ["Hội đồng", "Mã GV", "Họ và tên GV", "Đơn vị", "Ngày bảo vệ", "Chức danh", "Tên đề tài", "MSSV", "Họ và tên SV", "Lớp"],
+            ["1", "110114025", "TS. Phan Thị Việt Hà", "Đại học Duy Tân", "20/06/2026 - 17:00 - Phòng 111 - 120 Hoàng Minh Thảo", "Chủ tịch", "Nghiên cứu quy trình sản xuất trà Cascara từ vỏ cà phê", "27206635615", "Võ Thị Thùy Diễm", "K27 TNM"],
+            ["1", "240114106", "ThS. Nguyễn Thị Phúc Lộc", "Đại học Duy Tân", "", "Phản biện", "", "", "", ""],
+            ["1", "230114084", "ThS. Phạm Thị Nga", "Đại học Duy Tân", "", "Thư ký", "", "", "", ""]
+        ];
+        downloadExcelArray(dataHD, [10, 14, 24, 20, 42, 14, 42, 15, 22, 12], "DS_Hoi_Dong", "Mau_Danh_Sach_Hoi_Dong.xlsx");
     });
 
     // 2. SỰ KIỆN TẠO HỘI ĐỒNG MỚI
@@ -193,7 +381,6 @@ function bindEvents() {
             const diemPB = tr.querySelector('.input-diem-pb')?.value || '';
             const diemTK = tr.querySelector('.input-diem-tk')?.value || '';
 
-            // Đồng bộ lưu điểm vào cả window.studentScores lẫn thuộc tính DOM của thẻ SV
             window.studentScores[maSV] = {
                 ...(window.studentScores[maSV] || {}),
                 gvhd: diemGVHD,
@@ -319,12 +506,11 @@ function bindEvents() {
         });
     }
 
-        // 8. CHỈNH SỬA TẠM THỜI BẢNG MỤC II - MẪU 4. PHIẾU HỘI ĐỒNG (2 CỘT, THÊM/XÓA HÀNG, TỰ TÍNH TỔNG)
+    // 8. CHỈNH SỬA TẠM THỜI BẢNG MỤC II - MẪU 4. PHIẾU HỘI ĐỒNG (2 CỘT, THÊM/XÓA HÀNG, TỰ TÍNH TỔNG)
     const btnEditTplHD = document.getElementById('btn-edit-template-hd');
     const modalEditTplEl = document.getElementById('modalEditTemplateHD');
     const badgeModified = document.getElementById('badge-template-hd-modified');
 
-    // Hàm tự động cộng tổng cột Thang điểm (hỗ trợ cả dấu phẩy "4,0" lẫn dấu chấm "4.0")
     const recalcTemplateHDTotal = () => {
         let sum = 0;
         let hasComma = false;
@@ -342,7 +528,6 @@ function bindEvents() {
         }
     };
 
-    // Hàm tạo 1 hàng HTML (2 cột: Nội dung | Thang điểm + Nút xóa)
     const createCriteriaRowHTML = (content = '', score = '') => `
         <tr class="tpl-hd-row">
             <td class="align-middle p-1">
@@ -404,7 +589,6 @@ function bindEvents() {
         `;
     };
 
-    // Lắng nghe thêm hàng, xóa hàng và tự động cộng tổng điểm ngay trong Modal
     document.addEventListener('click', (e) => {
         if (e.target.closest('#btn-add-tpl-row')) {
             const tbody = document.getElementById('tpl-hd-tbody');
@@ -428,7 +612,6 @@ function bindEvents() {
         }
     });
 
-    // Thu thập dữ liệu bảng từ Modal
     const collectEditedTableData = () => {
         const editedRows = [];
         document.querySelectorAll('#tpl-hd-tbody .tpl-hd-row').forEach(tr => {
@@ -449,7 +632,6 @@ function bindEvents() {
         }
     });
 
-    // Áp dụng các thay đổi vào bộ nhớ phiên làm việc hiện tại
     document.getElementById('btn-apply-template-hd')?.addEventListener('click', () => {
         const { editedRows, totalScore } = collectEditedTableData();
         if (editedRows.length === 0) return alert("Vui lòng nhập ít nhất 1 hàng tiêu chí đánh giá!");
@@ -466,7 +648,6 @@ function bindEvents() {
         }
     });
 
-    // Tải thử 1 bản xem trước Mẫu 4 đã chỉnh sửa
     document.getElementById('btn-preview-template-hd')?.addEventListener('click', async () => {
         const { editedRows, totalScore } = collectEditedTableData();
         if (editedRows.length === 0) return alert("Vui lòng nhập ít nhất 1 hàng tiêu chí đánh giá!");
@@ -480,7 +661,6 @@ function bindEvents() {
         }
     });
 
-    // Khôi phục Mẫu 4 về nguyên bản gốc
     document.getElementById('btn-reset-template-hd')?.addEventListener('click', () => {
         if (confirm("Khôi phục Mẫu 4. Phiếu Hội đồng về đúng nguyên bản ban đầu?")) {
             const ok = resetPhieuHDToOriginal();
@@ -509,7 +689,6 @@ function bindEvents() {
         if (inputPass === cfg.password) {
             bootstrap.Modal.getInstance(document.getElementById('adminLoginModal'))?.hide();
 
-            // Đổ dữ liệu cấu hình hiện tại vào form Admin
             document.getElementById('adm-uni-name').value = cfg.universityName;
             document.getElementById('adm-school-name').value = cfg.schoolName;
             document.getElementById('adm-qd-suffix').value = cfg.qdSuffix;
@@ -643,13 +822,11 @@ function initKhoaNganhDropdowns() {
         return;
     }
 
-    // Lấy danh sách Khoa duy nhất
     const uniqueKhoas = [...new Set(danhMucNganh.map(item => item.khoa))];
     khoaSelect.innerHTML = uniqueKhoas
         .map(k => `<option value="${k}">${k}</option>`)
         .join('');
 
-    // Hàm cập nhật danh sách Ngành theo Khoa đang chọn
     const updateNganhOptions = (selectedKhoa, preselectNganh = '') => {
         const filteredNganhs = danhMucNganh.filter(item => item.khoa === selectedKhoa);
         nganhSelect.innerHTML = filteredNganhs
@@ -664,15 +841,12 @@ function initKhoaNganhDropdowns() {
         }
     };
 
-    // Khởi tạo danh sách Ngành cho Khoa đầu tiên
     updateNganhOptions(khoaSelect.value);
 
-    // Lắng nghe sự kiện đổi Khoa -> tự động lọc lại danh sách Ngành
     khoaSelect.addEventListener('change', () => {
         updateNganhOptions(khoaSelect.value);
     });
 
-    // Lưu helper lên window để dùng khi nạp file Excel SV tự động nhảy đúng Khoa/Ngành
     window.syncKhoaNganhFromLop = (lopStr) => {
         const info = findNganhInfoByLop(lopStr);
         if (info) {
@@ -683,6 +857,7 @@ function initKhoaNganhDropdowns() {
 }
 
 function getSetupMetadata() {
+    const cfg = getAdminConfig();
     const rawNgayKy = (document.getElementById('ngay-ky-qd')?.value || '').trim();
     let formattedNgayKy = rawNgayKy;
     if (rawNgayKy.includes('-')) {
@@ -694,7 +869,7 @@ function getSetupMetadata() {
 
     const rawSoQD = (document.getElementById('so-qd')?.value || '').trim();
     const soPart = rawSoQD || '................';
-    const fullSoQD = soPart.includes('/') ? soPart : `${soPart}/QĐ-ĐHDT-HĐTN`;
+    const fullSoQD = soPart.includes('/') ? soPart : `${soPart}${cfg.qdSuffix || '/QĐ-ĐHDT-HĐTN'}`;
 
     return {
         khoa: (document.getElementById('khoa-select')?.value || '').trim(),
@@ -820,7 +995,6 @@ function collectExportData(meta, includeEmptyHD = false) {
                 });
             });
         } else if (includeEmptyHD) {
-            // Hội đồng chưa có sinh viên nhưng vẫn xuất khung Hội đồng & Giảng viên
             exportData.push({
                 ...baseHD,
                 ho_ten: '',
