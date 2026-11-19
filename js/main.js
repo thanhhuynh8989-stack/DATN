@@ -19,8 +19,8 @@ import {
     sessionState, getGasWebAppUrl, setGasWebAppUrl, getSavedSessionMeta, saveSessionMeta,
     createCloudSession, loadCloudSession, saveCloudHoiDong, toggleCloudHDLock,
     pullLatestScoresFromCloud, pushDeltaScoresToCloud, restoreSessionFromPayload,
-    applySessionPermissionsToUI
-} from './session-sync.js';
+    applySessionPermissionsToUI, setupAutoSaveAndLockOnClose
+} from './session-sync.js';';
 
 window.studentScores = window.studentScores || {};
 
@@ -854,7 +854,7 @@ function bindEvents() {
         }
     });
 
-    // 10B. Tải phiên từ Cloud (Thư ký nhập PIN; Chủ phiên nhập thêm OTP)
+    // 10B. Tải phiên từ Cloud (Nhập OTP đúng -> Tự động tắt popup và mở quyền chỉnh sửa)
     document.getElementById('btn-cloud-load')?.addEventListener('click', async () => {
         const gasUrl = document.getElementById('cloud-gas-url').value.trim();
         const sessionId = document.getElementById('cloud-session-id').value.trim().toUpperCase();
@@ -880,15 +880,14 @@ function bindEvents() {
 
                 saveSessionMeta({ sessionId: res.sessionId, pin, otp: sessionState.otp });
                 restoreSessionFromPayload(res.payload);
+                applySessionPermissionsToUI();
                 if (typeof syncScoringTemplateBadges === 'function') {
                     syncScoringTemplateBadges();
                 }
                 syncCloudModalButtons();
 
-                const modeMsg = sessionState.canEditHD
-                    ? 'Quyền Chủ phiên (Có OTP)'
-                    : 'Quyền Thư ký nhập điểm (Chỉ xem HĐ)';
-                showCloudStatus(`✅ Đã tải phiên [${res.sessionId}] — ${modeMsg}!`, "success");
+                // Tự động đóng popup ngay khi xác thực thành công
+                bootstrap.Modal.getInstance(document.getElementById('modalCloudSession'))?.hide();
             } else {
                 showCloudStatus(`❌ ${res.message}`, "danger");
             }
@@ -936,6 +935,19 @@ function bindEvents() {
         } catch (err) {
             showCloudStatus(`❌ Lỗi kết nối GAS: ${err.message}`, "danger");
         }
+    });
+
+    // 10E. Tự động lưu thay đổi Hội đồng & tự động lưu + khóa chỉnh sửa khi tắt trình duyệt
+    setupAutoSaveAndLockOnClose((autoSaveText) => {
+        const banner = document.getElementById('session-role-banner');
+        if (!banner || !sessionState.isCloudConnected) return;
+        let statusTag = banner.querySelector('.autosave-indicator');
+        if (!statusTag) {
+            statusTag = document.createElement('span');
+            statusTag.className = 'autosave-indicator fw-bold text-primary';
+            banner.appendChild(statusTag);
+        }
+        statusTag.textContent = autoSaveText;
     });
 
 function initKhoaNganhDropdowns() {
