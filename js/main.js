@@ -38,6 +38,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     initKhoaNganhDropdowns();
     initGlobalSortables();
     bindEvents();
+});
 
 // Hàm áp dụng cấu hình Admin lên giao diện chính ngay lập tức (đuôi QĐ + dropdown Cơ sở)
 function applyAdminConfigToUI() {
