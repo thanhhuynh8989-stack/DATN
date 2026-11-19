@@ -439,3 +439,68 @@ export async function pushDeltaScoresToCloud() {
     }
     return res;
 }
+
+// Tự động lưu vùng Hội đồng sau mỗi thao tác (debounce 2.5s) & Tự động lưu + Khóa HĐ khi tắt trình duyệt
+export function setupAutoSaveAndLockOnClose(onStatusChange) {
+    let autoSaveTimer = null;
+
+    const triggerAutoSaveHD = () => {
+        if (!sessionState.isCloudConnected || !sessionState.canEditHD || sessionState.isHDLocked) return;
+        clearTimeout(autoSaveTimer);
+        if (typeof onStatusChange === 'function') onStatusChange('⏳ Đang tự động lưu...');
+
+        autoSaveTimer = setTimeout(async () => {
+            try {
+                const res = await saveCloudHoiDong(
+                    getGasWebAppUrl(),
+                    sessionState.sessionId,
+                    sessionState.pin,
+                    sessionState.otp
+                );
+                if (typeof onStatusChange === 'function') {
+                    onStatusChange(res.ok ? `☁️ Đã tự động lưu lúc ${new Date().toLocaleTimeString('vi-VN')}` : `⚠️ ${res.message}`);
+                }
+            } catch {
+                if (typeof onStatusChange === 'function') onStatusChange('⚠️ Mất kết nối khi tự động lưu');
+            }
+        }, 2500);
+    };
+
+    // Lắng nghe mọi thao tác nhập liệu hoặc kéo-thả/thêm/xóa trong vùng Thiết lập & Hội đồng
+    const workspaceHD = document.getElementById('workspace-hd');
+    if (workspaceHD) {
+        new MutationObserver(triggerAutoSaveHD).observe(workspaceHD, { childList: true, subtree: true });
+    }
+    document.addEventListener('change', (e) => {
+        if (e.target.closest('.box-hoidong') || e.target.closest('.setup-fields-row')) {
+            triggerAutoSaveHD();
+        }
+    });
+    document.addEventListener('input', (e) => {
+        if (e.target.closest('.box-hoidong') || e.target.closest('.setup-fields-row')) {
+            triggerAutoSaveHD();
+        }
+    });
+
+    // Khi tắt tab / đóng trình duyệt: Dùng fetch keepalive để vừa lưu bản mới nhất vừa KHÓA quyền sửa HĐ
+    window.addEventListener('pagehide', () => {
+        if (!sessionState.isCloudConnected || !sessionState.canEditHD || sessionState.isHDLocked) return;
+        const gasUrl = getGasWebAppUrl();
+        if (!gasUrl) return;
+
+        const { summary, payload } = serializeCurrentSession();
+        fetch(gasUrl, {
+            method: 'POST',
+            keepalive: true,
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+                action: 'save_and_lock_hd',
+                sessionId: sessionState.sessionId,
+                pin: sessionState.pin,
+                otp: sessionState.otp,
+                summary,
+                payload
+            })
+        }).catch(() => {});
+    });
+}
