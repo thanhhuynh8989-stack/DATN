@@ -282,84 +282,85 @@
     <span style="font-size: 1.25rem;">💡</span>
 </button>
 
-<!-- MODAL HƯỚNG DẪN TỪNG KHU VỰC GIAO DIỆN -->
-<div class="modal fade" id="tipsModal" tabindex="-1" aria-labelledby="tipsModalLabel" aria-hidden="true">
+<!-- MODAL TIPS HƯỚNG DẪN NHANH THEO TỪNG KHU VỰC (PHÍM TẮT F1) -->
+<div class="modal fade" id="tipsModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow">
+        <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-primary text-white py-2">
-                <h6 class="modal-title fw-bold" id="tipsModalLabel">💡 HƯỚNG DẪN & MẸO SỬ DỤNG THEO TỪNG KHU VỰC</h6>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h6 class="modal-title fw-bold">💡 HƯỚNG DẪN NHANH THEO KHU VỰC (NHẤN F1 ĐỂ MỞ / ĐÓNG)</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng"></button>
             </div>
-            
-            <div class="modal-body p-3">
-                <!-- Thanh Tab chuyển nhanh từng giao diện -->
-                <ul class="nav nav-pills nav-fill mb-3 gap-1 bg-light p-1 rounded border" id="tipsTab" role="tablist">
+            <div class="modal-body p-3 bg-light">
+                <ul class="nav nav-tabs nav-fill bg-white rounded border mb-3 small fw-bold" role="tablist">
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link active btn-sm fw-bold py-1" id="tab-setup" data-bs-toggle="pill" data-bs-target="#pane-setup" type="button" role="tab">1. Cài đặt & Nạp file</button>
+                        <button class="nav-link active" id="tab-setup" data-bs-toggle="tab" data-bs-target="#pane-setup" type="button" role="tab">
+                            1. Thiết lập & Nạp Excel
+                        </button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link btn-sm fw-bold py-1" id="tab-pool" data-bs-toggle="pill" data-bs-target="#pane-pool" type="button" role="tab">2. Kho SV & GV</button>
+                        <button class="nav-link" id="tab-pool" data-bs-toggle="tab" data-bs-target="#pane-pool" type="button" role="tab">
+                            2. Kho SV & Kho GV
+                        </button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link btn-sm fw-bold py-1" id="tab-hd" data-bs-toggle="pill" data-bs-target="#pane-hd" type="button" role="tab">3. Lập Hội đồng</button>
+                        <button class="nav-link" id="tab-hd" data-bs-toggle="tab" data-bs-target="#pane-hd" type="button" role="tab">
+                            3. Hội đồng & Đồng bộ Cloud
+                        </button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link btn-sm fw-bold py-1" id="tab-export" data-bs-toggle="pill" data-bs-target="#pane-export" type="button" role="tab">4. Xuất hồ sơ & Điểm</button>
+                        <button class="nav-link" id="tab-export" data-bs-toggle="tab" data-bs-target="#pane-export" type="button" role="tab">
+                            4. Nhập điểm & Xuất hồ sơ
+                        </button>
                     </li>
                 </ul>
 
-                <!-- Nội dung chi tiết từng Tab -->
-                <div class="tab-content" id="tipsTabContent">
-                    <!-- TAB 1: CÀI ĐẶT & NẠP FILE -->
+                <div class="tab-content bg-white p-3 rounded border shadow-sm small">
+                    <!-- TAB 1: THIẾT LẬP & NẠP EXCEL -->
                     <div class="tab-pane fade show active" id="pane-setup" role="tabpanel">
-                        <div class="alert alert-info py-2 small mb-2">
-                            <strong>Thứ tự nạp dữ liệu chuẩn:</strong> Chọn lần lượt <strong>(1) Danh sách SV & Đồ án</strong> $\rightarrow$ <strong>(2) Danh sách GV</strong> $\rightarrow$ <strong>(3) Danh sách HĐ (nếu có)</strong>, sau đó bấm <strong>⚡ NẠP DỮ LIỆU EXCEL</strong>.
-                        </div>
-                        <ul class="list-group list-group-flush small">
-                            <li class="list-group-item px-0"><strong>Cột Mã GVHD trong DS Sinh viên:</strong> Hệ thống tự nhận diện cột <code>Mã GVHD</code> / <code>Mã GV</code> / <code>Mã Giảng viên</code> (thay cho cột Ghi chú) để đối chiếu chính xác tuyệt đối GVHD với Kho Giảng viên, ngay cả khi tên viết có hoặc không có học hàm/học vị.</li>
-                            <li class="list-group-item px-0"><strong>Tự động nhận diện Khoa & Ngành:</strong> Đọc mã lớp (VD: <code>K27 TNM</code>) hoặc dòng tiêu đề file SV để tự chọn đúng Khoa và Ngành trên thanh cài đặt.</li>
-                            <li class="list-group-item px-0"><strong>Số QĐ & Ngày ký QĐ:</strong> Chỉ nhập phần số (VD: <code>2071</code>), hậu tố <code>/QĐ-ĐHDT-HĐTN</code> tự động gắn kèm. Nếu để trống khi xuất Excel, hệ thống tự điền dòng dấu chấm (<code>................</code>).</li>
-                            <li class="list-group-item px-0"><strong>Khôi phục từ DS Hội đồng cũ (Bước 3):</strong> Nếu tải lên file <code>Danh_Sach_Hoi_Dong.xlsx</code>, hệ thống tự dựng lại các Hội đồng, tự động xóa SV đã xếp khỏi kho chờ và giữ trống Giờ/Cơ sở nếu file chưa có.</li>
+                        <h6 class="fw-bold text-primary mb-2">📌 Thiết lập thông tin chung & Nạp dữ liệu Excel</h6>
+                        <ul class="mb-2 ps-3">
+                            <li class="mb-1"><strong>Thông tin chung:</strong> Chọn Khoa, Ngành/Chuyên ngành, nhập Đợt (tháng), Năm, Số Quyết định (tự ghép đuôi cấu hình Admin) và Ngày ký QĐ.</li>
+                            <li class="mb-1"><strong>File mẫu chuẩn:</strong> Bấm nút <strong>File mẫu</strong> ngay cạnh từng ô chọn file để tải file Excel mẫu (<code>Mau_Danh_Sach_SV_DoAn.xlsx</code>, <code>Mau_Danh_Sach_GV.xlsx</code>, <code>Mau_Danh_Sach_Hoi_Dong.xlsx</code>).</li>
+                            <li class="mb-1"><strong>Rà soát chéo tự động:</strong> Khi bấm <strong>⚡ NẠP DỮ LIỆU EXCEL</strong>, hệ thống kiểm tra giảng viên trùng tên nhưng khác Mã GV (hiện hộp thoại xác nhận/hủy), trùng Mã SV, vi phạm GVHD trùng thành viên Hội đồng và tự động gộp/đánh lại số Hội đồng.</li>
+                            <li><strong>Quản trị (⚙️ Admin):</strong> Đăng nhập mật khẩu quản trị để cấu hình Header, đuôi QĐ, danh sách Cơ sở, Danh sách Ngành và 4 mẫu Word gốc.</li>
                         </ul>
                     </div>
 
                     <!-- TAB 2: KHO SV & KHO GV -->
                     <div class="tab-pane fade" id="pane-pool" role="tabpanel">
-                        <ul class="list-group list-group-flush small">
-                            <li class="list-group-item px-0"><strong>Kéo & Thả (Drag & Drop):</strong> Kéo thẻ Giảng viên từ <em>Kho Giảng viên</em> thả vào 1 trong 3 vị trí (<strong>Chủ tịch, Phản biện, Thư ký</strong>). Kéo thẻ Sinh viên từ <em>Sinh viên chờ phân công</em> thả vào khung <strong>Sinh viên bảo vệ</strong>.</li>
-                            <li class="list-group-item px-0"><strong>Nhân bản Giảng viên:</strong> Một Giảng viên có thể tham gia nhiều Hội đồng — khi kéo GV vào Hội đồng, thẻ gốc ở Kho GV vẫn giữ nguyên để tiếp tục phân công cho Hội đồng khác.</li>
-                            <li class="list-group-item px-0"><strong>Xóa nhanh từng SV hoặc GV:</strong> Bấm dấu <span class="text-danger fw-bold">✕</span> góc trên bên phải mỗi thẻ ở 2 khung kho chờ để loại bỏ người không tham gia đợt bảo vệ. (Nút ✕ tự ẩn khi thẻ đã nằm trong Hội đồng).</li>
+                        <h6 class="fw-bold text-success mb-2">📌 Quản lý Sinh viên chờ phân công & Kho Giảng viên</h6>
+                        <ul class="mb-2 ps-3">
+                            <li class="mb-1"><strong>Kéo - thả phân công:</strong> Kéo thẻ Sinh viên vào vùng <em>Sinh viên bảo vệ</em> của từng Hội đồng; kéo thẻ Giảng viên vào đúng vai trò <em>Chủ tịch</em>, <em>Phản biện</em> hoặc <em>Thư ký</em>.</li>
+                            <li class="mb-1"><strong>Xóa thẻ không cần thiết:</strong> Bấm dấu <code>✕</code> ở góc trên bên phải từng thẻ để loại thẻ khỏi kho chờ hoặc khỏi vị trí phân công.</li>
+                            <li><strong>Lưu ý xung đột GVHD:</strong> Nếu kéo nhầm Sinh viên vào Hội đồng có thành viên trùng với GVHD của sinh viên đó, hệ thống sẽ cảnh báo và đẩy thẻ về kho chờ.</li>
                         </ul>
                     </div>
 
-                    <!-- TAB 3: KHU VỰC HỘI ĐỒNG -->
+                    <!-- TAB 3: HỘI ĐỒNG & ĐỒNG BỘ CLOUD -->
                     <div class="tab-pane fade" id="pane-hd" role="tabpanel">
-                        <div class="alert alert-warning py-2 small mb-2">
-                            <strong>Mẹo dùng trên Điện thoại:</strong> Bấm nút <span class="badge bg-success">+ Thêm SV</span> ngay trong từng Hội đồng để mở danh sách chọn nhanh thay vì kéo thả.
-                        </div>
-                        <ul class="list-group list-group-flush small">
-                            <li class="list-group-item px-0"><strong>Rà soát GVHD chéo 2 lớp:</strong> Cả khi kéo thả lẫn khi bấm <code>+ Thêm SV</code>, hệ thống tự đối chiếu <strong>Mã GVHD</strong> (ưu tiên) và <strong>Tên đã lọc học vị</strong> (dự phòng) để chặn tuyệt đối việc GVHD nằm trong Hội đồng chấm SV của mình.</li>
-                            <li class="list-group-item px-0"><strong>Gom nhóm Sheet Bảng điểm:</strong> Các Hội đồng trùng <strong>Buổi + Phòng + Cơ sở</strong> sẽ được tự động nối liền vào chung 1 Sheet khi xuất Bảng điểm.</li>
-                            <li class="list-group-item px-0"><strong>Trả SV về lại kho chờ:</strong> Kéo trực tiếp thẻ SV từ khung <em>Sinh viên bảo vệ</em> thả ngược lại cột <em>Sinh viên chờ phân công</em>.</li>
+                        <h6 class="fw-bold text-info mb-2">📌 Xếp Hội đồng, Phân quyền OTP/PIN & Đồng bộ Cloud</h6>
+                        <ul class="mb-2 ps-3">
+                            <li class="mb-1"><strong>Tạo & Cấu hình khung Hội đồng:</strong> Bấm <strong>+ TẠO HỘI ĐỒNG</strong>, nhập số/tên Hội đồng, Ngày bảo vệ, Giờ, Phòng và chọn Cơ sở.</li>
+                            <li class="mb-1"><strong>Tạo phiên mới (Nhận OTP):</strong> Vào <strong>☁️ Phiên làm việc $\rightarrow$ Tab 2</strong>, nhập Mã phiên (tên JSON), Mã PIN nhập điểm và Email để nhận <strong>Mã OTP</strong> quản trị Hội đồng.</li>
+                            <li class="mb-1"><strong>Phân quyền Chủ phiên vs Thư ký:</strong> Chủ phiên nhập <strong>Mã phiên + PIN + OTP</strong> để sửa/khóa Hội đồng (tự đóng popup khi xác thực thành công); Thư ký chỉ cần <strong>Mã phiên + PIN</strong> để tải phiên và nhập điểm khi Hội đồng đã khóa.</li>
+                            <li><strong>Tự động lưu & Khóa khi đóng tab:</strong> Thay đổi ở vùng thông tin chung và Hội đồng tự động lưu sau 2,5 giây; khi tắt tab/đóng trình duyệt, hệ thống tự lưu bản mới nhất và khóa quyền sửa Hội đồng.</li>
                         </ul>
                     </div>
 
-                    <!-- TAB 4: XUẤT HỒ SƠ & ĐIỂM (THEO ĐÚNG QUY TRÌNH 1 -> 5) -->
+                    <!-- TAB 4: NHẬP ĐIỂM & XUẤT HỒ SƠ -->
                     <div class="tab-pane fade" id="pane-export" role="tabpanel">
-                        <ul class="list-group list-group-flush small">
-                            <li class="list-group-item px-0"><strong>📑 (1) Xuất DS Phản biện:</strong> Xuất file Excel danh sách phân công phản biện chuẩn 8 cột (tự động tách riêng cột <em>Họ và tên đệm</em> và <em>Tên</em>).</li>
-                            <li class="list-group-item px-0"><strong>✏️ (2) Cập nhật Phiếu chấm HĐ (nếu cần):</strong> Chỉnh sửa trực tiếp bảng <em>Mục II. Kết quả đánh giá</em> (2 cột Nội dung & Thang điểm, có thể thêm/xóa hàng và tự cộng Tổng điểm) cho riêng phiên làm việc hiện tại. Tải lại trang sẽ tự về mẫu gốc.</li>
-                            <li class="list-group-item px-0"><strong>📋 (3) Xuất DS Hội đồng:</strong> Xuất file Excel Danh sách Hội đồng 10 cột chuẩn quy chế. <em>Hỗ trợ xuất ngay cả khi mới xếp Giảng viên mà chưa gán Sinh viên vào Hội đồng.</em></li>
-                            <li class="list-group-item px-0"><strong>📦 Hồ sơ HĐ (.ZIP):</strong> Tạo thư mục riêng cho từng SV gồm đầy đủ 6 file Word (<em>Biên bản, Phiếu GVHD, Phiếu GVPB và 3 Phiếu chấm riêng tên Chủ tịch, Phản biện, Thư ký</em> — tự áp dụng nội dung đã sửa ở Bước 2 nếu có).</li>
-                            <li class="list-group-item px-0"><strong>📝 (4) Nhập điểm chấm & 📊 (5) Xuất Bảng điểm:</strong> Nhập điểm GVHD, Chủ tịch, Phản biện, Thư ký ngay trên web ở Bước (4), sau đó bấm Bước (5) để xuất file Excel Bảng điểm tổng hợp cài sẵn công thức.</li>
+                        <h6 class="fw-bold text-danger mb-2">📌 Nhập điểm (1 số thập phân), Mẫu phiếu chấm & Xuất file</h6>
+                        <ul class="mb-2 ps-3">
+                            <li class="mb-1"><strong>Nhập điểm & Đồng bộ Delta:</strong> Khi bấm <strong>(4) Nhập điểm chấm</strong>, hệ thống tự kéo điểm mới nhất từ Cloud (nếu dùng phiên Cloud) và chỉ đẩy các ô điểm thay đổi lên Cloud khi bấm <strong>Lưu điểm</strong> (hợp nhất theo thời gian ghi nhận mới nhất trên server).</li>
+                            <li class="mb-1"><strong>Định dạng điểm & Cột CHỮ:</strong> Chấp nhận cả dấu <code>.</code> và <code>,</code> trong thang 0–10, chuẩn hóa 1 chữ số thập phân, để trống nếu không nhập. Cột <strong>CHỮ</strong> trong bảng điểm tự động đọc giá trị cột <strong>SỐ</strong> thành chữ tiếng Việt (VD: <code>8,6</code> $\rightarrow$ <code>tám phẩy sáu</code>).</li>
+                            <li class="mb-1"><strong>Tải lên Mẫu Phiếu chấm:</strong> Tải về mẫu hiện tại hoặc upload file <code>.docx</code> mới cho Phiếu GVHD, Phiếu GVPB, Phiếu HĐ trong phiên — <em>chỉ sửa mục tiêu chí chấm điểm, giữ nguyên thẻ <code>{{placeholder}}</code></em>.</li>
+                            <li><strong>Xuất hồ sơ:</strong> Xuất gói Word <code>Ho_So_Hoi_Dong_DATN.zip</code> (phân thư mục theo Hội đồng và Sinh viên) cùng 3 file Excel (DS Phản biện, DS Hội đồng đã lập, Bảng điểm tổng hợp).</li>
                         </ul>
                     </div>
                 </div>
             </div>
-
-            <div class="modal-footer py-2 bg-light justify-content-between">
-                <span class="text-muted small">Mẹo: Nhấn phím <strong>F1</strong> bất kỳ lúc nào để mở nhanh bảng hướng dẫn này.</span>
-                <button type="button" class="btn btn-primary btn-sm px-3 fw-bold" data-bs-dismiss="modal">Đã hiểu</button>
+            <div class="modal-footer py-2 bg-white">
+                <button type="button" class="btn btn-primary btn-sm fw-bold px-3" data-bs-dismiss="modal">Đóng</button>
             </div>
         </div>
     </div>
