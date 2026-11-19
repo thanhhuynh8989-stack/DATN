@@ -80,3 +80,95 @@ export function checkScheduleConflict(gvId, gvName, currBox) {
     }
     return false;
 }
+
+// Chuẩn hóa tên GV: Bỏ học hàm/học vị -> Bỏ dấu tiếng Việt -> Xóa toàn bộ khoảng trắng -> Viết thường
+export function normalizeTeacherKeyForDupCheck(rawName) {
+    if (!rawName) return '';
+    let s = String(rawName).toLowerCase().trim();
+    // Bỏ học hàm, học vị phổ biến
+    s = s.replace(/\b(gs|pgs|ts|ths|gvc|gv|ks|cn|bs|dsc|prof|dr|msc|mr|ms|mrs)\.?\b/gi, ' ');
+    // Bỏ dấu tiếng Việt
+    s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+    // Xóa toàn bộ khoảng trắng và ký tự đặc biệt
+    s = s.replace(/[^a-z0-9]/g, '');
+    return s;
+}
+
+// Đối chiếu chéo tất cả các nguồn (DS SV, DS GV, DS HĐ) để tìm GV trùng tên chuẩn hóa nhưng khác Mã GV
+export function detectDuplicateTeacherNameDifferentId({ svList = [], gvList = [], parsedHoidongs = {} }) {
+    // Map: normalizedName -> Map(maGV -> Set(locations))
+    const nameMap = new Map();
+
+    const addRecord = (rawName, rawId, locationDesc) => {
+        const normName = normalizeTeacherKeyForDupCheck(rawName);
+        const id = String(rawId || '').trim().toUpperCase();
+        // Bỏ qua nếu thiếu tên hoặc thiếu mã thật (mã tự sinh GV_... không tính là mã xung đột)
+        if (!normName || !id || id.startsWith('GV_')) return;
+
+        if (!nameMap.has(normName)) {
+            nameMap.set(normName, new Map());
+        }
+        const idMap = nameMap.get(normName);
+        if (!idMap.has(id)) {
+            idMap.set(id, { displayNames: new Set(), locations: [] });
+        }
+        const entry = idMap.get(id);
+        entry.displayNames.add(String(rawName).trim());
+        if (!entry.locations.includes(locationDesc)) {
+            entry.locations.push(locationDesc);
+        }
+    };
+
+    // 1. Nguồn từ Danh sách Sinh viên & Đồ án (cột GVHD + Mã GVHD)
+    svList.forEach(sv => {
+        if (sv.gvhd && sv.maGVHD) {
+            addRecord(sv.gvhd, sv.maGVHD, `File SV: SV ${sv.hoTen} (${sv.maSV})`);
+        }
+    });
+    // Cả những SV đã có sẵn trên giao diện (nếu nạp bổ sung file HĐ sau)
+    document.querySelectorAll('#pool-sv .card-item, .dropzone-sv .card-item').forEach(el => {
+        const gvhd = el.getAttribute('data-gvhd') || '';
+        const ma = el.getAttribute('data-magvhd') || '';
+        const svName = el.getAttribute('data-name') || '';
+        const svId = el.getAttribute('data-id') || '';
+        if (gvhd && ma) addRecord(gvhd, ma, `Kho/HĐ hiện tại: SV ${svName} (${svId})`);
+    });
+
+    // 2. Nguồn từ Danh sách Giảng viên
+    gvList.forEach(gv => {
+        addRecord(gv.hoTenGV, gv.maGV, `File GV: Danh mục Giảng viên`);
+    });
+    document.querySelectorAll('#pool-gv .card-item').forEach(el => {
+        const name = el.getAttribute('data-name') || '';
+        const id = el.getAttribute('data-id') || '';
+        if (name && id) addRecord(name, id, `Kho GV hiện tại`);
+    });
+
+    // 3. Nguồn từ Danh sách Hội đồng upload
+    Object.keys(parsedHoidongs).forEach(key => {
+        if (key === '__mergeLogs') return;
+        const hd = parsedHoidongs[key];
+        const hdLabel = `${hd.soHD}${hd.ngayBV ? ` (${hd.gioBV ? hd.gioBV + ' ' : ''}${hd.ngayBV})` : ''}`;
+        (hd.thanhVien || []).forEach(tv => {
+            addRecord(tv.hoTenGV, tv.maGV, `File HĐ: ${hdLabel} - ${tv.chucDanh}`);
+        });
+    });
+
+    // Lọc ra các giảng viên có >= 2 Mã GV khác nhau cho cùng 1 tên chuẩn hóa
+    const conflicts = [];
+    nameMap.forEach((idMap, normName) => {
+        if (idMap.size > 1) {
+            const variants = [];
+            idMap.forEach((info, id) => {
+                variants.push({
+                    maGV: id,
+                    names: Array.from(info.displayNames).join(' / '),
+                    locations: info.locations
+                });
+            });
+            conflicts.push({ normName, variants });
+        }
+    });
+
+    return conflicts;
+}
