@@ -1,4 +1,4 @@
-// js/excel-exporter.js
+    // js/excel-exporter.js
 
 export async function exportExcelReport(exportData, meta = {}) {
     if (typeof ExcelJS === 'undefined') {
@@ -9,6 +9,30 @@ export async function exportExcelReport(exportData, meta = {}) {
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     saveAs(blob, "Bang_Diem_Tong_Hop_DATN.xlsx");
+}
+
+// Chuẩn hóa điểm (chấp nhận dấu . hoặc , | trả về null nếu trống)
+function parseScoreNum(rawVal) {
+    const str = String(rawVal ?? '').trim().replace(',', '.');
+    if (str === '') return null;
+    const num = parseFloat(str);
+    if (isNaN(num)) return null;
+    const clamped = Math.min(10, Math.max(0, num));
+    return Number(clamped.toFixed(1));
+}
+
+// Đọc điểm thập phân 1 chữ số thang 10 thành chữ tiếng Việt (VD: 8.6 -> "tám phẩy sáu", 7.0 -> "bảy phẩy không")
+function scoreToVietnameseWords(scoreNum) {
+    if (scoreNum === null || scoreNum === undefined || isNaN(Number(scoreNum))) return '';
+    const digitWords = ['không', 'một', 'hai', 'ba', 'bốn', 'năm', 'sáu', 'bảy', 'tám', 'chín', 'mười'];
+    const fixedStr = Number(scoreNum).toFixed(1);
+    const [intPartStr, decPartStr] = fixedStr.split('.');
+    const intPart = parseInt(intPartStr, 10);
+    const decPart = parseInt(decPartStr, 10);
+
+    const intWord = digitWords[intPart] ?? String(intPart);
+    const decWord = digitWords[decPart] ?? String(decPart);
+    return `${intWord} phẩy ${decWord}`;
 }
 
 // 1. WORKBOOK BẢNG ĐIỂM TỔNG HỢP (TÁCH SHEET THEO BUỔI + PHÒNG + CƠ SỞ)
@@ -193,16 +217,44 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
                 ws.getCell(`D${startR}`).value = sv.lop;
                 ws.getCell(`E${startR}`).value = sv.gvhd;
 
-                const diemGVHD = (sv.diem_gvhd !== undefined && sv.diem_gvhd !== '') ? Number(sv.diem_gvhd) : '';
-                ws.getCell(`F${startR}`).value = diemGVHD;
-                ws.getCell(`G${startR}`).value = (sv.diem_ct !== undefined && sv.diem_ct !== '') ? Number(sv.diem_ct) : '';
-                ws.getCell(`H${startR}`).value = (sv.diem_pb !== undefined && sv.diem_pb !== '') ? Number(sv.diem_pb) : '';
-                ws.getCell(`I${startR}`).value = '-';
-                ws.getCell(`J${startR}`).value = (sv.diem_tk !== undefined && sv.diem_tk !== '') ? Number(sv.diem_tk) : '';
+                const diemGVHD = parseScoreNum(sv.diem_gvhd);
+                const diemCT = parseScoreNum(sv.diem_ct);
+                const diemPB = parseScoreNum(sv.diem_pb);
+                const diemTK = parseScoreNum(sv.diem_tk);
 
-                ws.getCell(`K${startR}`).value = { formula: `IF(COUNT(G${startR}:J${startR})>0, AVERAGE(G${startR}:J${startR}), "")` };
-                ws.getCell(`L${startR}`).value = { formula: `IF(AND(ISNUMBER(F${startR}), ISNUMBER(K${startR})), F${startR}*0.3 + K${startR}*0.7, "")` };
-                ws.getCell(`M${startR}`).value = sv.diem_chu || '';
+                ws.getCell(`F${startR}`).value = diemGVHD !== null ? diemGVHD : '';
+                ws.getCell(`G${startR}`).value = diemCT !== null ? diemCT : '';
+                ws.getCell(`H${startR}`).value = diemPB !== null ? diemPB : '';
+                ws.getCell(`I${startR}`).value = '-';
+                ws.getCell(`J${startR}`).value = diemTK !== null ? diemTK : '';
+
+                // Tính giá trị thực tế ĐHĐ 70% và Điểm Tổng Kết 100% để sinh chữ chính xác cho cột CHỮ (cột M)
+                const hdScores = [diemCT, diemPB, diemTK].filter(v => v !== null);
+                const avgHD = hdScores.length > 0
+                    ? Number((hdScores.reduce((a, b) => a + b, 0) / hdScores.length).toFixed(1))
+                    : null;
+                const finalTongKet = (diemGVHD !== null && avgHD !== null)
+                    ? Number((diemGVHD * 0.3 + avgHD * 0.7).toFixed(1))
+                    : null;
+
+                ws.getCell(`K${startR}`).value = {
+                    formula: `IF(COUNT(G${startR}:J${startR})>0, ROUND(AVERAGE(G${startR}:J${startR}), 1), "")`,
+                    result: avgHD !== null ? avgHD : undefined
+                };
+                ws.getCell(`L${startR}`).value = {
+                    formula: `IF(AND(ISNUMBER(F${startR}), ISNUMBER(K${startR})), ROUND(F${startR}*0.3 + K${startR}*0.7, 1), "")`,
+                    result: finalTongKet !== null ? finalTongKet : undefined
+                };
+
+                // Cột CHỮ (cột M): ghi ra chữ giá trị ở cột SỐ nếu cột SỐ có điểm, ngược lại để trống
+                ws.getCell(`M${startR}`).value = finalTongKet !== null
+                    ? scoreToVietnameseWords(finalTongKet)
+                    : (sv.diem_chu || '');
+
+                // Định dạng hiển thị 1 chữ số thập phân (0.0) cho các ô điểm số (F, G, H, J, K, L)
+                ['F', 'G', 'H', 'J', 'K', 'L'].forEach(colLetter => {
+                    ws.getCell(`${colLetter}${startR}`).numFmt = '0.0';
+                });
 
                 ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M'].forEach(col => {
                     ws.mergeCells(`${col}${startR}:${col}${endR}`);
@@ -217,7 +269,7 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
                             cell.alignment = { horizontal: 'left', vertical: 'middle' };
                             if (col === 3) cell.font = { name: 'Times New Roman', size: 10, bold: true };
                         } else {
-                            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                            cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: col === 13 };
                         }
                     }
                 }
@@ -298,7 +350,7 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
         ws.getColumn(10).width = 5;
         ws.getColumn(11).width = 8;
         ws.getColumn(12).width = 8;
-        ws.getColumn(13).width = 12;
+        ws.getColumn(13).width = 16;
         ws.getColumn(14).width = 28;
         ws.getColumn(15).width = 15;
     });
