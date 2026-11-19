@@ -341,6 +341,16 @@ function bindEvents() {
         createHoiDongBox();
     });
 
+    // Hàm chuẩn hóa điểm thang 10 về 1 chữ số thập phân (chấp nhận cả dấu . và , | để trống nếu không nhập)
+    const normalizeSingleScore = (rawVal) => {
+        const str = String(rawVal ?? '').trim().replace(',', '.');
+        if (str === '') return '';
+        const num = parseFloat(str);
+        if (isNaN(num)) return '';
+        const clamped = Math.min(10, Math.max(0, num));
+        return clamped.toFixed(1);
+    };
+
     // 3. SỰ KIỆN MỞ MODAL NHẬP ĐIỂM TRỰC TIẾP (TỰ ĐỘNG KÉO ĐIỂM MỚI NHẤT TỪ CLOUD)
     const btnNhapDiem = document.getElementById('btn-nhap-diem');
     btnNhapDiem?.addEventListener('click', async () => {
@@ -376,19 +386,31 @@ function bindEvents() {
         tbody.innerHTML = '';
 
         exportData.forEach((sv, idx) => {
+            const valGVHD = normalizeSingleScore(sv.diem_gvhd);
+            const valCT = normalizeSingleScore(sv.diem_ct);
+            const valPB = normalizeSingleScore(sv.diem_pb);
+            const valTK = normalizeSingleScore(sv.diem_tk);
+
             const tr = `
                 <tr>
                     <td>${idx + 1}</td>
                     <td class="fw-bold">${sv.ma_sv}</td>
                     <td class="text-start">${sv.ho_ten}</td>
                     <td><span class="badge bg-info text-dark">${sv.so_hd}</span></td>
-                    <td><input type="number" step="0.1" min="0" max="10" class="form-control form-control-sm text-center input-diem-gvhd" data-masv="${sv.ma_sv}" value="${sv.diem_gvhd || ''}" placeholder="0.0"></td>
-                    <td><input type="number" step="0.1" min="0" max="10" class="form-control form-control-sm text-center input-diem-ct" data-masv="${sv.ma_sv}" value="${sv.diem_ct || ''}" placeholder="0.0"></td>
-                    <td><input type="number" step="0.1" min="0" max="10" class="form-control form-control-sm text-center input-diem-pb" data-masv="${sv.ma_sv}" value="${sv.diem_pb || ''}" placeholder="0.0"></td>
-                    <td><input type="number" step="0.1" min="0" max="10" class="form-control form-control-sm text-center input-diem-tk" data-masv="${sv.ma_sv}" value="${sv.diem_tk || ''}" placeholder="0.0"></td>
+                    <td><input type="text" inputmode="decimal" class="form-control form-control-sm text-center score-decimal-input input-diem-gvhd" data-masv="${sv.ma_sv}" value="${valGVHD}" placeholder=""></td>
+                    <td><input type="text" inputmode="decimal" class="form-control form-control-sm text-center score-decimal-input input-diem-ct" data-masv="${sv.ma_sv}" value="${valCT}" placeholder=""></td>
+                    <td><input type="text" inputmode="decimal" class="form-control form-control-sm text-center score-decimal-input input-diem-pb" data-masv="${sv.ma_sv}" value="${valPB}" placeholder=""></td>
+                    <td><input type="text" inputmode="decimal" class="form-control form-control-sm text-center score-decimal-input input-diem-tk" data-masv="${sv.ma_sv}" value="${valTK}" placeholder=""></td>
                 </tr>
             `;
             tbody.insertAdjacentHTML('beforeend', tr);
+        });
+
+        // Tự động chuẩn hóa 1 chữ số thập phân (chuyển , -> . và giới hạn 0..10) ngay khi rời ô nhập
+        tbody.querySelectorAll('.score-decimal-input').forEach(inp => {
+            inp.addEventListener('blur', () => {
+                inp.value = normalizeSingleScore(inp.value);
+            });
         });
 
         const modalDiem = new bootstrap.Modal(document.getElementById('modalNhapDiem'));
@@ -402,10 +424,10 @@ function bindEvents() {
             const maSV = tr.querySelector('.input-diem-gvhd')?.getAttribute('data-masv');
             if (!maSV) return;
 
-            const diemGVHD = tr.querySelector('.input-diem-gvhd')?.value || '';
-            const diemCT = tr.querySelector('.input-diem-ct')?.value || '';
-            const diemPB = tr.querySelector('.input-diem-pb')?.value || '';
-            const diemTK = tr.querySelector('.input-diem-tk')?.value || '';
+            const diemGVHD = normalizeSingleScore(tr.querySelector('.input-diem-gvhd')?.value);
+            const diemCT = normalizeSingleScore(tr.querySelector('.input-diem-ct')?.value);
+            const diemPB = normalizeSingleScore(tr.querySelector('.input-diem-pb')?.value);
+            const diemTK = normalizeSingleScore(tr.querySelector('.input-diem-tk')?.value);
 
             window.studentScores[maSV] = {
                 ...(window.studentScores[maSV] || {}),
