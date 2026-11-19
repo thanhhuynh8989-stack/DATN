@@ -1,6 +1,15 @@
 // js/docx-exporter.js
 import { templates } from './templates.js';
 
+// Helper: Làm sạch các ký tự không hợp lệ trong tên thư mục (\ / : * ? " < > |)
+function sanitizeFolderName(name, fallback = 'Thu_Muc') {
+    const cleaned = String(name || '')
+        .replace(/[\\/:*?"<>|]/g, '-')
+        .replace(/\s+/g, ' ')
+        .trim();
+    return cleaned || fallback;
+}
+
 export async function exportWordZIP(exportData, meta = {}) {
     const zip = new JSZip();
 
@@ -15,9 +24,13 @@ export async function exportWordZIP(exportData, meta = {}) {
         };
     };
 
-    // Tạo các thư mục Hồ sơ Word cho từng Sinh viên
+    // Tạo cây thư mục: [Tên Hội Đồng] / [MSSV - Họ Tên SV] / [6 file Word]
     exportData.forEach(data => {
-        const svFolder = zip.folder(`${data.ma_sv} - ${data.ho_ten}`);
+        const hdFolderName = sanitizeFolderName(data.so_hd, 'Hoi_Dong');
+        const hdFolder = zip.folder(hdFolderName);
+
+        const svFolderName = sanitizeFolderName(`${data.ma_sv} - ${data.ho_ten}`, 'Sinh_Vien');
+        const svFolder = hdFolder.folder(svFolderName);
         
         const baseContext = {
             KHOA: data.khoa || '',
@@ -77,7 +90,7 @@ export async function exportWordZIP(exportData, meta = {}) {
     saveAs(zipContent, "Ho_So_Hoi_Dong_DATN.zip");
 }
 
-// Bổ sung vào cuối file js/docx-exporter.js
+// Xem trước Mẫu 4. Phiếu Hội đồng của phiên hiện tại
 export function previewPhieuHDTemplate() {
     if (!templates.phieuHD) return alert("Chưa nạp được mẫu 4. Phiếu Hội đồng!");
     const blob = new Blob([templates.phieuHD], {
