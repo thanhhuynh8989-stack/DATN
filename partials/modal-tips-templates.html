@@ -1,0 +1,171 @@
+<!-- MODAL TIPS HƯỚNG DẪN NHANH THEO TỪNG KHU VỰC (PHÍM TẮT F1) -->
+<div class="modal fade" id="tipsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white py-2">
+                <h6 class="modal-title fw-bold">💡 HƯỚNG DẪN NHANH THEO KHU VỰC (NHẤN F1 ĐỂ MỞ / ĐÓNG)</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body p-3 bg-light">
+                <ul class="nav nav-tabs nav-fill bg-white rounded border mb-3 small fw-bold" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="tab-setup" data-bs-toggle="tab" data-bs-target="#pane-setup" type="button" role="tab">
+                            1. Thiết lập & Nạp Excel
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-pool" data-bs-toggle="tab" data-bs-target="#pane-pool" type="button" role="tab">
+                            2. Kho SV & Kho GV
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-hd" data-bs-toggle="tab" data-bs-target="#pane-hd" type="button" role="tab">
+                            3. Hội đồng & Đồng bộ Cloud
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-export" data-bs-toggle="tab" data-bs-target="#pane-export" type="button" role="tab">
+                            4. Nhập điểm & Xuất hồ sơ
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content bg-white p-3 rounded border shadow-sm small">
+                    <div class="tab-pane fade show active" id="pane-setup" role="tabpanel">
+                        <h6 class="fw-bold text-primary mb-2">📌 Thiết lập thông tin chung & Nạp dữ liệu Excel</h6>
+                        <ul class="mb-2 ps-3">
+                            <li class="mb-1"><strong>Thông tin chung:</strong> Chọn Khoa, Ngành/Chuyên ngành, nhập Đợt (tháng), Năm, Số Quyết định (tự ghép đuôi cấu hình Admin) và Ngày ký QĐ.</li>
+                            <li class="mb-1"><strong>File mẫu chuẩn:</strong> Bấm nút <strong>File mẫu</strong> ngay cạnh từng ô chọn file để tải file Excel mẫu.</li>
+                            <li class="mb-1"><strong>Rà soát chéo tự động:</strong> Khi bấm <strong>⚡ NẠP DỮ LIỆU EXCEL</strong>, hệ thống kiểm tra giảng viên trùng tên nhưng khác Mã GV, trùng Mã SV, vi phạm GVHD trùng thành viên Hội đồng và tự động gộp/đánh lại số Hội đồng.</li>
+                            <li><strong>Quản trị (⚙️ Admin):</strong> Cấu hình Header, đuôi QĐ, danh sách Cơ sở, Danh sách Ngành và 4 mẫu Word gốc.</li>
+                        </ul>
+                    </div>
+
+                    <div class="tab-pane fade" id="pane-pool" role="tabpanel">
+                        <h6 class="fw-bold text-success mb-2">📌 Quản lý Sinh viên chờ phân công & Kho Giảng viên</h6>
+                        <ul class="mb-2 ps-3">
+                            <li class="mb-1"><strong>Kéo - thả phân công:</strong> Kéo thẻ Sinh viên vào vùng <em>Sinh viên bảo vệ</em> của từng Hội đồng; kéo thẻ Giảng viên vào đúng vai trò <em>Chủ tịch</em>, <em>Phản biện</em> hoặc <em>Thư ký</em>.</li>
+                            <li class="mb-1"><strong>Xóa thẻ không cần thiết:</strong> Bấm dấu <code>✕</code> ở góc trên bên phải từng thẻ để loại thẻ khỏi kho chờ hoặc khỏi vị trí phân công.</li>
+                            <li><strong>Lưu ý xung đột GVHD:</strong> Sinh viên có GVHD trùng thành viên Hội đồng sẽ được cảnh báo và đẩy về kho chờ.</li>
+                        </ul>
+                    </div>
+
+                    <div class="tab-pane fade" id="pane-hd" role="tabpanel">
+                        <h6 class="fw-bold text-info mb-2">📌 Xếp Hội đồng, Phân quyền OTP/PIN & Đồng bộ Cloud</h6>
+                        <ul class="mb-2 ps-3">
+                            <li class="mb-1"><strong>Tạo & Cấu hình khung Hội đồng:</strong> Bấm <strong>+ TẠO HỘI ĐỒNG</strong>, nhập số/tên Hội đồng, Ngày bảo vệ, Giờ, Phòng và chọn Cơ sở.</li>
+                            <li class="mb-1"><strong>Tạo phiên mới (Nhận OTP):</strong> Vào <strong>☁️ Phiên làm việc → Tab 2</strong>, nhập Mã phiên, Mã PIN và Email để nhận <strong>Mã OTP</strong> quản trị Hội đồng.</li>
+                            <li class="mb-1"><strong>Phân quyền Chủ phiên vs Thư ký:</strong> Chủ phiên nhập <strong>Mã phiên + PIN + OTP</strong> để sửa/khóa Hội đồng; Thư ký chỉ cần <strong>Mã phiên + PIN</strong> để nhập điểm khi Hội đồng đã khóa.</li>
+                            <li><strong>Tự động lưu & Khóa khi đóng tab:</strong> Thay đổi tự lưu sau 2,5 giây; khi tắt tab/đóng trình duyệt, hệ thống tự lưu bản mới nhất và khóa quyền sửa Hội đồng.</li>
+                        </ul>
+                    </div>
+
+                    <div class="tab-pane fade" id="pane-export" role="tabpanel">
+                        <h6 class="fw-bold text-danger mb-2">📌 Nhập điểm (1 số thập phân), Mẫu phiếu chấm & Xuất file</h6>
+                        <ul class="mb-2 ps-3">
+                            <li class="mb-1"><strong>Nhập điểm & Đồng bộ Delta:</strong> Khi mở <strong>(4) Nhập điểm chấm</strong>, hệ thống tự kéo điểm mới nhất từ Cloud và chỉ đẩy các ô điểm thay đổi lên Cloud khi bấm <strong>Lưu điểm</strong>.</li>
+                            <li class="mb-1"><strong>Định dạng điểm & Cột CHỮ:</strong> Chấp nhận cả dấu <code>.</code> và <code>,</code> (thang 0–10), 1 chữ số thập phân, để trống nếu không nhập. Cột <strong>CHỮ</strong> tự động đọc giá trị cột <strong>SỐ</strong> thành chữ tiếng Việt.</li>
+                            <li class="mb-1"><strong>Tải lên Mẫu Phiếu chấm:</strong> Tải về hoặc upload file <code>.docx</code> mới cho Phiếu GVHD, Phiếu GVPB, Phiếu HĐ trong phiên (giữ nguyên thẻ <code>{{placeholder}}</code>).</li>
+                            <li><strong>Xuất hồ sơ:</strong> Xuất gói Word <code>Ho_So_Hoi_Dong_DATN.zip</code> cùng các file Excel (DS Phản biện, DS Hội đồng đã lập, Bảng điểm tổng hợp).</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer py-2 bg-white">
+                <button type="button" class="btn btn-primary btn-sm fw-bold px-3" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL TẢI LÊN MẪU PHIẾU CHẤM (GVHD, GVPB, HỘI ĐỒNG) -->
+<div class="modal fade" id="modalUploadScoringTemplates" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-dark text-white py-2">
+                <h6 class="modal-title fw-bold">📄 TẢI VỀ & CẬP NHẬT MẪU PHIẾU CHẤM ĐIỂM (.DOCX)</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body p-3 bg-light">
+                <div class="alert alert-danger border-2 border-danger shadow-sm py-2 px-3 mb-3">
+                    <div class="fw-bold text-danger mb-1">⚠️ LƯU Ý QUAN TRỌNG KHI CHỈNH SỬA FILE MẪU:</div>
+                    <div class="small text-dark">
+                        • <strong>Chỉ được phép thay đổi nội dung các mục tiêu chí chấm điểm và thang điểm</strong> trong bảng đánh giá.<br>
+                        • <strong>TUYỆT ĐỐI KHÔNG xóa, sửa tên hoặc thay đổi định dạng các thẻ biến (placeholder)</strong> nằm trong dấu ngoặc nhọn như:
+                        <code>{{KHOA}}</code>, <code>{{HỌ_VÀ_TÊN}}</code>, <code>{{MÃ_SỐ_SV}}</code>, <code>{{LỚP}}</code>, <code>{{TÊN_ĐỀ_TÀI_ĐỒ_ÁN_TỐT_NGHIỆP}}</code>, <code>{{GVHD}}</code>, <code>{{NGÀY_BẢO_VỆ}}</code>...
+                    </div>
+                </div>
+
+                <div class="d-flex flex-column gap-2">
+                    <div class="card border shadow-sm">
+                        <div class="card-body p-2">
+                            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-1">
+                                <div>
+                                    <span class="fw-bold text-primary">1. Phiếu chấm Giảng viên Hướng dẫn (GVHD)</span>
+                                    <span id="status-tpl-phieuGVHD" class="badge bg-secondary ms-1">Mặc định</span>
+                                </div>
+                                <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2 fw-bold btn-dl-scoring-tpl" data-tpl="phieuGVHD">
+                                    ⬇️ Tải file mẫu hiện tại
+                                </button>
+                            </div>
+                            <div class="input-group input-group-sm">
+                                <input type="file" class="form-control input-up-scoring-tpl" data-tpl="phieuGVHD" accept=".docx">
+                                <button type="button" class="btn btn-success fw-bold btn-apply-scoring-tpl" data-tpl="phieuGVHD">
+                                    ⬆️ Tải lên & Áp dụng
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card border shadow-sm">
+                        <div class="card-body p-2">
+                            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-1">
+                                <div>
+                                    <span class="fw-bold text-success">2. Phiếu chấm Giảng viên Phản biện (GVPB)</span>
+                                    <span id="status-tpl-phieuGVPB" class="badge bg-secondary ms-1">Mặc định</span>
+                                </div>
+                                <button type="button" class="btn btn-outline-success btn-sm py-0 px-2 fw-bold btn-dl-scoring-tpl" data-tpl="phieuGVPB">
+                                    ⬇️ Tải file mẫu hiện tại
+                                </button>
+                            </div>
+                            <div class="input-group input-group-sm">
+                                <input type="file" class="form-control input-up-scoring-tpl" data-tpl="phieuGVPB" accept=".docx">
+                                <button type="button" class="btn btn-success fw-bold btn-apply-scoring-tpl" data-tpl="phieuGVPB">
+                                    ⬆️ Tải lên & Áp dụng
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card border shadow-sm">
+                        <div class="card-body p-2">
+                            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-1">
+                                <div>
+                                    <span class="fw-bold text-danger">3. Phiếu chấm Thành viên Hội đồng (HĐ)</span>
+                                    <span id="status-tpl-phieuHD" class="badge bg-secondary ms-1">Mặc định</span>
+                                </div>
+                                <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2 fw-bold btn-dl-scoring-tpl" data-tpl="phieuHD">
+                                    ⬇️ Tải file mẫu hiện tại
+                                </button>
+                            </div>
+                            <div class="input-group input-group-sm">
+                                <input type="file" class="form-control input-up-scoring-tpl" data-tpl="phieuHD" accept=".docx">
+                                <button type="button" class="btn btn-success fw-bold btn-apply-scoring-tpl" data-tpl="phieuHD">
+                                    ⬆️ Tải lên & Áp dụng
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer py-2 bg-white justify-content-between">
+                <button type="button" id="btn-reset-all-scoring-tpl" class="btn btn-outline-secondary btn-sm fw-bold">
+                    🔄 Khôi phục tất cả về mẫu gốc
+                </button>
+                <button type="button" class="btn btn-primary btn-sm fw-bold px-3" data-bs-dismiss="modal">
+                    Đóng
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
