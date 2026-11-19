@@ -791,7 +791,9 @@ function bindEvents() {
             const res = await loadSessionFromCloud(gasUrl, sessionId, pin);
             if (res.ok && res.payload) {
                 restoreSessionFromPayload(res.payload);
-                syncScoringTemplateBadges();
+                if (typeof syncScoringTemplateBadges === 'function') {
+                    syncScoringTemplateBadges();
+                }
                 showCloudStatus(`✅ Đã khôi phục phiên [${res.sessionId}] (${res.summary})!`, "success");
             } else {
                 showCloudStatus(`❌ ${res.message}`, "danger");
