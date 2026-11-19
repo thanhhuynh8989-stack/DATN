@@ -292,10 +292,44 @@ function extractScheduleAndPlace(rawStr) {
     return { gio, ngay, phong, diaDiem };
 }
 
-// 8. Bóc tách file Excel Danh sách Hội đồng
+function getSessionKey(gioStr) {
+    if (!gioStr || !gioStr.includes(':')) return 'MAC_DINH';
+    const hour = parseInt(gioStr.split(':')[0], 10);
+    if (isNaN(hour)) return 'MAC_DINH';
+    if (hour < 12) return 'SANG';
+    if (hour < 17) return 'CHIEU';
+    return 'TOI';
+}
+
+// Helper: Tạo chữ ký nhận diện bộ Thành viên + Chức danh chuẩn hóa
+function buildMembersSignature(thanhVienList) {
+    const cleanName = (str) => String(str || '').toLowerCase()
+        .replace(/gs\.?|pgs\.?|ts\.?|ths\.?|gsv\.?|ks\.?|cn\.?|gv\.?|prof\.?|dr\.?/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    const getRoleKey = (cd) => {
+        const l = String(cd || '').toLowerCase();
+        if (l.includes('chủ tịch')) return 'CT';
+        if (l.includes('phản biện')) return 'PB';
+        if (l.includes('thư ký')) return 'TK';
+        return l;
+    };
+
+    const parts = thanhVienList.map(gv => {
+        const role = getRoleKey(gv.chucDanh);
+        const id = String(gv.maGV || '').trim().toUpperCase();
+        const validId = (id && !id.startsWith('GV_')) ? id : cleanName(gv.hoTenGV);
+        return `${role}:${validId}`;
+    }).sort();
+
+    return parts.join('|');
+}
+
+// 8. Bóc tách file Excel Danh sách Hội đồng (Có gộp HĐ trùng buổi/phòng & đổi số HĐ cùng ban giám khảo)
 export function parseHoiDongRows(rows) {
-    const hoidongs = {};
-    let currentHD = null;
+    const rawList = [];
+    let currentObj = null;
     let defaultHeaderPlace = { gio: '', ngay: '', phong: '', diaDiem: '' };
 
     for (let i = 0; i < Math.min(rows.length, 8); i++) {
@@ -322,7 +356,6 @@ export function parseHoiDongRows(rows) {
 
         const upperRow = row.join(' ').toUpperCase();
 
-        // Chặn dòng tiêu đề bảng và toàn bộ các dòng chữ ký Footer ở cuối file
         if (
             colA.toUpperCase().includes('HỘI ĐỒNG') ||
             maGV.toUpperCase().includes('MÃ') ||
@@ -336,40 +369,99 @@ export function parseHoiDongRows(rows) {
         }
 
         if (colA && !isNaN(colA)) {
-            currentHD = colA;
+            const parsedInfo = extractScheduleAndPlace(ngayBV);
+            currentObj = {
+                rawIndex: colA,
+                ngayBV: parsedInfo.ngay || defaultHeaderPlace.ngay || '',
+                gioBV: parsedInfo.gio || defaultHeaderPlace.gio || '',
+                phongBV: parsedInfo.phong || defaultHeaderPlace.phong || '',
+                diaDiemBV: parsedInfo.diaDiem || defaultHeaderPlace.diaDiem || '',
+                thanhVien: [],
+                sinhViens: []
+            };
+            rawList.push(currentObj);
         }
 
-        if (currentHD) {
-            if (!hoidongs[currentHD]) {
-                const parsedInfo = extractScheduleAndPlace(ngayBV);
-                hoidongs[currentHD] = {
-                    soHD: `Hội Đồng ${currentHD}`,
-                    ngayBV: parsedInfo.ngay || defaultHeaderPlace.ngay || '',
-                    gioBV: parsedInfo.gio || defaultHeaderPlace.gio || '',
-                    phongBV: parsedInfo.phong || defaultHeaderPlace.phong || '',
-                    diaDiemBV: parsedInfo.diaDiem || defaultHeaderPlace.diaDiem || '',
-                    thanhVien: [],
-                    sinhViens: []
-                };
-            }
-
+        if (currentObj) {
             if (maGV && hoTenGV) {
-                const existGV = hoidongs[currentHD].thanhVien.find(g => g.maGV === maGV);
+                const existGV = currentObj.thanhVien.find(g => g.maGV === maGV);
                 if (!existGV) {
-                    hoidongs[currentHD].thanhVien.push({ maGV, hoTenGV, donVi, chucDanh });
+                    currentObj.thanhVien.push({ maGV, hoTenGV, donVi, chucDanh });
                 }
             }
 
-            // Chỉ nhận Sinh viên khi có cả Mã SV và Họ tên SV hợp lệ
             if (maSV && hoTenSV) {
-                const existSV = hoidongs[currentHD].sinhViens.find(s => s.maSV === maSV);
+                const existSV = currentObj.sinhViens.find(s => s.maSV === maSV);
                 if (!existSV) {
                     const nganh = detectNganhFromLop(lop);
-                    hoidongs[currentHD].sinhViens.push({ maSV, hoTenSV, lop, deTai, nganh });
+                    currentObj.sinhViens.push({ maSV, hoTenSV, lop, deTai, nganh });
                 }
             }
         }
     });
 
-    return hoidongs;
+    // RÀ SOÁT GỘP HỘI ĐỒNG & ĐỔI SỐ HỘI ĐỒNG THEO QUY TẮC
+    const mergedList = [];
+    const logs = [];
+    const memberSigToNumber = new Map(); // Lưu chữ ký Thành viên -> Số HĐ nhỏ nhất tiếp theo
+    let nextHDNumber = 1;
+
+    rawList.forEach(item => {
+        const memSig = buildMembersSignature(item.thanhVien);
+        const sessionKey = getSessionKey(item.gioBV);
+        const roomKey = String(item.phongBV || '').trim().toUpperCase();
+        const dateKey = String(item.ngayBV || '').trim();
+
+        // Tìm xem đã có HĐ nào trước đó trùng Thành viên + Chức danh + Ngày + Buổi + Phòng chưa
+        const sameSlotTarget = mergedList.find(existing =>
+            memSig &&
+            existing.memSig === memSig &&
+            existing.ngayBV === dateKey &&
+            getSessionKey(existing.gioBV) === sessionKey &&
+            String(existing.phongBV || '').trim().toUpperCase() === roomKey
+        );
+
+        if (sameSlotTarget) {
+            // GỘP CHUNG SINH VIÊN VÀO HỘI ĐỒNG ĐÃ CÓ
+            item.sinhViens.forEach(sv => {
+                if (!sameSlotTarget.sinhViens.some(s => s.maSV === sv.maSV)) {
+                    sameSlotTarget.sinhViens.push(sv);
+                }
+            });
+            if (!sameSlotTarget.gioBV && item.gioBV) sameSlotTarget.gioBV = item.gioBV;
+            if (!sameSlotTarget.diaDiemBV && item.diaDiemBV) sameSlotTarget.diaDiemBV = item.diaDiemBV;
+
+            logs.push(`• Gộp HĐ ${item.rawIndex} vào ${sameSlotTarget.soHD} (cùng Thành viên, Ngày, Buổi & Phòng).`);
+            return;
+        }
+
+        // Nếu không cùng buổi/phòng: Kiểm tra xem bộ Thành viên + Chức danh này đã xuất hiện trước đó chưa
+        let assignedNum;
+        if (memSig && memberSigToNumber.has(memSig)) {
+            assignedNum = memberSigToNumber.get(memSig);
+            logs.push(`• Đổi số HĐ ${item.rawIndex} thành Hội Đồng ${assignedNum} (trùng Thành viên & Chức danh nhưng khác buổi/phòng).`);
+        } else {
+            assignedNum = nextHDNumber++;
+            if (memSig) memberSigToNumber.set(memSig, assignedNum);
+            if (String(assignedNum) !== String(item.rawIndex)) {
+                logs.push(`• Đánh lại số HĐ ${item.rawIndex} thành Hội Đồng ${assignedNum}.`);
+            }
+        }
+
+        mergedList.push({
+            ...item,
+            memSig,
+            assignedNum,
+            soHD: `Hội Đồng ${assignedNum}`
+        });
+    });
+
+    // Trả về object đánh key theo thứ tự 0, 1, 2... để giữ nguyên các khung riêng biệt cùng số HĐ
+    const resultMap = {};
+    mergedList.forEach((hd, idx) => {
+        resultMap[`hd_${idx}`] = hd;
+    });
+    resultMap.__mergeLogs = logs;
+
+    return resultMap;
 }
