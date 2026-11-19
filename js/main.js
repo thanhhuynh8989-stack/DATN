@@ -120,10 +120,13 @@ function bindEvents() {
             if (fileHD) {
                 const rows = await readExcelFile(fileHD);
                 const parsedHoidongs = parseHoiDongRows(rows);
-                const { mergeLogs, conflictLogs } = renderHoidongFromExcel(parsedHoidongs);
+                const { mergeLogs, conflictLogs, duplicateSVLogs } = renderHoidongFromExcel(parsedHoidongs);
 
                 if (mergeLogs.length > 0) {
                     hdSummaryMsg += `\n\n🔄 TỰ ĐỘNG GỘP & ĐÁNH LẠI SỐ HỘI ĐỒNG:\n${mergeLogs.join('\n')}`;
+                }
+                if (duplicateSVLogs.length > 0) {
+                    hdSummaryMsg += `\n\n⚠️ CẢNH BÁO TRÙNG LẶP SINH VIÊN TRONG FILE HỘI ĐỒNG:\n${duplicateSVLogs.join('\n')}`;
                 }
                 if (conflictLogs.length > 0) {
                     hdSummaryMsg += `\n\n⛔ CẢNH BÁO VI PHẠM GVHD TRONG FILE HỘI ĐỒNG:\n${conflictLogs.join('\n')}`;
@@ -131,6 +134,7 @@ function bindEvents() {
             }
 
             alert(`✅ Nạp dữ liệu Excel thành công!${hdSummaryMsg}`);
+
         } catch (err) {
             console.error("Lỗi đọc Excel:", err);
             alert("Lỗi khi đọc file Excel: " + err.message);
