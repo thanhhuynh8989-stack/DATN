@@ -556,6 +556,29 @@
         </div>
     </div>
 </div>
+
+    <!-- MODAL BÁO CÁO & XÁC NHẬN RÀ SOÁT DỮ LIỆU EXCEL (RỘNG RÃI, CÓ THANH CUỘN) -->
+<div class="modal fade" id="modalExcelReviewReport" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-dark text-white py-2" id="review-modal-header">
+                <h6 class="modal-title fw-bold" id="review-modal-title">📋 KẾT QUẢ RÀ SOÁT & NẠP DỮ LIỆU EXCEL</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" id="btn-review-close-x"></button>
+            </div>
+            <div class="modal-body p-3 bg-light" id="review-modal-body" style="max-height: 70vh; overflow-y: auto;">
+                <!-- Nội dung báo cáo phân nhóm màu sắc sẽ được render động tại đây -->
+            </div>
+            <div class="modal-footer py-2 bg-white justify-content-end gap-2" id="review-modal-footer">
+                <button type="button" class="btn btn-outline-danger btn-sm fw-bold px-3 d-none" id="btn-review-cancel">
+                    ❌ Hủy để kiểm tra lại file
+                </button>
+                <button type="button" class="btn btn-success btn-sm fw-bold px-3" id="btn-review-confirm">
+                    ✅ Đã hiểu
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
     
 </body>
 </html>
