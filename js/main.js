@@ -81,8 +81,13 @@ function bindEvents() {
             return alert("Vui lòng chọn ít nhất 1 file Excel để nạp dữ liệu!");
         }
 
+        // BẮT BUỘC: Chặn nếu chưa chọn file Danh sách SV & Đề tài VÀ trên giao diện cũng chưa từng nạp SV nào
+        const existingSVCount = document.querySelectorAll('#pool-sv .card-item, .dropzone-sv .card-item').length;
+        if (!fileSV && existingSVCount === 0) {
+            return alert("⚠️ Vui lòng chọn file (1) Nhập Danh sách SV & Đồ án trước khi bấm Nạp dữ liệu Excel!");
+        }
+
         try {
-            // Nạp Kho Giảng viên trước (nếu có) để hỗ trợ đối chiếu Mã GVHD cho Sinh viên
             let gvMapById = {};
             if (fileGV) {
                 const rows = await readExcelFile(fileGV);
@@ -97,7 +102,6 @@ function bindEvents() {
                 const rows = await readExcelFile(fileSV);
                 const svList = parseSinhVienRows(rows);
 
-                // Bù tên GVHD từ Kho GV nếu file SV chỉ nhập Mã GVHD
                 svList.forEach(sv => {
                     if (!sv.gvhd && sv.maGVHD && gvMapById[sv.maGVHD.toUpperCase()]) {
                         sv.gvhd = gvMapById[sv.maGVHD.toUpperCase()];
@@ -106,19 +110,27 @@ function bindEvents() {
 
                 renderSinhVienPool(svList);
 
-                // Tự động chọn đúng Khoa & Ngành trên thanh cài đặt dựa vào mã lớp SV
                 const firstSVWithLop = svList.find(s => s.lop);
                 if (firstSVWithLop && typeof window.syncKhoaNganhFromLop === 'function') {
                     window.syncKhoaNganhFromLop(firstSVWithLop.lop);
                 }
             }
 
+            let hdSummaryMsg = '';
             if (fileHD) {
                 const rows = await readExcelFile(fileHD);
                 const parsedHoidongs = parseHoiDongRows(rows);
-                renderHoidongFromExcel(parsedHoidongs);
+                const { mergeLogs, conflictLogs } = renderHoidongFromExcel(parsedHoidongs);
+
+                if (mergeLogs.length > 0) {
+                    hdSummaryMsg += `\n\n🔄 TỰ ĐỘNG GỘP & ĐÁNH LẠI SỐ HỘI ĐỒNG:\n${mergeLogs.join('\n')}`;
+                }
+                if (conflictLogs.length > 0) {
+                    hdSummaryMsg += `\n\n⛔ CẢNH BÁO VI PHẠM GVHD TRONG FILE HỘI ĐỒNG:\n${conflictLogs.join('\n')}`;
+                }
             }
-            alert("✅ Nạp dữ liệu Excel thành công!");
+
+            alert(`✅ Nạp dữ liệu Excel thành công!${hdSummaryMsg}`);
         } catch (err) {
             console.error("Lỗi đọc Excel:", err);
             alert("Lỗi khi đọc file Excel: " + err.message);
