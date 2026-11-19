@@ -20,7 +20,7 @@ import {
     createCloudSession, loadCloudSession, saveCloudHoiDong, toggleCloudHDLock,
     pullLatestScoresFromCloud, pushDeltaScoresToCloud, restoreSessionFromPayload,
     applySessionPermissionsToUI, setupAutoSaveAndLockOnClose
-} from './session-sync.js';';
+} from './session-sync.js';
 
 window.studentScores = window.studentScores || {};
 
