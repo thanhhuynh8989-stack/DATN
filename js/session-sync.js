@@ -271,16 +271,42 @@ export function restoreSessionFromPayload(payload) {
 
     const s = payload.setup || {};
     const khoaSel = document.getElementById('khoa-select');
+    const nganhSel = document.getElementById('nganh-select');
+
     if (khoaSel && s.khoa) {
+        // Nếu option Khoa chưa có trong select thì tự bổ sung để không bị mất giá trị
+        if (!Array.from(khoaSel.options).some(opt => opt.value === s.khoa)) {
+            khoaSel.insertAdjacentHTML('beforeend', `<option value="${s.khoa}">${s.khoa}</option>`);
+        }
         khoaSel.value = s.khoa;
         khoaSel.dispatchEvent(new Event('change'));
     }
-    const nganhSel = document.getElementById('nganh-select');
-    if (nganhSel && s.nganh) nganhSel.value = s.nganh;
-    if (document.getElementById('dot-thang')) document.getElementById('dot-thang').value = s.dotThang || '';
-    if (document.getElementById('nam-cham')) document.getElementById('nam-cham').value = s.namCham || '';
-    if (document.getElementById('so-qd')) document.getElementById('so-qd').value = s.soQD || '';
-    if (document.getElementById('ngay-ky-qd')) document.getElementById('ngay-ky-qd').value = s.ngayKyQD || '';
+
+    if (nganhSel && s.nganh) {
+        if (!Array.from(nganhSel.options).some(opt => opt.value === s.nganh)) {
+            nganhSel.insertAdjacentHTML('beforeend', `<option value="${s.nganh}">${s.nganh}</option>`);
+        }
+        nganhSel.value = s.nganh;
+    }
+
+    const dotEl = document.getElementById('dot-thang');
+    if (dotEl) dotEl.value = s.dotThang ?? '';
+
+    const namEl = document.getElementById('nam-cham');
+    if (namEl) namEl.value = s.namCham ?? '';
+
+    const soQdEl = document.getElementById('so-qd');
+    if (soQdEl) soQdEl.value = s.soQD ?? '';
+
+    const ngayKyEl = document.getElementById('ngay-ky-qd');
+    if (ngayKyEl) {
+        let dateVal = String(s.ngayKyQD ?? '').trim();
+        if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateVal)) {
+            const [d, m, y] = dateVal.split('/');
+            dateVal = `${y}-${m}-${d}`;
+        }
+        ngayKyEl.value = dateVal;
+    }
 
     const poolSVEl = document.getElementById('pool-sv');
     if (poolSVEl) {
@@ -457,64 +483,140 @@ export async function pushDeltaScoresToCloud() {
 // Tự động lưu vùng Hội đồng sau mỗi thao tác (debounce 2.5s) & Tự động lưu + Khóa HĐ khi tắt trình duyệt
 export function setupAutoSaveAndLockOnClose(onStatusChange) {
     let autoSaveTimer = null;
+    let isSavingInFlight = false;
+    let hasPendingAfterSave = false;
+    let isClosingSession = false;
+
+    const setupFieldIds = ['khoa-select', 'nganh-select', 'dot-thang', 'nam-cham', 'so-qd', 'ngay-ky-qd'];
+
+    const isTrackedTarget = (target) => {
+        if (!target || typeof target.closest !== 'function') return false;
+        return (
+            setupFieldIds.includes(target.id) ||
+            Boolean(target.closest('.box-hoidong')) ||
+            Boolean(target.closest('#pool-sv')) ||
+            Boolean(target.closest('#pool-gv')) ||
+            Boolean(target.closest('.setup-section'))
+        );
+    };
+
+    const runSaveCycle = async () => {
+        if (isClosingSession) return;
+        if (!sessionState.isCloudConnected || !sessionState.canEditHD || sessionState.isHDLocked) return;
+
+        if (isSavingInFlight) {
+            hasPendingAfterSave = true;
+            return;
+        }
+
+        isSavingInFlight = true;
+        hasPendingAfterSave = false;
+
+        try {
+            const res = await saveCloudHoiDong(
+                getGasWebAppUrl(),
+                sessionState.sessionId,
+                sessionState.pin,
+                sessionState.otp
+            );
+            if (!isClosingSession && typeof onStatusChange === 'function') {
+                onStatusChange(
+                    res.ok
+                        ? `☁️ Đã tự động lưu lúc ${new Date().toLocaleTimeString('vi-VN')}`
+                        : `⚠️ ${res.message}`
+                );
+            }
+        } catch {
+            if (!isClosingSession && typeof onStatusChange === 'function') {
+                onStatusChange('⚠️ Mất kết nối khi tự động lưu');
+            }
+        } finally {
+            isSavingInFlight = false;
+            if (!isClosingSession && hasPendingAfterSave) {
+                hasPendingAfterSave = false;
+                triggerAutoSaveHD();
+            }
+        }
+    };
 
     const triggerAutoSaveHD = () => {
+        if (isClosingSession) return;
         if (!sessionState.isCloudConnected || !sessionState.canEditHD || sessionState.isHDLocked) return;
-        clearTimeout(autoSaveTimer);
-        if (typeof onStatusChange === 'function') onStatusChange('⏳ Đang tự động lưu...');
 
-        autoSaveTimer = setTimeout(async () => {
-            try {
-                const res = await saveCloudHoiDong(
-                    getGasWebAppUrl(),
-                    sessionState.sessionId,
-                    sessionState.pin,
-                    sessionState.otp
-                );
-                if (typeof onStatusChange === 'function') {
-                    onStatusChange(res.ok ? `☁️ Đã tự động lưu lúc ${new Date().toLocaleTimeString('vi-VN')}` : `⚠️ ${res.message}`);
-                }
-            } catch {
-                if (typeof onStatusChange === 'function') onStatusChange('⚠️ Mất kết nối khi tự động lưu');
-            }
+        clearTimeout(autoSaveTimer);
+        if (typeof onStatusChange === 'function') {
+            onStatusChange('⏳ Đang chờ lưu thay đổi...');
+        }
+
+        autoSaveTimer = setTimeout(() => {
+            runSaveCycle();
         }, 2500);
     };
 
-    // Lắng nghe mọi thao tác nhập liệu hoặc kéo-thả/thêm/xóa trong vùng Thiết lập & Hội đồng
-    const workspaceHD = document.getElementById('workspace-hd');
-    if (workspaceHD) {
-        new MutationObserver(triggerAutoSaveHD).observe(workspaceHD, { childList: true, subtree: true });
-    }
-    document.addEventListener('change', (e) => {
-        if (e.target.closest('.box-hoidong') || e.target.closest('.setup-fields-row')) {
-            triggerAutoSaveHD();
-        }
-    });
-    document.addEventListener('input', (e) => {
-        if (e.target.closest('.box-hoidong') || e.target.closest('.setup-fields-row')) {
+    // Cho phép gọi trực tiếp từ bên ngoài (ví dụ sau khi nạp Excel xong)
+    window.triggerCloudSessionAutoSave = triggerAutoSaveHD;
+
+    // 1. Theo dõi thêm/bớt/kéo-thả thẻ trong Khu vực Hội đồng, Kho SV và Kho GV
+    const observer = new MutationObserver((mutations) => {
+        if (isClosingSession) return;
+        const hasMeaningfulChange = mutations.some(m => m.addedNodes.length > 0 || m.removedNodes.length > 0);
+        if (hasMeaningfulChange) {
             triggerAutoSaveHD();
         }
     });
 
-    // Khi tắt tab / đóng trình duyệt: Dùng fetch keepalive để vừa lưu bản mới nhất vừa KHÓA quyền sửa HĐ
-    window.addEventListener('pagehide', () => {
+    ['workspace-hd', 'pool-sv', 'pool-gv'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) observer.observe(el, { childList: true, subtree: true });
+    });
+
+    // 2. Theo dõi mọi thay đổi giá trị ở Thông tin chung & các ô trong Hội đồng
+    document.addEventListener('change', (e) => {
+        if (isTrackedTarget(e.target)) triggerAutoSaveHD();
+    });
+
+    document.addEventListener('input', (e) => {
+        if (isTrackedTarget(e.target)) triggerAutoSaveHD();
+    });
+
+    // 3. Khi tắt tab / đóng trình duyệt: Hủy timer chờ, lưu bản mới nhất & KHÓA quyền sửa HĐ
+    let hasSentCloseLock = false;
+    const lockSessionOnClose = () => {
+        if (hasSentCloseLock) return;
         if (!sessionState.isCloudConnected || !sessionState.canEditHD || sessionState.isHDLocked) return;
+
         const gasUrl = getGasWebAppUrl();
         if (!gasUrl) return;
 
+        hasSentCloseLock = true;
+        isClosingSession = true;
+        clearTimeout(autoSaveTimer);
+        sessionState.isHDLocked = true;
+
         const { summary, payload } = serializeCurrentSession();
-        fetch(gasUrl, {
-            method: 'POST',
-            keepalive: true,
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({
-                action: 'save_and_lock_hd',
-                sessionId: sessionState.sessionId,
-                pin: sessionState.pin,
-                otp: sessionState.otp,
-                summary,
-                payload
-            })
-        }).catch(() => {});
-    });
+        const bodyStr = JSON.stringify({
+            action: 'save_and_lock_hd',
+            sessionId: sessionState.sessionId,
+            pin: sessionState.pin,
+            otp: sessionState.otp,
+            summary,
+            payload
+        });
+
+        try {
+            fetch(gasUrl, {
+                method: 'POST',
+                keepalive: true,
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: bodyStr
+            }).catch(() => {});
+        } catch {
+            if (navigator.sendBeacon) {
+                const blob = new Blob([bodyStr], { type: 'text/plain;charset=utf-8' });
+                navigator.sendBeacon(gasUrl, blob);
+            }
+        }
+    };
+
+    window.addEventListener('pagehide', lockSessionOnClose);
 }
