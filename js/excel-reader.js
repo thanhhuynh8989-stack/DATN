@@ -1,5 +1,5 @@
 // js/excel-reader.js
-
+import { getAdminBinaryFile, getAdminConfig } from './admin-config.js';
 export let danhMucNganh = []; // Mảng lưu { maChuyenNganh, chuyenNganh, khoa }
 
 // 1. Tự động nạp file DANH_SACH_NGANH.xlsx khi khởi động ứng dụng
@@ -16,14 +16,36 @@ export async function loadDanhSachNganhSilently(url = './sample_files/DANH_SACH_
         const firstSheet = workbook.SheetNames[0];
         const rows = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheet], { header: 1 });
 
-        const parsed = [];
-        rows.forEach((row, idx) => {
-            if (idx < 1 || !row || row.length < 3) return;
-            const ma = String(row[0] || '').trim().toUpperCase();
-            const tenNganh = String(row[1] || '').trim();
-            const tenKhoa = String(row[2] || '').trim();
+        // Tự động dò dòng tiêu đề và vị trí cột (Mã | Chuyên ngành | Khoa)
+        let headerRowIdx = -1;
+        let colMa = 0, colNganh = 1, colKhoa = 2;
 
-            if (!ma || ma.includes('MA_CHUYEN_NGANH') || ma.includes('MÃ')) return;
+        for (let i = 0; i < Math.min(rows.length, 10); i++) {
+            const r = rows[i] || [];
+            const upperCells = r.map(c => String(c || '').toUpperCase().trim());
+            const idxNganh = upperCells.findIndex(c => c.includes('NGÀNH'));
+            const idxKhoa = upperCells.findIndex(c => c.includes('KHOA'));
+
+            if (idxNganh >= 0 && idxKhoa >= 0) {
+                headerRowIdx = i;
+                colNganh = idxNganh;
+                colKhoa = idxKhoa;
+                const idxMa = upperCells.findIndex(c => c.includes('MÃ') || c.includes('MA_'));
+                if (idxMa >= 0) colMa = idxMa;
+                break;
+            }
+        }
+
+        const startRow = headerRowIdx >= 0 ? headerRowIdx + 1 : 1;
+        const parsed = [];
+
+        rows.forEach((row, idx) => {
+            if (idx < startRow || !row || row.length < 2) return;
+            const ma = String(row[colMa] || '').trim().toUpperCase();
+            const tenNganh = String(row[colNganh] || '').trim();
+            const tenKhoa = String(row[colKhoa] || '').trim();
+
+            if (!ma || ma.includes('MA_CHUYEN_NGANH') || ma.includes('MÃ') || ma === 'STT') return;
             if (tenNganh && tenKhoa) {
                 parsed.push({
                     maChuyenNganh: ma,
@@ -34,6 +56,7 @@ export async function loadDanhSachNganhSilently(url = './sample_files/DANH_SACH_
         });
 
         danhMucNganh = parsed;
+        console.log(`✅ Đã nạp ${danhMucNganh.length} ngành/chuyên ngành từ danh mục.`);
         return danhMucNganh;
     } catch (err) {
         console.warn("Cảnh báo tải DANH_SACH_NGANH.xlsx:", err.message);
