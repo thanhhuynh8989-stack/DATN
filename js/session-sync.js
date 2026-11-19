@@ -1,5 +1,5 @@
 // js/session-sync.js
-import { createHoiDongBox } from './hoidong-manager.js';
+import { createHoiDongBox, initGlobalSortables } from './hoidong-manager.js';
 import { templates } from './templates.js';
 
 const GAS_URL_STORAGE_KEY = 'datn_gas_webapp_url';
@@ -112,20 +112,25 @@ export function applySessionPermissionsToUI() {
         el.disabled = !hdEditable;
     });
 
-    // Ẩn/hiện nút Xóa thẻ X trên các card SV/GV
     document.querySelectorAll('.btn-remove-card').forEach(btn => {
         btn.classList.toggle('d-none', !hdEditable);
     });
 
-    // Khóa thao tác kéo thả SortableJS nếu vùng Hội đồng không được phép sửa
+    // Bật lại con trỏ & khởi tạo lại SortableJS nếu được phép sửa Hội đồng
     document.querySelectorAll('#pool-sv, #pool-gv, .dropzone-sv, .dropzone-gv').forEach(zone => {
         zone.style.pointerEvents = hdEditable ? 'auto' : 'none';
         zone.style.opacity = hdEditable ? '1' : '0.88';
     });
+    if (hdEditable && typeof initGlobalSortables === 'function') {
+        initGlobalSortables();
+    }
 
     // 2. Nhóm tác vụ Nhập điểm & Xuất file:
-    // Nếu đã kết nối Cloud -> CHỈ MỞ KHI HỘI ĐỒNG ĐÃ KHÓA (isHDLocked === true)
-    const allowScoringAndExport = !sessionState.isCloudConnected ? true : sessionState.isHDLocked;
+    // Mở cho Chủ phiên (canEditHD) HOẶC mở cho tất cả Thư ký khi Hội đồng đã chốt khóa (isHDLocked)
+    const allowScoringAndExport = !sessionState.isCloudConnected
+        ? true
+        : (sessionState.canEditHD || sessionState.isHDLocked);
+
     const actionBtnIds = [
         'btn-nhap-diem',
         'btn-export-pb',
@@ -144,7 +149,7 @@ export function applySessionPermissionsToUI() {
         }
     });
 
-    // 3. Thanh trạng thái phiên trên Header
+    // 3. Thanh trạng thái phiên trên Header (kèm nút Chốt & Khóa nhanh cho Chủ phiên)
     const banner = document.getElementById('session-role-banner');
     if (banner) {
         if (!sessionState.isCloudConnected) {
@@ -155,11 +160,20 @@ export function applySessionPermissionsToUI() {
                 ? '👑 Chủ phiên (Có OTP)'
                 : '✍️ Thư ký nhập điểm (Chỉ có PIN)';
             const lockText = sessionState.isHDLocked
-                ? '🔒 Hội đồng ĐÃ KHÓA (Đang mở Nhập điểm & Xuất file)'
-                : '🔓 Hội đồng ĐANG MỞ SỬA (Tạm khóa Nhập điểm & Xuất file)';
+                ? '🔒 Hội đồng ĐÃ KHÓA (Thư ký đang được Nhập điểm & Xuất file)'
+                : '🔓 Hội đồng ĐANG MỞ SỬA (Thư ký chưa thể nhập điểm)';
+
+            const quickLockBtnHTML = sessionState.canEditHD
+                ? `<button type="button" id="btn-banner-toggle-lock" class="btn btn-xs ${sessionState.isHDLocked ? 'btn-outline-dark' : 'btn-danger'} py-0 px-2 fw-bold ms-2" style="font-size: 0.75rem;">
+                       ${sessionState.isHDLocked ? '🔓 Mở khóa sửa HĐ' : '🔒 Chốt & Khóa HĐ'}
+                   </button>`
+                : '';
 
             banner.innerHTML = `
-                <span>Phiên: <strong>${sessionState.sessionId}</strong> | ${roleText} | <strong>${lockText}</strong></span>
+                <div class="d-flex align-items-center flex-wrap gap-1">
+                    <span>Phiên: <strong>${sessionState.sessionId}</strong> | ${roleText} | <strong>${lockText}</strong></span>
+                    ${quickLockBtnHTML}
+                </div>
             `;
             banner.className = `alert ${sessionState.isHDLocked ? 'alert-success' : 'alert-warning'} py-1 px-2 mb-1 small d-flex justify-content-between align-items-center`;
         }
