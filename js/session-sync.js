@@ -6,7 +6,7 @@ const GAS_URL_STORAGE_KEY = 'datn_gas_webapp_url';
 const LAST_SESSION_META_KEY = 'datn_last_cloud_session';
 
 // Lưu URL Web App GAS vào cấu hình trình duyệt (hoặc gán URL mặc định của bạn tại đây)
-const DEFAULT_GAS_WEBAPP_URL = ''; // Dán URL https://script.google.com/macros/s/.../exec của bạn vào đây nếu muốn dùng chung cho mọi máy
+const DEFAULT_GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxWmG5jDte-EkGQdvchrD1wQjw_8jRdC3XoOT2ly9K_30op7El4GAsZ87GWDr7CUiLS/exec'; // Dán URL https://script.google.com/macros/s/.../exec của bạn vào đây nếu muốn dùng chung cho mọi máy
 
 export function getGasWebAppUrl() {
     return localStorage.getItem(GAS_URL_STORAGE_KEY) || DEFAULT_GAS_WEBAPP_URL;
