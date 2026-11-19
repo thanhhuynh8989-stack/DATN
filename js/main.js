@@ -25,8 +25,9 @@ import {
 window.studentScores = window.studentScores || {};
 
 document.addEventListener("DOMContentLoaded", async () => {
-    try {
+        try {
         await Promise.all([
+            loadHtmlPartials(),
             loadTemplatesSilently(),
             loadDanhSachNganhSilently('./sample_files/DANH_SACH_NGANH.xlsx')
         ]);
@@ -37,7 +38,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     initKhoaNganhDropdowns();
     initGlobalSortables();
     bindEvents();
-});
 
 // Hàm áp dụng cấu hình Admin lên giao diện chính ngay lập tức (đuôi QĐ + dropdown Cơ sở)
 function applyAdminConfigToUI() {
@@ -114,6 +114,28 @@ function showExcelReviewModal({ title, requireConfirm = false, htmlSections = []
 
         modalInstance.show();
     });
+}
+
+async function loadHtmlPartials() {
+    const container = document.getElementById('partials-container');
+    if (!container) return;
+
+    const partialFiles = [
+        './partials/modal-nhap-diem-gan-sv.html',
+        './partials/modal-tips-templates.html',
+        './partials/modal-admin.html',
+        './partials/modal-excel-cloud.html'
+    ];
+
+    const htmlChunks = await Promise.all(
+        partialFiles.map(async (url) => {
+            const resp = await fetch(url);
+            if (!resp.ok) throw new Error(`Không tải được partial: ${url} (${resp.status})`);
+            return await resp.text();
+        })
+    );
+
+    container.innerHTML = htmlChunks.join('\n');
 }
 
 function bindEvents() {
