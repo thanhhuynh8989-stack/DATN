@@ -202,3 +202,113 @@ html, body {
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: #f1f1f1; }
 ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+
+/* =========================================================
+   TỐI ƯU BỐ CỤC GIAO DIỆN ĐIỆN THOẠI (MOBILE <= 767.98px)
+   ========================================================= */
+@media (max-width: 767.98px) {
+    body {
+        padding-bottom: 132px !important; /* Chừa đủ chỗ cho thanh nút đáy, tránh che nội dung */
+        font-size: 13px;
+    }
+
+    /* 1. Header & Thanh trạng thái phiên: xếp dọc gọn gàng, không làm mờ nút Phiên làm việc / Admin */
+    .header-section,
+    header {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 6px !important;
+        padding: 8px 10px !important;
+    }
+
+    .header-section h1,
+    .header-section h4,
+    .header-section h5,
+    header h1,
+    header h4,
+    header h5 {
+        font-size: 15px !important;
+        text-align: center !important;
+        margin-bottom: 4px !important;
+    }
+
+    .header-section .d-flex,
+    header .d-flex {
+        justify-content: center !important;
+        flex-wrap: wrap !important;
+        gap: 6px !important;
+    }
+
+    #btn-open-cloud-sync,
+    #btn-open-admin {
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        font-size: 12px !important;
+        padding: 4px 10px !important;
+    }
+
+    #session-role-banner {
+        font-size: 11.5px !important;
+        line-height: 1.35 !important;
+        padding: 6px 8px !important;
+    }
+
+    /* 2. Vùng Thông tin chung: mỗi trường 1 hàng hoặc chia tỷ lệ hợp lý để không cắt chữ Ngành */
+    .setup-section .row > [class*="col-"],
+    .setup-fields-row > [class*="col-"] {
+        width: 100% !important;
+        flex: 0 0 100% !important;
+        max-width: 100% !important;
+        margin-bottom: 6px !important;
+    }
+
+    #khoa-select,
+    #nganh-select {
+        font-size: 12.5px !important;
+        text-overflow: ellipsis;
+    }
+
+    /* 3. Khu vực Hội đồng: các ô ngày, giờ, phòng, cơ sở xếp lưới 2 cột đều nhau */
+    .box-hoidong {
+        padding: 8px !important;
+    }
+
+    .box-hoidong .hd-meta-row,
+    .box-hoidong .row {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 6px !important;
+    }
+
+    .box-hoidong input,
+    .box-hoidong select {
+        font-size: 12.5px !important;
+        width: 100% !important;
+    }
+
+    /* 4. Thanh nút chức năng cố định dưới đáy: lưới 2 cột đều nhau, chữ không tràn */
+    .footer-section,
+    .bottom-actions-bar,
+    footer {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 6px !important;
+        padding: 6px 8px !important;
+    }
+
+    .footer-section button,
+    .bottom-actions-bar button,
+    footer button {
+        width: 100% !important;
+        font-size: 11.5px !important;
+        padding: 6px 6px !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+
+    /* Nút số 5 (Xuất Bảng điểm) kéo ngang 2 cột cho nổi bật */
+    #btn-export-diem {
+        grid-column: 1 / -1 !important;
+    }
+}
