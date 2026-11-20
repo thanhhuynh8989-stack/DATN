@@ -94,6 +94,58 @@ export function normalizeTeacherKeyForDupCheck(rawName) {
     return s;
 }
 
+// Gom danh sách cảnh báo thiếu Mã GV hoặc thiếu Mã SV (bỏ qua nếu HĐ chưa có SV)
+export function collectMissingCodeWarnings({ svList = [], gvList = [], parsedHoidongs = {} }) {
+    const warnings = [];
+
+    if (Array.isArray(svList.__missingCodeIssues)) {
+        warnings.push(...svList.__missingCodeIssues);
+    } else {
+        svList.forEach((sv, idx) => {
+            if (sv.hoTen && !sv.maSV) {
+                warnings.push(`SV #${idx + 1}: "${sv.hoTen}" bị thiếu Mã SV.`);
+            }
+            if (sv.gvhd && !sv.maGVHD) {
+                warnings.push(`SV #${idx + 1} ("${sv.hoTen || sv.maSV || ''}"): GVHD "${sv.gvhd}" bị thiếu Mã GV.`);
+            }
+        });
+    }
+
+    if (Array.isArray(gvList.__missingCodeIssues)) {
+        warnings.push(...gvList.__missingCodeIssues);
+    } else {
+        gvList.forEach((gv, idx) => {
+            const id = String(gv.maGV || '').trim();
+            if (gv.hoTenGV && (!id || id.toUpperCase().startsWith('GV_'))) {
+                warnings.push(`GV #${idx + 1}: "${gv.hoTenGV}" bị thiếu Mã GV.`);
+            }
+        });
+    }
+
+    if (Array.isArray(parsedHoidongs.__missingCodeIssues)) {
+        warnings.push(...parsedHoidongs.__missingCodeIssues);
+    } else {
+        Object.keys(parsedHoidongs).forEach(key => {
+            if (key === '__mergeLogs' || key === '__missingCodeIssues') return;
+            const hd = parsedHoidongs[key];
+            const hdLabel = `HĐ ${hd.soHD || key}`;
+            (hd.thanhVien || []).forEach(tv => {
+                const id = String(tv.maGV || '').trim();
+                if (tv.hoTenGV && (!id || id.toUpperCase().startsWith('GV_'))) {
+                    warnings.push(`${hdLabel}: Giảng viên "${tv.hoTenGV}" (${tv.chucDanh || ''}) bị thiếu Mã GV.`);
+                }
+            });
+            (hd.sinhViens || []).forEach(sv => {
+                if (sv.hoTenSV && !sv.maSV) {
+                    warnings.push(`${hdLabel}: Sinh viên "${sv.hoTenSV}" bị thiếu Mã SV.`);
+                }
+            });
+        });
+    }
+
+    return [...new Set(warnings)];
+}
+
 // Đối chiếu chéo tất cả các nguồn (DS SV, DS GV, DS HĐ) để tìm GV trùng tên chuẩn hóa nhưng khác Mã GV
 export function detectDuplicateTeacherNameDifferentId({ svList = [], gvList = [], parsedHoidongs = {} }) {
     // Map: normalizedName -> Map(maGV -> Set(locations))
