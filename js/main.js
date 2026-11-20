@@ -14,7 +14,7 @@ import {
     saveAdminBinaryFile, deleteAdminBinaryFile
 } from './admin-config.js';
 import { exportWordZIP } from './docx-exporter.js';
-import { detectDuplicateTeacherNameDifferentId } from './validators.js';
+import { detectDuplicateTeacherNameDifferentId, collectMissingCodeWarnings } from './validators.js';
 import {
     sessionState, getGasWebAppUrl, setGasWebAppUrl, getSavedSessionMeta, saveSessionMeta,
     createCloudSession, loadCloudSession, saveCloudHoiDong, toggleCloudHDLock,
@@ -226,6 +226,26 @@ function bindExcelAndHoiDongEvents() {
             if (fileHD) {
                 const rows = await readExcelFile(fileHD);
                 parsedHoidongs = parseHoiDongRows(rows);
+            }
+
+            const missingCodeWarnings = collectMissingCodeWarnings({ svList, gvList, parsedHoidongs });
+            if (missingCodeWarnings.length > 0) {
+                const missingHtml = `
+                    <div class="alert alert-danger py-2 px-3 mb-2 small">
+                        <div class="fw-bold mb-1">❌ Phát hiện dòng có tên nhưng thiếu Mã SV / Mã GV:</div>
+                        <ul class="mb-0 ps-3">
+                            ${missingCodeWarnings.map(w => `<li class="mb-1">${w}</li>`).join('')}
+                        </ul>
+                        <div class="mt-2 fw-semibold">Vui lòng bổ sung đầy đủ Mã SV / Mã GV vào file Excel và tải lại.</div>
+                    </div>
+                `;
+
+                await showExcelReviewModal({
+                    title: '⚠️ CẢNH BÁO THIẾU MÃ ĐỊNH DANH TRONG FILE EXCEL',
+                    requireConfirm: false,
+                    htmlSections: [missingHtml]
+                });
+                return;
             }
 
             const dupNameDiffIdList = detectDuplicateTeacherNameDifferentId({ svList, gvList, parsedHoidongs });
