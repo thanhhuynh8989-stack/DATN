@@ -227,7 +227,6 @@ function bindExcelAndHoiDongEvents() {
                 gvList.forEach(gv => {
                     if (gv.maGV) gvMapById[gv.maGV.toUpperCase()] = gv.hoTenGV;
                 });
-                renderGiangVienPool(gvList);
             }
 
             if (fileSV) {
@@ -239,13 +238,6 @@ function bindExcelAndHoiDongEvents() {
                         sv.gvhd = gvMapById[sv.maGVHD.toUpperCase()];
                     }
                 });
-
-                renderSinhVienPool(svList);
-
-                const firstSVWithLop = svList.find(s => s.lop);
-                if (firstSVWithLop && typeof window.syncKhoaNganhFromLop === 'function') {
-                    window.syncKhoaNganhFromLop(firstSVWithLop.lop);
-                }
             }
 
             if (fileHD) {
@@ -253,6 +245,7 @@ function bindExcelAndHoiDongEvents() {
                 parsedHoidongs = parseHoiDongRows(rows);
             }
 
+            // 1. Chặn nếu có tên nhưng thiếu Mã SV / Mã GV (không render)
             const missingCodeWarnings = collectMissingCodeWarnings({ svList, gvList, parsedHoidongs });
             if (missingCodeWarnings.length > 0) {
                 const missingHtml = `
@@ -273,14 +266,14 @@ function bindExcelAndHoiDongEvents() {
                 return;
             }
 
+            // 2. Chặn nếu trùng Mã SV trong file SV hoặc file HĐ (không render)
             const dupStudentIdList = detectDuplicateStudentId({ svList, parsedHoidongs });
-
             if (dupStudentIdList.length > 0) {
                 const dupIdHtml = dupStudentIdList.map((c, idx) => {
                     const detailLines = c.items.map(it =>
                         `<li><strong>${it.hoTen}</strong>${it.lop ? ` — Lớp: <code>${it.lop}</code>` : ''} <span class="text-muted">(${it.location})</span></li>`
                     ).join('');
-            
+
                     return `
                         <div class="bg-white border border-danger rounded p-2 mb-2 shadow-sm">
                             <div class="fw-bold text-danger small mb-1">
@@ -290,7 +283,7 @@ function bindExcelAndHoiDongEvents() {
                         </div>
                     `;
                 }).join('');
-            
+
                 await showExcelReviewModal({
                     title: '❌ LỖI TRÙNG MÃ SINH VIÊN — CẦN SỬA VÀ TẢI LẠI FILE',
                     requireConfirm: false,
@@ -307,8 +300,8 @@ function bindExcelAndHoiDongEvents() {
                 return;
             }
 
+            // 3. Xác nhận nếu GV trùng tên nhưng khác Mã GV
             const dupNameDiffIdList = detectDuplicateTeacherNameDifferentId({ svList, gvList, parsedHoidongs });
-
             if (dupNameDiffIdList.length > 0 && fileHD) {
                 const dupItemsHTML = dupNameDiffIdList.map((item, idx) => {
                     const variantsHTML = item.variants.map(v => `
@@ -344,8 +337,8 @@ function bindExcelAndHoiDongEvents() {
                 if (!userConfirmed) return;
             }
 
+            // 4. Xác nhận nếu SV trùng tên nhưng khác Mã SV
             const dupSVNameDiffIdList = detectDuplicateStudentNameDifferentId({ svList, parsedHoidongs });
-
             if (dupSVNameDiffIdList.length > 0 && (fileSV || fileHD)) {
                 const dupSVItemsHTML = dupSVNameDiffIdList.map((item, idx) => {
                     const variantsHTML = item.variants.map(v => `
@@ -355,7 +348,7 @@ function bindExcelAndHoiDongEvents() {
                             <div class="text-muted small ps-2">↳ Xuất hiện tại: ${v.locations.join(' | ')}</div>
                         </li>
                     `).join('');
-            
+
                     return `
                         <div class="bg-white border border-warning rounded p-2 mb-2 shadow-sm">
                             <div class="fw-bold text-danger small mb-1">#${idx + 1}. Trùng họ tên sinh viên nhưng khác Mã SV:</div>
@@ -363,7 +356,7 @@ function bindExcelAndHoiDongEvents() {
                         </div>
                     `;
                 }).join('');
-            
+
                 const confirmSVSection = `
                     <div class="alert alert-warning py-2 small mb-2">
                         <strong>⚠️ PHÁT HIỆN SINH VIÊN TRÙNG TÊN NHƯNG KHÁC MÃ SV:</strong><br>
@@ -371,14 +364,28 @@ function bindExcelAndHoiDongEvents() {
                     </div>
                     ${dupSVItemsHTML}
                 `;
-            
+
                 const userConfirmedSV = await showExcelReviewModal({
                     title: '⚠️ XÁC NHẬN RÀ SOÁT MÃ SINH VIÊN TRÙNG TÊN',
                     requireConfirm: true,
                     htmlSections: [confirmSVSection]
                 });
-            
+
                 if (!userConfirmedSV) return;
+            }
+
+            // 5. Đã qua toàn bộ rà soát & xác nhận -> Render Kho GV, Kho SV, và Hội đồng
+            if (fileGV) {
+                renderGiangVienPool(gvList);
+            }
+
+            if (fileSV) {
+                renderSinhVienPool(svList);
+
+                const firstSVWithLop = svList.find(s => s.lop);
+                if (firstSVWithLop && typeof window.syncKhoaNganhFromLop === 'function') {
+                    window.syncKhoaNganhFromLop(firstSVWithLop.lop);
+                }
             }
 
             const reportSections = [
