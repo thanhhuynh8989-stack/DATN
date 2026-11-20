@@ -14,7 +14,7 @@ import {
     saveAdminBinaryFile, deleteAdminBinaryFile
 } from './admin-config.js';
 import { exportWordZIP } from './docx-exporter.js';
-import { detectDuplicateTeacherNameDifferentId, detectDuplicateStudentNameDifferentId, collectMissingCodeWarnings } from './validators.js';
+import { detectDuplicateTeacherNameDifferentId, detectDuplicateStudentNameDifferentId, detectDuplicateStudentId, collectMissingCodeWarnings } from './validators.js';
 import {
     sessionState, getGasWebAppUrl, setGasWebAppUrl, getSavedSessionMeta, saveSessionMeta,
     createCloudSession, loadCloudSession, saveCloudHoiDong, toggleCloudHDLock,
@@ -244,6 +244,40 @@ function bindExcelAndHoiDongEvents() {
                     title: '⚠️ CẢNH BÁO THIẾU MÃ ĐỊNH DANH TRONG FILE EXCEL',
                     requireConfirm: false,
                     htmlSections: [missingHtml]
+                });
+                return;
+            }
+
+            const dupStudentIdList = detectDuplicateStudentId({ svList, parsedHoidongs });
+
+            if (dupStudentIdList.length > 0) {
+                const dupIdHtml = dupStudentIdList.map((c, idx) => {
+                    const detailLines = c.items.map(it =>
+                        `<li><strong>${it.hoTen}</strong>${it.lop ? ` — Lớp: <code>${it.lop}</code>` : ''} <span class="text-muted">(${it.location})</span></li>`
+                    ).join('');
+            
+                    return `
+                        <div class="bg-white border border-danger rounded p-2 mb-2 shadow-sm">
+                            <div class="fw-bold text-danger small mb-1">
+                                #${idx + 1}. Trùng Mã SV <span class="badge bg-danger font-monospace">${c.maSV}</span> trong <u>${c.source}</u> (${c.items.length} lần):
+                            </div>
+                            <ul class="mb-0 ps-3 small">${detailLines}</ul>
+                        </div>
+                    `;
+                }).join('');
+            
+                await showExcelReviewModal({
+                    title: '❌ LỖI TRÙNG MÃ SINH VIÊN — CẦN SỬA VÀ TẢI LẠI FILE',
+                    requireConfirm: false,
+                    htmlSections: [
+                        `
+                        <div class="alert alert-danger py-2 px-3 mb-2 small">
+                            <div class="fw-bold mb-1">⛔ Phát hiện Mã SV bị trùng lặp trong file Excel:</div>
+                            <div>Vui lòng kiểm tra và sửa lại Mã SV bị trùng trong file Excel, sau đó tải lại file trước khi tiếp tục nạp.</div>
+                        </div>
+                        ${dupIdHtml}
+                        `
+                    ]
                 });
                 return;
             }
