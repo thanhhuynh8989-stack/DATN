@@ -1,46 +1,61 @@
-// js/main.js
+// js/main.js (Phần 2/3)
 import { initGlobalSortables, createHoiDongBox, renderHoidongFromExcel } from './hoidong-manager.js';
 import { exportExcelReport, exportDSHoiDongExcel, exportPhanBienExcel } from './excel-exporter.js';
-import { 
+import {
     readExcelFile, parseSinhVienRows, parseGiangVienRows, parseHoiDongRows,
-    loadDanhSachNganhSilently, danhMucNganh, findNganhInfoByLop 
+    loadDanhSachNganhSilently, danhMucNganh, findNganhInfoByLop
 } from './excel-reader.js';
-import { 
+import {
     loadTemplatesSilently, templates,
-    updateScoringTemplate, resetAllScoringTemplates 
+    updateScoringTemplate, resetAllScoringTemplates
 } from './templates.js';
-import { 
-    getAdminConfig, saveAdminConfig, resetAdminConfigText, 
-    saveAdminBinaryFile, deleteAdminBinaryFile 
+import {
+    getAdminConfig, saveAdminConfig, resetAdminConfigText,
+    saveAdminBinaryFile, deleteAdminBinaryFile
 } from './admin-config.js';
 import { exportWordZIP } from './docx-exporter.js';
 import { detectDuplicateTeacherNameDifferentId } from './validators.js';
-import { 
+import {
     sessionState, getGasWebAppUrl, setGasWebAppUrl, getSavedSessionMeta, saveSessionMeta,
     createCloudSession, loadCloudSession, saveCloudHoiDong, toggleCloudHDLock,
     pullLatestScoresFromCloud, pushDeltaScoresToCloud, restoreSessionFromPayload,
-    applySessionPermissionsToUI, setupAutoSaveAndLockOnClose
+    applySessionPermissionsToUI, setupAutoSaveAndLockOnClose, disconnectCloudSession
 } from './session-sync.js';
 
 window.studentScores = window.studentScores || {};
 
-document.addEventListener("DOMContentLoaded", async () => {
-        try {
-        await Promise.all([
-            loadHtmlPartials(),
-            loadTemplatesSilently(),
-            loadDanhSachNganhSilently('./sample_files/DANH_SACH_NGANH.xlsx')
-        ]);
-    } catch (e) {
-        console.error("Lỗi tải dữ liệu khởi tạo:", e);
+const SCORING_TEMPLATE_FILENAMES = {
+    phieuGVHD: '2_Phieu_GVHD.docx',
+    phieuGVPB: '3_Phieu_GVPB.docx',
+    phieuHD: '4_Phieu_Hoi_Dong.docx'
+};
+
+const ADMIN_TEMPLATE_FILENAMES = {
+    bienBan: '1_BIEN_BAN_BAO_VE_DATN.docx',
+    phieuGVHD: '2_Phieu_GVHD.docx',
+    phieuGVPB: '3_Phieu_GVPB.docx',
+    phieuHD: '4_Phieu_Hoi_Dong.docx'
+};
+
+// Đồng bộ trạng thái badge "Đã tải mẫu mới / Mặc định" cho cả modal phiếu chấm và nút ngoài
+export function syncScoringTemplateBadges() {
+    let anyModified = false;
+    Object.keys(SCORING_TEMPLATE_FILENAMES).forEach(key => {
+        const isMod = Boolean(templates.modifiedFlags?.[key]);
+        if (isMod) anyModified = true;
+        const statusEl = document.getElementById(`status-tpl-${key}`);
+        if (statusEl) {
+            statusEl.textContent = isMod ? 'Đã tải mẫu mới' : 'Mặc định';
+            statusEl.className = isMod ? 'badge bg-warning text-dark ms-1' : 'badge bg-secondary ms-1';
+        }
+    });
+
+    const mainBadge = document.getElementById('badge-template-modified');
+    if (mainBadge) {
+        mainBadge.classList.toggle('d-none', !anyModified);
     }
+}
 
-    initKhoaNganhDropdowns();
-    initGlobalSortables();
-    bindEvents();
-});
-
-// Hàm áp dụng cấu hình Admin lên giao diện chính ngay lập tức (đuôi QĐ + dropdown Cơ sở)
 function applyAdminConfigToUI() {
     const cfg = getAdminConfig();
     const qdSuffixEl = document.getElementById('so-qd')?.nextElementSibling;
@@ -55,7 +70,6 @@ function applyAdminConfigToUI() {
     });
 }
 
-// Hàm hiển thị Modal báo cáo rà soát rộng rãi, có thanh cuộn (trả về Promise<boolean>: true = Tiếp tục, false = Hủy)
 function showExcelReviewModal({ title, requireConfirm = false, htmlSections = [] }) {
     return new Promise((resolve) => {
         const modalEl = document.getElementById('modalExcelReviewReport');
@@ -139,8 +153,7 @@ async function loadHtmlPartials() {
     container.innerHTML = htmlChunks.join('\n');
 }
 
-function bindEvents() {
-    // 0. XỬ LÝ CHUYỂN TAB TRÊN ĐIỆN THOẠI ĐẶT DỌC (MOBILE VIEW)
+function bindMobileTabEvents() {
     const tabSV = document.getElementById('tab-btn-sv');
     const tabHD = document.getElementById('tab-btn-hd');
     const tabGV = document.getElementById('tab-btn-gv');
@@ -152,7 +165,6 @@ function bindEvents() {
     const switchTab = (activeBtn, activeCol) => {
         [tabSV, tabHD, tabGV].forEach(btn => btn?.classList.remove('active'));
         [colSV, colHD, colGV].forEach(col => col?.classList.remove('active'));
-
         activeBtn?.classList.add('active');
         activeCol?.classList.add('active');
     };
@@ -160,8 +172,9 @@ function bindEvents() {
     tabSV?.addEventListener('click', () => switchTab(tabSV, colSV));
     tabHD?.addEventListener('click', () => switchTab(tabHD, colHD));
     tabGV?.addEventListener('click', () => switchTab(tabGV, colGV));
+}
 
-    // 1. SỰ KIỆN NẠP DỮ LIỆU EXCEL (RÀ SOÁT CHÉO TOÀN BỘ FILE & HIỂN THỊ MODAL LỚN CÓ THANH CUỘN)
+function bindExcelAndHoiDongEvents() {
     const btnReadFiles = document.getElementById('btn-read-files');
     btnReadFiles?.addEventListener('click', async () => {
         const fileSV = document.getElementById('upload-sv')?.files[0];
@@ -172,7 +185,6 @@ function bindEvents() {
             return alert("Vui lòng chọn ít nhất 1 file Excel để nạp dữ liệu!");
         }
 
-        // BẮT BUỘC: Chặn nếu chưa chọn file Danh sách SV & Đề tài VÀ trên giao diện cũng chưa từng nạp SV nào
         const existingSVCount = document.querySelectorAll('#pool-sv .card-item, .dropzone-sv .card-item').length;
         if (!fileSV && existingSVCount === 0) {
             return alert("⚠️ Vui lòng chọn file (1) Nhập Danh sách SV & Đồ án trước khi bấm Nạp dữ liệu Excel!");
@@ -216,14 +228,13 @@ function bindEvents() {
                 parsedHoidongs = parseHoiDongRows(rows);
             }
 
-            // BƯỚC RÀ SOÁT CHÉO 1: GIẢNG VIÊN TRÙNG TÊN CHUẨN HÓA (BỎ HỌC VỊ, BỎ DẤU, BỎ KHOẢNG TRẮNG) NHƯNG KHÁC MÃ GV
             const dupNameDiffIdList = detectDuplicateTeacherNameDifferentId({ svList, gvList, parsedHoidongs });
 
             if (dupNameDiffIdList.length > 0 && fileHD) {
                 const dupItemsHTML = dupNameDiffIdList.map((item, idx) => {
                     const variantsHTML = item.variants.map(v => `
                         <li class="mb-1">
-                            <span class="badge bg-dark font-monospace">Mã GV: ${v.maGV}</span> 
+                            <span class="badge bg-dark font-monospace">Mã GV: ${v.maGV}</span>
                             <strong>${v.names}</strong>
                             <div class="text-muted small ps-2">↳ Xuất hiện tại: ${v.locations.join(' | ')}</div>
                         </li>
@@ -251,13 +262,9 @@ function bindEvents() {
                     htmlSections: [confirmSection]
                 });
 
-                if (!userConfirmed) {
-                    // Người dùng bấm Hủy -> Dừng không render Hội đồng, vẫn giữ nguyên SV & GV đã nạp ở bước 1 & 2
-                    return;
-                }
+                if (!userConfirmed) return;
             }
 
-            // BƯỚC 2: RENDER HỘI ĐỒNG & TỔNG HỢP BÁO CÁO (GỘP HĐ, TRÙNG MÃ SV, VI PHẠM GVHD)
             const reportSections = [
                 `<div class="alert alert-success py-2 small mb-2 fw-bold">✅ Đã nạp dữ liệu Excel thành công!</div>`
             ];
@@ -310,71 +317,37 @@ function bindEvents() {
                 requireConfirm: false,
                 htmlSections: reportSections
             });
-
         } catch (err) {
             console.error("Lỗi đọc Excel:", err);
             alert("Lỗi khi đọc file Excel: " + err.message);
         }
     });
 
-    // 1B. SỰ KIỆN TẢI 3 FILE MẪU EXCEL (.XLSX)
-    const downloadExcelArray = (aoaData, colWidths, sheetName, fileName) => {
-        if (typeof XLSX === 'undefined') {
-            return alert("Thư viện XLSX chưa được nạp!");
-        }
-        const ws = XLSX.utils.aoa_to_sheet(aoaData);
-        ws['!cols'] = colWidths.map(w => ({ wch: w }));
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, sheetName);
-        XLSX.writeFile(wb, fileName);
-    };
-
-    document.getElementById('btn-sample-sv')?.addEventListener('click', () => {
-        const dataSV = [
-            ["STT", "MSSV", "Họ và tên", "Lớp", "Tên đề tài", "GVHD", "Mã GVHD"],
-            [1, "27206635615", "Võ Thị Thùy Diễm", "K27 TNM", "Nghiên cứu quy trình sản xuất trà Cascara từ vỏ cà phê", "ThS. Phạm Thị Nga", "230114084"],
-            [2, "27216601361", "Trần Nhật Hoàng", "K27 TNM", "Nghiên cứu quy trình sản xuất sữa đậu lăng kết hợp hạt sen", "ThS. Nguyễn Thị Phúc Lộc", "240114106"]
-        ];
-        downloadExcelArray(dataSV, [6, 15, 24, 12, 48, 24, 15], "DS_Sinh_Vien", "Mau_Danh_Sach_SV_DoAn.xlsx");
-    });
-
-    document.getElementById('btn-sample-gv')?.addEventListener('click', () => {
-        const dataGV = [
-            ["Mã GV", "Họ và tên Giảng viên", "Đơn vị công tác"],
-            ["230114084", "ThS. Phạm Thị Nga", "Khoa Công nghệ Thực phẩm - ĐH Duy Tân"],
-            ["240114106", "ThS. Nguyễn Thị Phúc Lộc", "Khoa Công nghệ Thực phẩm - ĐH Duy Tân"],
-            ["110114025", "TS. Phan Thị Việt Hà", "Khoa Công nghệ Thực phẩm - ĐH Duy Tân"]
-        ];
-        downloadExcelArray(dataGV, [15, 28, 38], "DS_Giang_Vien", "Mau_Danh_Sach_GV.xlsx");
-    });
-
-    document.getElementById('btn-sample-hd')?.addEventListener('click', () => {
-        const dataHD = [
-            ["Hội đồng", "Mã GV", "Họ và tên GV", "Đơn vị", "Ngày bảo vệ", "Chức danh", "Tên đề tài", "MSSV", "Họ và tên SV", "Lớp"],
-            ["1", "110114025", "TS. Phan Thị Việt Hà", "Đại học Duy Tân", "20/06/2026 - 17:00 - Phòng 111 - 120 Hoàng Minh Thảo", "Chủ tịch", "Nghiên cứu quy trình sản xuất trà Cascara từ vỏ cà phê", "27206635615", "Võ Thị Thùy Diễm", "K27 TNM"],
-            ["1", "240114106", "ThS. Nguyễn Thị Phúc Lộc", "Đại học Duy Tân", "", "Phản biện", "", "", "", ""],
-            ["1", "230114084", "ThS. Phạm Thị Nga", "Đại học Duy Tân", "", "Thư ký", "", "", "", ""]
-        ];
-        downloadExcelArray(dataHD, [10, 14, 24, 20, 42, 14, 42, 15, 22, 12], "DS_Hoi_Dong", "Mau_Danh_Sach_Hoi_Dong.xlsx");
-    });
-
-    // 2. SỰ KIỆN TẠO HỘI ĐỒNG MỚI
-    const btnAddHD = document.getElementById('btn-add-hd');
-    btnAddHD?.addEventListener('click', () => {
+    document.getElementById('btn-add-hd')?.addEventListener('click', () => {
         createHoiDongBox();
     });
 
-    // Hàm chuẩn hóa điểm thang 10 về 1 chữ số thập phân (chấp nhận cả dấu . và , | để trống nếu không nhập)
-    const normalizeSingleScore = (rawVal) => {
-        const str = String(rawVal ?? '').trim().replace(',', '.');
-        if (str === '') return '';
-        const num = parseFloat(str);
-        if (isNaN(num)) return '';
-        const clamped = Math.min(10, Math.max(0, num));
-        return clamped.toFixed(1);
-    };
+    document.addEventListener('click', (e) => {
+        const btnRemove = e.target.closest('.btn-remove-card');
+        if (btnRemove) {
+            e.stopPropagation();
+            const card = btnRemove.closest('.card-item');
+            if (card) card.remove();
+        }
+    });
+}
 
-    // 3. SỰ KIỆN MỞ MODAL NHẬP ĐIỂM TRỰC TIẾP (TỰ ĐỘNG KÉO ĐIỂM MỚI NHẤT TỪ CLOUD)
+// js/main.js (Phần 3/3)
+const normalizeSingleScore = (rawVal) => {
+    const str = String(rawVal ?? '').trim().replace(',', '.');
+    if (str === '') return '';
+    const num = parseFloat(str);
+    if (isNaN(num)) return '';
+    const clamped = Math.min(10, Math.max(0, num));
+    return clamped.toFixed(1);
+};
+
+function bindScoreAndExportEvents() {
     const btnNhapDiem = document.getElementById('btn-nhap-diem');
     btnNhapDiem?.addEventListener('click', async () => {
         if (sessionState.isCloudConnected) {
@@ -429,7 +402,6 @@ function bindEvents() {
             tbody.insertAdjacentHTML('beforeend', tr);
         });
 
-        // Tự động chuẩn hóa 1 chữ số thập phân (chuyển , -> . và giới hạn 0..10) ngay khi rời ô nhập
         tbody.querySelectorAll('.score-decimal-input').forEach(inp => {
             inp.addEventListener('blur', () => {
                 inp.value = normalizeSingleScore(inp.value);
@@ -440,7 +412,6 @@ function bindEvents() {
         modalDiem.show();
     });
 
-    // 4. SỰ KIỆN NÚT "LƯU ĐIỂM" TRONG MODAL (CHỈ ĐẨY CÁC Ô ĐIỂM THAY ĐỔI & TRỘN VỚI CLOUD)
     const btnSaveDiem = document.getElementById('btn-save-diem');
     btnSaveDiem?.addEventListener('click', async () => {
         document.querySelectorAll('#tbody-nhap-diem tr').forEach(tr => {
@@ -460,13 +431,12 @@ function bindEvents() {
                 tk: diemTK
             };
 
-            const svCard = document.querySelector(`.dropzone-sv .card-item[data-id="${maSV}"]`);
-            if (svCard) {
+            document.querySelectorAll(`.dropzone-sv .card-item[data-id="${maSV}"]`).forEach(svCard => {
                 svCard.setAttribute('data-diem-gvhd', diemGVHD);
                 svCard.setAttribute('data-diem-ct', diemCT);
                 svCard.setAttribute('data-diem-pb', diemPB);
                 svCard.setAttribute('data-diem-tk', diemTK);
-            }
+            });
         });
 
         if (sessionState.isCloudConnected) {
@@ -493,8 +463,6 @@ function bindEvents() {
         alert("✅ Đã lưu điểm trực tiếp thành công!");
     });
 
-    // 5. SỰ KIỆN XUẤT FILE WORD & 3 FILE EXCEL (.ZIP)
-    // 5A. Xuất Gói Hồ sơ Word (.ZIP)
     document.getElementById('btn-export-word')?.addEventListener('click', async () => {
         const meta = getSetupMetadata();
         const exportData = collectExportData(meta);
@@ -509,7 +477,6 @@ function bindEvents() {
         }
     });
 
-    // 5B. Xuất Bảng điểm Kết quả chấm (.XLSX)
     document.getElementById('btn-export-diem')?.addEventListener('click', async () => {
         const meta = getSetupMetadata();
         const exportData = collectExportData(meta);
@@ -523,7 +490,6 @@ function bindEvents() {
         }
     });
 
-    // 5C. Xuất Danh sách Hội đồng đã lập (.XLSX)
     document.getElementById('btn-export-hd')?.addEventListener('click', async () => {
         const meta = getSetupMetadata();
         const exportData = collectExportData(meta, true);
@@ -537,7 +503,6 @@ function bindEvents() {
         }
     });
 
-    // 5D. Xuất Danh sách Phân công Phản biện (.XLSX)
     document.getElementById('btn-export-pb')?.addEventListener('click', async () => {
         const meta = getSetupMetadata();
         const exportData = collectExportData(meta);
@@ -550,18 +515,9 @@ function bindEvents() {
             alert("Có lỗi xuất Danh sách Phản biện: " + err.message);
         }
     });
+}
 
-    // 6. XÓA TỪNG THẺ SV HOẶC GV Ở 2 KHUNG KHO CHỜ
-    document.addEventListener('click', (e) => {
-        const btnRemove = e.target.closest('.btn-remove-card');
-        if (btnRemove) {
-            e.stopPropagation();
-            const card = btnRemove.closest('.card-item');
-            if (card) card.remove();
-        }
-    });
-
-    // 7. ĐIỀU KHIỂN MODAL TIPS HƯỚNG DẪN THEO KHU VỰC & PHÍM TẮT F1
+function bindTipsAndScoringTemplatesEvents() {
     let lastActiveTipTab = 'tab-setup';
     document.addEventListener('click', (e) => {
         if (e.target.closest('#pool-sv') || e.target.closest('#pool-gv')) {
@@ -594,31 +550,6 @@ function bindEvents() {
         });
     }
 
-    // 8. QUẢN LÝ TẢI VỀ & UPLOAD MẪU PHIẾU CHẤM (GVHD, GVPB, HỘI ĐỒNG)
-    const scoringTplFileNames = {
-        phieuGVHD: '2_Phieu_GVHD.docx',
-        phieuGVPB: '3_Phieu_GVPB.docx',
-        phieuHD: '4_Phieu_Hoi_Dong.docx'
-    };
-
-    const syncScoringTemplateBadges = () => {
-        let anyModified = false;
-        Object.keys(scoringTplFileNames).forEach(key => {
-            const isMod = Boolean(templates.modifiedFlags?.[key]);
-            if (isMod) anyModified = true;
-            const statusEl = document.getElementById(`status-tpl-${key}`);
-            if (statusEl) {
-                statusEl.textContent = isMod ? 'Đã tải mẫu mới' : 'Mặc định';
-                statusEl.className = isMod ? 'badge bg-warning text-dark ms-1' : 'badge bg-secondary ms-1';
-            }
-        });
-
-        const mainBadge = document.getElementById('badge-template-modified');
-        if (mainBadge) {
-            mainBadge.classList.toggle('d-none', !anyModified);
-        }
-    };
-
     document.getElementById('btn-open-upload-templates')?.addEventListener('click', () => {
         syncScoringTemplateBadges();
         const modalEl = document.getElementById('modalUploadScoringTemplates');
@@ -635,7 +566,7 @@ function bindEvents() {
             const blob = new Blob([bin], {
                 type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             });
-            saveAs(blob, scoringTplFileNames[key]);
+            saveAs(blob, SCORING_TEMPLATE_FILENAMES[key]);
         });
     });
 
@@ -660,7 +591,7 @@ function bindEvents() {
                 }
                 syncScoringTemplateBadges();
                 if (inputEl) inputEl.value = '';
-                alert(`✅ Đã áp dụng mẫu "${file.name}" cho ${scoringTplFileNames[key]} trong phiên làm việc này!`);
+                alert(`✅ Đã áp dụng mẫu "${file.name}" cho ${SCORING_TEMPLATE_FILENAMES[key]} trong phiên làm việc này!`);
             } catch (err) {
                 alert("Lỗi khi đọc file mẫu: " + err.message);
             }
@@ -675,8 +606,9 @@ function bindEvents() {
             alert("🔄 Đã khôi phục toàn bộ mẫu phiếu chấm về nguyên bản gốc!");
         }
     });
+}
 
-    // 9. XỬ LÝ GIAO DIỆN QUẢN TRỊ (ADMIN) CÓ MẬT KHẨU
+function bindAdminEvents() {
     applyAdminConfigToUI();
 
     document.getElementById('btn-open-admin')?.addEventListener('click', () => {
@@ -704,7 +636,6 @@ function bindEvents() {
         }
     });
 
-    // Lưu Tab 1: Header, Đuôi QĐ & Cơ sở
     document.getElementById('btn-adm-save-general')?.addEventListener('click', () => {
         const campuses = document.getElementById('adm-campuses').value
             .split('\n').map(s => s.trim()).filter(Boolean);
@@ -730,7 +661,6 @@ function bindEvents() {
         }
     });
 
-    // Tab 2: Tải về & Cập nhật Danh sách Ngành
     document.getElementById('btn-adm-download-nganh')?.addEventListener('click', () => {
         const aoa = [
             ['Ma_Chuyen_nganh', 'Chuyen_nganh', 'Khoa'],
@@ -761,21 +691,13 @@ function bindEvents() {
         }
     });
 
-    // Tab 3: Tải về & Cập nhật 4 file Template Word
-    const tplFileNames = {
-        bienBan: '1_BIEN_BAN_BAO_VE_DATN.docx',
-        phieuGVHD: '2_Phieu_GVHD.docx',
-        phieuGVPB: '3_Phieu_GVPB.docx',
-        phieuHD: '4_Phieu_Hoi_Dong.docx'
-    };
-
     document.querySelectorAll('.btn-adm-dl-tpl').forEach(btn => {
         btn.addEventListener('click', () => {
             const key = btn.getAttribute('data-tpl');
             const bin = templates[key];
             if (!bin) return alert("Chưa có dữ liệu file mẫu này!");
             const blob = new Blob([bin], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-            saveAs(blob, tplFileNames[key]);
+            saveAs(blob, ADMIN_TEMPLATE_FILENAMES[key]);
         });
     });
 
@@ -789,13 +711,13 @@ function bindEvents() {
             await saveAdminBinaryFile(`tpl_${key}`, buf);
             await loadTemplatesSilently();
             syncScoringTemplateBadges();
-            alert(`✅ Đã cập nhật mẫu ${tplFileNames[key]} thành công!`);
+            alert(`✅ Đã cập nhật mẫu ${ADMIN_TEMPLATE_FILENAMES[key]} thành công!`);
         });
     });
 
     document.getElementById('btn-adm-reset-all-tpl')?.addEventListener('click', async () => {
         if (confirm("Khôi phục toàn bộ 4 file Word Template về bản gốc trên hệ thống?")) {
-            for (const key of Object.keys(tplFileNames)) {
+            for (const key of Object.keys(ADMIN_TEMPLATE_FILENAMES)) {
                 await deleteAdminBinaryFile(`tpl_${key}`);
             }
             await loadTemplatesSilently();
@@ -804,7 +726,6 @@ function bindEvents() {
         }
     });
 
-    // Tab 4: Đổi mật khẩu Admin
     document.getElementById('btn-adm-change-pass')?.addEventListener('click', () => {
         const p1 = document.getElementById('adm-new-pass').value;
         const p2 = document.getElementById('adm-confirm-pass').value;
@@ -817,7 +738,7 @@ function bindEvents() {
     });
 }
 
-    // 10. ĐỒNG BỘ & PHÂN QUYỀN PHIÊN LÀM VIỆC QUA GOOGLE APPS SCRIPT
+function bindCloudSessionEvents() {
     const showCloudStatus = (msg, type = 'info') => {
         const el = document.getElementById('cloud-sync-status');
         if (!el) return;
@@ -829,6 +750,12 @@ function bindEvents() {
     const syncCloudModalButtons = () => {
         const btnSaveHD = document.getElementById('btn-cloud-save-hd');
         const btnToggleLock = document.getElementById('btn-cloud-toggle-lock');
+        const btnDisconnect = document.getElementById('btn-cloud-disconnect');
+
+        if (btnDisconnect) {
+            btnDisconnect.classList.toggle('d-none', !sessionState.isCloudConnected);
+        }
+
         if (!btnSaveHD || !btnToggleLock) return;
 
         if (sessionState.isCloudConnected && sessionState.canEditHD) {
@@ -837,8 +764,8 @@ function bindEvents() {
                 ? '🔓 Mở khóa sửa Hội đồng'
                 : '🔒 Chốt & Khóa Hội đồng';
             btnToggleLock.className = sessionState.isHDLocked
-                ? 'btn btn-outline-warning btn-sm fw-bold'
-                : 'btn btn-warning btn-sm fw-bold';
+                ? 'btn btn-outline-warning btn-sm fw-bold flex-fill'
+                : 'btn btn-warning btn-sm fw-bold flex-fill';
 
             btnSaveHD.classList.toggle('d-none', sessionState.isHDLocked);
         } else {
@@ -858,7 +785,6 @@ function bindEvents() {
         bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCloudSession')).show();
     });
 
-    // 10A. Tạo phiên làm việc mới lần đầu (Gửi OTP về Email)
     document.getElementById('btn-cloud-create')?.addEventListener('click', async () => {
         const gasUrl = document.getElementById('cloud-gas-url').value.trim();
         const sessionId = document.getElementById('create-session-id').value.trim().toUpperCase();
@@ -899,7 +825,6 @@ function bindEvents() {
         }
     });
 
-    // 10B. Tải phiên từ Cloud (Nhập OTP đúng -> Tự động tắt popup và mở quyền chỉnh sửa)
     document.getElementById('btn-cloud-load')?.addEventListener('click', async () => {
         const gasUrl = document.getElementById('cloud-gas-url').value.trim();
         const sessionId = document.getElementById('cloud-session-id').value.trim().toUpperCase();
@@ -926,12 +851,9 @@ function bindEvents() {
                 saveSessionMeta({ sessionId: res.sessionId, pin, otp: sessionState.otp });
                 restoreSessionFromPayload(res.payload);
                 applySessionPermissionsToUI();
-                if (typeof syncScoringTemplateBadges === 'function') {
-                    syncScoringTemplateBadges();
-                }
+                syncScoringTemplateBadges();
                 syncCloudModalButtons();
 
-                // Tự động đóng popup ngay khi xác thực thành công
                 bootstrap.Modal.getInstance(document.getElementById('modalCloudSession'))?.hide();
             } else {
                 showCloudStatus(`❌ ${res.message}`, "danger");
@@ -941,7 +863,6 @@ function bindEvents() {
         }
     });
 
-    // 10C. Lưu thay đổi vùng Hội đồng (Chỉ Chủ phiên có OTP & HĐ đang mở)
     document.getElementById('btn-cloud-save-hd')?.addEventListener('click', async () => {
         const gasUrl = getGasWebAppUrl();
         showCloudStatus("⏳ Đang lưu thay đổi Hội đồng lên Cloud...", "info");
@@ -957,7 +878,6 @@ function bindEvents() {
         }
     });
 
-    // 10D. Chốt & Khóa / Mở khóa vùng Hội đồng (Chỉ Chủ phiên có OTP)
     document.getElementById('btn-cloud-toggle-lock')?.addEventListener('click', async () => {
         const targetLockState = !sessionState.isHDLocked;
         const confirmMsg = targetLockState
@@ -971,7 +891,6 @@ function bindEvents() {
         showCloudStatus("⏳ Đang cập nhật trạng thái khóa Hội đồng...", "info");
 
         try {
-            // Nếu chuẩn bị Khóa HĐ -> tự động lưu bản dữ liệu HĐ mới nhất trước khi khóa
             if (targetLockState) {
                 const saveRes = await saveCloudHoiDong(gasUrl, sessionState.sessionId, sessionState.pin, sessionState.otp);
                 if (!saveRes.ok) {
@@ -996,14 +915,18 @@ function bindEvents() {
         }
     });
 
-    // Ủy quyền sự kiện click cho nút Khóa / Mở khóa nhanh trên thanh trạng thái #session-role-banner
+    document.getElementById('btn-cloud-disconnect')?.addEventListener('click', () => {
+        disconnectCloudSession();
+        syncCloudModalButtons();
+        showCloudStatus("🔌 Đã ngắt kết nối phiên Cloud. Bạn đang làm việc độc lập cục bộ.", "secondary");
+    });
+
     document.addEventListener('click', (e) => {
         if (e.target.closest('#btn-banner-toggle-lock')) {
             document.getElementById('btn-cloud-toggle-lock')?.click();
         }
     });
 
-    // 10E. Tự động lưu thay đổi Hội đồng & tự động lưu + khóa chỉnh sửa khi tắt trình duyệt
     setupAutoSaveAndLockOnClose((autoSaveText) => {
         const banner = document.getElementById('session-role-banner');
         if (!banner || !sessionState.isCloudConnected) return;
@@ -1015,6 +938,16 @@ function bindEvents() {
         }
         statusTag.textContent = autoSaveText;
     });
+}
+
+function bindEvents() {
+    bindMobileTabEvents();
+    bindExcelAndHoiDongEvents();
+    bindScoreAndExportEvents();
+    bindTipsAndScoringTemplatesEvents();
+    bindAdminEvents();
+    bindCloudSessionEvents();
+}
 
 function initKhoaNganhDropdowns() {
     const khoaSelect = document.getElementById('khoa-select');
@@ -1133,7 +1066,6 @@ function collectExportData(meta, includeEmptyHD = false) {
 
     document.querySelectorAll('.box-hoidong').forEach(box => {
         const hdName = box.querySelector('.hd-title')?.value.trim() || 'Hội Đồng';
-        
         const gio = box.querySelector('.hd-time')?.value || '';
         const phong = box.querySelector('.hd-room')?.value.trim() || '';
         const diaDiem = box.querySelector('.hd-location')?.value || '';
@@ -1143,13 +1075,13 @@ function collectExportData(meta, includeEmptyHD = false) {
         let dPart = '', mPart = '', yPart = '';
 
         if (rawDate.includes('-')) {
-            const parts = rawDate.split('-'); // [yyyy, mm, dd]
+            const parts = rawDate.split('-');
             if (parts.length === 3) {
                 [yPart, mPart, dPart] = parts;
                 ngay = `${dPart}/${mPart}/${yPart}`;
             }
         } else if (rawDate.includes('/')) {
-            const parts = rawDate.split('/'); // [dd, mm, yyyy]
+            const parts = rawDate.split('/');
             if (parts.length === 3) {
                 [dPart, mPart, yPart] = parts;
                 ngay = `${dPart.padStart(2, '0')}/${mPart.padStart(2, '0')}/${yPart}`;
@@ -1229,3 +1161,19 @@ function collectExportData(meta, includeEmptyHD = false) {
 
     return exportData;
 }
+
+document.addEventListener("DOMContentLoaded", async () => {
+    try {
+        await Promise.all([
+            loadHtmlPartials(),
+            loadTemplatesSilently(),
+            loadDanhSachNganhSilently()
+        ]);
+    } catch (e) {
+        console.error("Lỗi tải dữ liệu khởi tạo:", e);
+    }
+
+    initKhoaNganhDropdowns();
+    initGlobalSortables();
+    bindEvents();
+});
