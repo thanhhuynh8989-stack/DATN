@@ -186,15 +186,15 @@ export function parseSinhVienRows(rows) {
 
     let startRow = headerIdx >= 0 ? headerIdx + 1 : 1;
     const result = [];
+    const missingCodeIssues = [];
 
     rows.forEach((row, idx) => {
         if (idx < startRow || !row || row.length === 0) return;
-        const maSV = String(row[colMap.maSV] || '').trim();
-        if (!maSV || maSV.toUpperCase().includes('MSSV') || maSV.toUpperCase().includes('MÃ')) return;
 
-        let hoTen = '', lop = '', deTai = '', gvhd = '', maGVHD = '', nganhCol = '';
+        let maSV = '', hoTen = '', lop = '', deTai = '', gvhd = '', maGVHD = '', nganhCol = '';
 
         if (hasCustomColMap) {
+            maSV = String(row[colMap.maSV] || '').trim();
             if (colMap.hoDem >= 0 && colMap.ten >= 0) {
                 hoTen = `${String(row[colMap.hoDem] || '').trim()} ${String(row[colMap.ten] || '').trim()}`.trim();
             } else {
@@ -207,6 +207,7 @@ export function parseSinhVienRows(rows) {
             nganhCol = colMap.nganh >= 0 ? String(row[colMap.nganh] || '').trim().toUpperCase() : '';
         } else {
             // Dự phòng nếu file không có dòng tiêu đề chuẩn
+            maSV = String(row[1] || '').trim();
             const col2 = String(row[2] || '').trim();
             const col3 = String(row[3] || '').trim();
             if (col3 && !col3.startsWith('K2') && !col3.startsWith('K1') && !col3.startsWith('K3')) {
@@ -224,27 +225,65 @@ export function parseSinhVienRows(rows) {
             }
         }
 
+        const isHeaderLike =
+            maSV.toUpperCase().includes('MSSV') ||
+            maSV.toUpperCase().includes('MÃ') ||
+            hoTen.toUpperCase().includes('HỌ VÀ TÊN') ||
+            hoTen.toUpperCase().includes('HỌ TÊN');
+
+        if (isHeaderLike || (!maSV && !hoTen && !gvhd && !maGVHD)) return;
+
+        // Cảnh báo nếu có tên SV nhưng thiếu Mã SV
+        if (hoTen && !maSV) {
+            missingCodeIssues.push(`Dòng ${idx + 1} (File SV): Sinh viên "${hoTen}" bị thiếu Mã SV.`);
+        }
+
+        // Cảnh báo nếu có tên GVHD nhưng thiếu Mã Giảng viên
+        if (gvhd && !maGVHD) {
+            missingCodeIssues.push(`Dòng ${idx + 1} (File SV): GVHD "${gvhd}"${hoTen ? ` (SV: ${hoTen})` : ''} bị thiếu Mã GV.`);
+        }
+
+        if (!maSV && !hoTen) return;
+
         const nganh = nganhCol || detectedNganhFromHeader || detectNganhFromLop(lop);
         result.push({ maSV, hoTen, lop, deTai, maGVHD, gvhd, nganh });
     });
 
+    result.__missingCodeIssues = missingCodeIssues;
     return result;
 }
 
 // 6. Bóc tách Danh sách Giảng viên
 export function parseGiangVienRows(rows) {
     const result = [];
+    const missingCodeIssues = [];
+
     rows.forEach((row, idx) => {
         if (idx < 1 || !row || row.length === 0) return;
         const col0 = String(row[0] || '').trim();
-        if (col0.toUpperCase().includes('STT') || col0.toUpperCase().includes('MÃ')) return;
-
-        const maGV = col0 || `GV_${idx}`;
         const hoTenGV = String(row[1] || '').trim();
         const donVi = String(row[2] || 'Đại học Duy Tân').trim();
 
+        if (
+            col0.toUpperCase().includes('STT') ||
+            col0.toUpperCase().includes('MÃ') ||
+            hoTenGV.toUpperCase().includes('HỌ VÀ TÊN')
+        ) {
+            return;
+        }
+
+        if (!col0 && !hoTenGV) return;
+
+        const isAutoId = !col0 || col0.toUpperCase().startsWith('GV_');
+        if (hoTenGV && isAutoId) {
+            missingCodeIssues.push(`Dòng ${idx + 1} (File GV): Giảng viên "${hoTenGV}" bị thiếu Mã GV.`);
+        }
+
+        const maGV = col0 || `GV_${idx}`;
         if (hoTenGV) result.push({ maGV, hoTenGV, donVi });
     });
+
+    result.__missingCodeIssues = missingCodeIssues;
     return result;
 }
 
@@ -329,6 +368,7 @@ function buildMembersSignature(thanhVienList) {
 // 8. Bóc tách file Excel Danh sách Hội đồng (Tách block mới mỗi khi gặp chức danh "Chủ tịch")
 export function parseHoiDongRows(rows) {
     const rawList = [];
+    const missingCodeIssues = [];
     let currentObj = null;
     let defaultHeaderPlace = { gio: '', ngay: '', phong: '', diaDiem: '' };
 
@@ -386,7 +426,7 @@ export function parseHoiDongRows(rows) {
         const roleKey = normalizeRole(chucDanh);
 
         // QUY TẮC TÁCH HĐ: Cứ gặp chức danh "Chủ tịch" (hoặc chưa có block nào) là bắt đầu 1 HĐ mới
-        if (roleKey === 'Chủ tịch' || (!currentObj && (maGV || maSV))) {
+        if (roleKey === 'Chủ tịch' || (!currentObj && (maGV || hoTenGV || maSV || hoTenSV))) {
             const parsedInfo = extractScheduleAndPlace(ngayBV);
             currentObj = {
                 rawIndex: lastRawNum || String(rawList.length + 1),
@@ -401,6 +441,8 @@ export function parseHoiDongRows(rows) {
         }
 
         if (currentObj) {
+            const hdLabel = `HĐ ${currentObj.rawIndex}`;
+
             // Bổ sung thông tin ngày/giờ/phòng nếu nằm ở dòng kế tiếp trong cùng HĐ
             if (ngayBV) {
                 const parsedInfo = extractScheduleAndPlace(ngayBV);
@@ -410,6 +452,11 @@ export function parseHoiDongRows(rows) {
                 if (!currentObj.diaDiemBV && parsedInfo.diaDiem) currentObj.diaDiemBV = parsedInfo.diaDiem;
             }
 
+            // Cảnh báo nếu có tên GV trong HĐ nhưng thiếu Mã GV
+            if (hoTenGV && !maGV) {
+                missingCodeIssues.push(`Dòng ${idx + 1} (File HĐ - ${hdLabel}): Giảng viên "${hoTenGV}"${roleKey ? ` (${roleKey})` : ''} bị thiếu Mã GV.`);
+            }
+
             if (maGV && hoTenGV && roleKey) {
                 const existRole = currentObj.thanhVien.find(g => normalizeRole(g.chucDanh) === roleKey);
                 if (!existRole) {
@@ -417,8 +464,12 @@ export function parseHoiDongRows(rows) {
                 }
             }
 
+            // Lưu ý: chỉ cảnh báo thiếu Mã SV nếu dòng có tên SV (hoTenSV); nếu HĐ chưa có SV thì bỏ qua
+            if (hoTenSV && !maSV) {
+                missingCodeIssues.push(`Dòng ${idx + 1} (File HĐ - ${hdLabel}): Sinh viên "${hoTenSV}" bị thiếu Mã SV.`);
+            }
+
             if (maSV && hoTenSV) {
-                // Ghi nhận tất cả SV (kể cả trùng trong cùng 1 HĐ để bộ rà soát phát hiện và báo cáo)
                 const nganh = detectNganhFromLop(lop);
                 currentObj.sinhViens.push({ maSV, hoTenSV, lop, deTai, nganh });
             }
@@ -483,6 +534,7 @@ export function parseHoiDongRows(rows) {
         resultMap[`hd_${idx}`] = hd;
     });
     resultMap.__mergeLogs = logs;
+    resultMap.__missingCodeIssues = missingCodeIssues;
 
     return resultMap;
 }
