@@ -309,3 +309,72 @@ export function detectDuplicateStudentNameDifferentId({ svList = [], parsedHoido
 
     return conflicts;
 }
+
+// Rà soát trùng Mã SV trong file Sinh viên, file Hội đồng (và đối chiếu chéo nếu cần)
+export function detectDuplicateStudentId({ svList = [], parsedHoidongs = {} }) {
+    const conflicts = [];
+
+    // 1. Kiểm tra trùng Mã SV trong nội bộ file Danh sách SV
+    const svMap = new Map();
+    (svList || []).forEach((sv, idx) => {
+        const id = String(sv.maSV || '').trim().toUpperCase();
+        if (!id) return;
+        const entry = {
+            rowIndex: idx + 1,
+            hoTen: String(sv.hoTen || '').trim() || '(Chưa rõ tên)',
+            lop: String(sv.lop || '').trim(),
+            location: `File SV (dòng dữ liệu #${idx + 1})`
+        };
+        if (!svMap.has(id)) {
+            svMap.set(id, [entry]);
+        } else {
+            svMap.get(id).push(entry);
+        }
+    });
+
+    svMap.forEach((items, maSV) => {
+        if (items.length > 1) {
+            conflicts.push({
+                source: 'File Danh sách SV',
+                maSV,
+                items
+            });
+        }
+    });
+
+    // 2. Kiểm tra trùng Mã SV trong file Danh sách Hội đồng
+    const hdSvMap = new Map();
+    Object.keys(parsedHoidongs || {}).forEach((key) => {
+        if (key.startsWith('__')) return;
+        const hd = parsedHoidongs[key];
+        if (!hd || typeof hd !== 'object') return;
+        const hdLabel = `HĐ ${hd.soHD || key}${hd.ngayBV ? ` (${hd.gioBV ? hd.gioBV + ' ' : ''}${hd.ngayBV})` : ''}`;
+
+        (hd.sinhViens || []).forEach((sv, sIdx) => {
+            const id = String(sv.maSV || '').trim().toUpperCase();
+            if (!id) return;
+            const entry = {
+                hoTen: String(sv.hoTenSV || '').trim() || '(Chưa rõ tên)',
+                lop: String(sv.lop || '').trim(),
+                location: `${hdLabel} (SV #${sIdx + 1})`
+            };
+            if (!hdSvMap.has(id)) {
+                hdSvMap.set(id, [entry]);
+            } else {
+                hdSvMap.get(id).push(entry);
+            }
+        });
+    });
+
+    hdSvMap.forEach((items, maSV) => {
+        if (items.length > 1) {
+            conflicts.push({
+                source: 'File Danh sách Hội đồng',
+                maSV,
+                items
+            });
+        }
+    });
+
+    return conflicts;
+}
