@@ -14,7 +14,7 @@ import {
     saveAdminBinaryFile, deleteAdminBinaryFile
 } from './admin-config.js';
 import { exportWordZIP } from './docx-exporter.js';
-import { detectDuplicateTeacherNameDifferentId, collectMissingCodeWarnings } from './validators.js';
+import { detectDuplicateTeacherNameDifferentId, detectDuplicateStudentNameDifferentId, collectMissingCodeWarnings } from './validators.js';
 import {
     sessionState, getGasWebAppUrl, setGasWebAppUrl, getSavedSessionMeta, saveSessionMeta,
     createCloudSession, loadCloudSession, saveCloudHoiDong, toggleCloudHDLock,
@@ -283,6 +283,43 @@ function bindExcelAndHoiDongEvents() {
                 });
 
                 if (!userConfirmed) return;
+            }
+
+            const dupSVNameDiffIdList = detectDuplicateStudentNameDifferentId({ svList, parsedHoidongs });
+
+            if (dupSVNameDiffIdList.length > 0 && (fileSV || fileHD)) {
+                const dupSVItemsHTML = dupSVNameDiffIdList.map((item, idx) => {
+                    const variantsHTML = item.variants.map(v => `
+                        <li class="mb-1">
+                            <span class="badge bg-dark font-monospace">Mã SV: ${v.maSV}</span>
+                            <strong>${v.names}</strong>
+                            <div class="text-muted small ps-2">↳ Xuất hiện tại: ${v.locations.join(' | ')}</div>
+                        </li>
+                    `).join('');
+            
+                    return `
+                        <div class="bg-white border border-warning rounded p-2 mb-2 shadow-sm">
+                            <div class="fw-bold text-danger small mb-1">#${idx + 1}. Trùng họ tên sinh viên nhưng khác Mã SV:</div>
+                            <ul class="mb-0 ps-3 small">${variantsHTML}</ul>
+                        </div>
+                    `;
+                }).join('');
+            
+                const confirmSVSection = `
+                    <div class="alert alert-warning py-2 small mb-2">
+                        <strong>⚠️ PHÁT HIỆN SINH VIÊN TRÙNG TÊN NHƯNG KHÁC MÃ SV:</strong><br>
+                        Vui lòng đối chiếu giữa file SV và file Hội đồng xem đây là <strong>2 sinh viên khác nhau trùng tên</strong> hay <strong>nhập sai Mã SV</strong>. Bấm <em>"Xác nhận file đã đúng, tiếp tục nạp"</em> để tiếp tục, hoặc bấm <em>"Hủy"</em> để sửa lại file Excel.
+                    </div>
+                    ${dupSVItemsHTML}
+                `;
+            
+                const userConfirmedSV = await showExcelReviewModal({
+                    title: '⚠️ XÁC NHẬN RÀ SOÁT MÃ SINH VIÊN TRÙNG TÊN',
+                    requireConfirm: true,
+                    htmlSections: [confirmSVSection]
+                });
+            
+                if (!userConfirmedSV) return;
             }
 
             const reportSections = [
