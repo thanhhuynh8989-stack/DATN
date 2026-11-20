@@ -4,7 +4,11 @@ import { templates } from './templates.js';
 
 const GAS_URL_STORAGE_KEY = 'datn_gas_webapp_url';
 const LAST_SESSION_META_KEY = 'datn_last_cloud_session';
-const DEFAULT_GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxWmG5jDte-EkGQdvchrD1wQjw_8jRdC3XoOT2ly9K_30op7El4GAsZ87GWDr7CUiLS/exec'; // Dán URL Web App GAS của bạn vào đây nếu muốn dùng chung mặc định
+const DEFAULT_GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxWmG5jDte-EkGQdvchrD1wQjw_8jRdC3XoOT2ly9K_30op7El4GAsZ87GWDr7CUiLS/exec';
+
+// Cờ nội bộ để tạm tắt AutoSave khi đang khôi phục DOM từ payload Cloud
+let isRestoringSessionDOM = false;
+let cancelPendingAutoSaveFn = null;
 
 // Trạng thái phiên làm việc hiện tại trên Client
 export const sessionState = {
@@ -37,6 +41,24 @@ export function saveSessionMeta(meta) {
     localStorage.setItem(LAST_SESSION_META_KEY, JSON.stringify(meta));
 }
 
+export function clearCloudAutoSaveTimer() {
+    if (typeof cancelPendingAutoSaveFn === 'function') {
+        cancelPendingAutoSaveFn();
+    }
+}
+
+export function disconnectCloudSession() {
+    clearCloudAutoSaveTimer();
+    sessionState.isCloudConnected = false;
+    sessionState.sessionId = '';
+    sessionState.pin = '';
+    sessionState.otp = '';
+    sessionState.canEditHD = true;
+    sessionState.isHDLocked = false;
+    sessionState.lastSyncedScores = {};
+    applySessionPermissionsToUI();
+}
+
 function clonePlainScores(scoresObj) {
     const clean = {};
     Object.keys(scoresObj || {}).forEach(maSV => {
@@ -52,20 +74,19 @@ function clonePlainScores(scoresObj) {
     return clean;
 }
 
-// Áp dụng điểm từ Cloud lên cả window.studentScores lẫn thuộc tính data-* trên thẻ SV
+// Áp dụng điểm từ Cloud lên cả window.studentScores lẫn toàn bộ thẻ SV khớp mã trên DOM
 export function applyScoresToUI(scoresObj) {
     window.studentScores = scoresObj || {};
     sessionState.lastSyncedScores = clonePlainScores(window.studentScores);
 
     Object.keys(window.studentScores).forEach(maSV => {
         const sc = window.studentScores[maSV] || {};
-        const svCard = document.querySelector(`.dropzone-sv .card-item[data-id="${maSV}"]`);
-        if (svCard) {
+        document.querySelectorAll(`.dropzone-sv .card-item[data-id="${maSV}"]`).forEach(svCard => {
             svCard.setAttribute('data-diem-gvhd', sc.gvhd ?? '');
             svCard.setAttribute('data-diem-ct', sc.ct ?? '');
             svCard.setAttribute('data-diem-pb', sc.pb ?? '');
             svCard.setAttribute('data-diem-tk', sc.tk ?? '');
-        }
+        });
     });
 }
 
@@ -116,7 +137,6 @@ export function applySessionPermissionsToUI() {
         btn.classList.toggle('d-none', !hdEditable);
     });
 
-    // Bật lại con trỏ & khởi tạo lại SortableJS nếu được phép sửa Hội đồng
     document.querySelectorAll('#pool-sv, #pool-gv, .dropzone-sv, .dropzone-gv').forEach(zone => {
         zone.style.pointerEvents = hdEditable ? 'auto' : 'none';
         zone.style.opacity = hdEditable ? '1' : '0.88';
@@ -125,8 +145,7 @@ export function applySessionPermissionsToUI() {
         initGlobalSortables();
     }
 
-    // 2. Nhóm tác vụ Nhập điểm & Xuất file:
-    // Mở cho Chủ phiên (canEditHD) HOẶC mở cho tất cả Thư ký khi Hội đồng đã chốt khóa (isHDLocked)
+    // 2. Nhóm tác vụ Nhập điểm & Xuất file
     const allowScoringAndExport = !sessionState.isCloudConnected
         ? true
         : (sessionState.canEditHD || sessionState.isHDLocked);
@@ -154,6 +173,7 @@ export function applySessionPermissionsToUI() {
     if (banner) {
         if (!sessionState.isCloudConnected) {
             banner.classList.add('d-none');
+            banner.innerHTML = '';
         } else {
             banner.classList.remove('d-none');
             const roleText = sessionState.canEditHD
@@ -269,105 +289,59 @@ export function serializeCurrentSession() {
 export function restoreSessionFromPayload(payload) {
     if (!payload) return;
 
-    const s = payload.setup || {};
-    const khoaSel = document.getElementById('khoa-select');
-    const nganhSel = document.getElementById('nganh-select');
+    clearCloudAutoSaveTimer();
+    isRestoringSessionDOM = true;
 
-    if (khoaSel && s.khoa) {
-        // Nếu option Khoa chưa có trong select thì tự bổ sung để không bị mất giá trị
-        if (!Array.from(khoaSel.options).some(opt => opt.value === s.khoa)) {
-            khoaSel.insertAdjacentHTML('beforeend', `<option value="${s.khoa}">${s.khoa}</option>`);
+    try {
+        const s = payload.setup || {};
+        const khoaSel = document.getElementById('khoa-select');
+        const nganhSel = document.getElementById('nganh-select');
+
+        if (khoaSel && s.khoa) {
+            if (!Array.from(khoaSel.options).some(opt => opt.value === s.khoa)) {
+                khoaSel.insertAdjacentHTML('beforeend', `<option value="${s.khoa}">${s.khoa}</option>`);
+            }
+            khoaSel.value = s.khoa;
+            khoaSel.dispatchEvent(new Event('change'));
         }
-        khoaSel.value = s.khoa;
-        khoaSel.dispatchEvent(new Event('change'));
-    }
 
-    if (nganhSel && s.nganh) {
-        if (!Array.from(nganhSel.options).some(opt => opt.value === s.nganh)) {
-            nganhSel.insertAdjacentHTML('beforeend', `<option value="${s.nganh}">${s.nganh}</option>`);
+        if (nganhSel && s.nganh) {
+            const matchedOpt = Array.from(nganhSel.options).find(
+                opt => opt.value === s.nganh || opt.textContent.toLowerCase().includes(s.nganh.toLowerCase())
+            );
+            if (matchedOpt) {
+                nganhSel.value = matchedOpt.value;
+            } else {
+                nganhSel.insertAdjacentHTML('beforeend', `<option value="${s.nganh}">${s.nganh}</option>`);
+                nganhSel.value = s.nganh;
+            }
         }
-        nganhSel.value = s.nganh;
-    }
 
-    const dotEl = document.getElementById('dot-thang');
-    if (dotEl) dotEl.value = s.dotThang ?? '';
+        const dotEl = document.getElementById('dot-thang');
+        if (dotEl) dotEl.value = s.dotThang ?? '';
 
-    const namEl = document.getElementById('nam-cham');
-    if (namEl) namEl.value = s.namCham ?? '';
+        const namEl = document.getElementById('nam-cham');
+        if (namEl) namEl.value = s.namCham ?? '';
 
-    const soQdEl = document.getElementById('so-qd');
-    if (soQdEl) soQdEl.value = s.soQD ?? '';
+        const soQdEl = document.getElementById('so-qd');
+        if (soQdEl) soQdEl.value = s.soQD ?? '';
 
-    const ngayKyEl = document.getElementById('ngay-ky-qd');
-    if (ngayKyEl) {
-        let dateVal = String(s.ngayKyQD ?? '').trim();
-        if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateVal)) {
-            const [d, m, y] = dateVal.split('/');
-            dateVal = `${y}-${m}-${d}`;
+        const ngayKyEl = document.getElementById('ngay-ky-qd');
+        if (ngayKyEl) {
+            let dateVal = String(s.ngayKyQD ?? '').trim();
+            if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateVal)) {
+                const [d, m, y] = dateVal.split('/');
+                dateVal = `${y}-${m}-${d}`;
+            }
+            ngayKyEl.value = dateVal;
         }
-        ngayKyEl.value = dateVal;
-    }
 
-    const poolSVEl = document.getElementById('pool-sv');
-    if (poolSVEl) {
-        poolSVEl.innerHTML = '';
-        (payload.poolSV || []).forEach(sv => {
-            const maGVDisplay = sv.maGVHD ? ` [${sv.maGVHD}]` : '';
-            poolSVEl.insertAdjacentHTML('beforeend', `
-                <div class="card-item position-relative mb-2 p-2 pe-4 border rounded bg-white shadow-sm" 
-                     data-id="${sv.maSV}" data-name="${sv.hoTen}" data-lop="${sv.lop}" data-detai="${sv.deTai}" 
-                     data-magvhd="${sv.maGVHD || ''}" data-gvhd="${sv.gvhd || ''}" data-nganh="${sv.nganh || ''}">
-                    <button type="button" class="btn btn-sm btn-link text-danger text-decoration-none fw-bold position-absolute top-0 end-0 px-2 py-1 btn-remove-card">✕</button>
-                    <div class="fw-bold text-primary">${sv.hoTen} (${sv.maSV})</div>
-                    <div class="text-muted small">Lớp: ${sv.lop} | GVHD: <span class="fw-bold text-dark">${sv.gvhd || 'Chưa rõ'}${maGVDisplay}</span></div>
-                    <div class="text-dark small text-truncate" title="${sv.deTai}">Đề tài: ${sv.deTai}</div>
-                </div>`);
-        });
-    }
-
-    const poolGVEl = document.getElementById('pool-gv');
-    if (poolGVEl) {
-        poolGVEl.innerHTML = '';
-        (payload.poolGV || []).forEach(gv => {
-            poolGVEl.insertAdjacentHTML('beforeend', `
-                <div class="card-item position-relative mb-2 p-2 pe-4 border rounded bg-white shadow-sm" 
-                     data-id="${gv.maGV}" data-name="${gv.hoTenGV}" data-donvi="${gv.donVi || ''}">
-                    <button type="button" class="btn btn-sm btn-link text-danger text-decoration-none fw-bold position-absolute top-0 end-0 px-2 py-1 btn-remove-card">✕</button>
-                    <div class="fw-bold text-dark small">${gv.hoTenGV}</div>
-                    <div class="text-muted text-truncate" style="font-size: 0.75rem;">${gv.donVi || 'Đại học Duy Tân'} - Mã: ${gv.maGV}</div>
-                </div>`);
-        });
-    }
-
-    const workspace = document.getElementById('workspace-hd');
-    if (workspace) {
-        workspace.innerHTML = '';
-        (payload.hoidongs || []).forEach(hd => {
-            const boxId = createHoiDongBox(hd.title, hd.date, hd.time, hd.room, hd.location);
-            const boxEl = document.getElementById(boxId);
-            if (!boxEl) return;
-
-            const renderMember = (role, gv) => {
-                if (!gv) return;
-                const zone = boxEl.querySelector(`.dropzone-gv[data-role="${role}"]`);
-                if (zone) {
-                    zone.innerHTML = `
-                        <div class="card-item position-relative bg-light border-info p-1 pe-4 rounded shadow-sm" 
-                             data-id="${gv.maGV}" data-name="${gv.hoTenGV}" data-donvi="${gv.donVi || 'Đại học Duy Tân'}">
-                            <button type="button" class="btn btn-sm btn-link text-danger text-decoration-none fw-bold position-absolute top-0 end-0 px-2 py-1 btn-remove-card">✕</button>
-                            <div class="fw-bold text-dark small">${gv.hoTenGV}</div>
-                            <div class="text-muted text-truncate" style="font-size: 0.75rem;">${gv.donVi || 'Đại học Duy Tân'} - Mã: ${gv.maGV}</div>
-                        </div>`;
-                }
-            };
-            renderMember('Chủ tịch', hd.chuTich);
-            renderMember('Phản biện', hd.phanBien);
-            renderMember('Thư ký', hd.thuKy);
-
-            const svZone = boxEl.querySelector('.dropzone-sv');
-            (hd.sinhViens || []).forEach(sv => {
+        const poolSVEl = document.getElementById('pool-sv');
+        if (poolSVEl) {
+            poolSVEl.innerHTML = '';
+            (payload.poolSV || []).forEach(sv => {
                 const maGVDisplay = sv.maGVHD ? ` [${sv.maGVHD}]` : '';
-                svZone?.insertAdjacentHTML('beforeend', `
+                poolSVEl.insertAdjacentHTML('beforeend', `
                     <div class="card-item position-relative mb-2 p-2 pe-4 border rounded bg-white shadow-sm" 
                          data-id="${sv.maSV}" data-name="${sv.hoTen}" data-lop="${sv.lop}" data-detai="${sv.deTai}" 
                          data-magvhd="${sv.maGVHD || ''}" data-gvhd="${sv.gvhd || ''}" data-nganh="${sv.nganh || ''}">
@@ -377,33 +351,104 @@ export function restoreSessionFromPayload(payload) {
                         <div class="text-dark small text-truncate" title="${sv.deTai}">Đề tài: ${sv.deTai}</div>
                     </div>`);
             });
-        });
-    }
+        }
 
-    if (payload.customTemplates) {
-        ['phieuGVHD', 'phieuGVPB', 'phieuHD'].forEach(k => {
-            if (payload.customTemplates[k]) {
-                templates[k] = base64ToArrayBuffer(payload.customTemplates[k]);
-                if (templates.modifiedFlags) templates.modifiedFlags[k] = true;
-            }
-        });
-    }
+        const poolGVEl = document.getElementById('pool-gv');
+        if (poolGVEl) {
+            poolGVEl.innerHTML = '';
+            (payload.poolGV || []).forEach(gv => {
+                poolGVEl.insertAdjacentHTML('beforeend', `
+                    <div class="card-item position-relative mb-2 p-2 pe-4 border rounded bg-white shadow-sm" 
+                         data-id="${gv.maGV}" data-name="${gv.hoTenGV}" data-donvi="${gv.donVi || ''}">
+                        <button type="button" class="btn btn-sm btn-link text-danger text-decoration-none fw-bold position-absolute top-0 end-0 px-2 py-1 btn-remove-card">✕</button>
+                        <div class="fw-bold text-dark small">${gv.hoTenGV}</div>
+                        <div class="text-muted text-truncate" style="font-size: 0.75rem;">${gv.donVi || 'Đại học Duy Tân'} - Mã: ${gv.maGV}</div>
+                    </div>`);
+            });
+        }
 
-    applyScoresToUI(payload.studentScores || {});
-    applySessionPermissionsToUI();
+        const workspace = document.getElementById('workspace-hd');
+        if (workspace) {
+            workspace.innerHTML = '';
+            (payload.hoidongs || []).forEach(hd => {
+                const boxId = createHoiDongBox(hd.title, hd.date, hd.time, hd.room, hd.location);
+                const boxEl = document.getElementById(boxId);
+                if (!boxEl) return;
+
+                const renderMember = (role, gv) => {
+                    if (!gv) return;
+                    const zone = boxEl.querySelector(`.dropzone-gv[data-role="${role}"]`);
+                    if (zone) {
+                        zone.innerHTML = `
+                            <div class="card-item position-relative bg-light border-info p-1 pe-4 rounded shadow-sm" 
+                                 data-id="${gv.maGV}" data-name="${gv.hoTenGV}" data-donvi="${gv.donVi || 'Đại học Duy Tân'}">
+                                <button type="button" class="btn btn-sm btn-link text-danger text-decoration-none fw-bold position-absolute top-0 end-0 px-2 py-1 btn-remove-card">✕</button>
+                                <div class="fw-bold text-dark small">${gv.hoTenGV}</div>
+                                <div class="text-muted text-truncate" style="font-size: 0.75rem;">${gv.donVi || 'Đại học Duy Tân'} - Mã: ${gv.maGV}</div>
+                            </div>`;
+                    }
+                };
+                renderMember('Chủ tịch', hd.chuTich);
+                renderMember('Phản biện', hd.phanBien);
+                renderMember('Thư ký', hd.thuKy);
+
+                const svZone = boxEl.querySelector('.dropzone-sv');
+                (hd.sinhViens || []).forEach(sv => {
+                    const maGVDisplay = sv.maGVHD ? ` [${sv.maGVHD}]` : '';
+                    svZone?.insertAdjacentHTML('beforeend', `
+                        <div class="card-item position-relative mb-2 p-2 pe-4 border rounded bg-white shadow-sm" 
+                             data-id="${sv.maSV}" data-name="${sv.hoTen}" data-lop="${sv.lop}" data-detai="${sv.deTai}" 
+                             data-magvhd="${sv.maGVHD || ''}" data-gvhd="${sv.gvhd || ''}" data-nganh="${sv.nganh || ''}">
+                            <button type="button" class="btn btn-sm btn-link text-danger text-decoration-none fw-bold position-absolute top-0 end-0 px-2 py-1 btn-remove-card">✕</button>
+                            <div class="fw-bold text-primary">${sv.hoTen} (${sv.maSV})</div>
+                            <div class="text-muted small">Lớp: ${sv.lop} | GVHD: <span class="fw-bold text-dark">${sv.gvhd || 'Chưa rõ'}${maGVDisplay}</span></div>
+                            <div class="text-dark small text-truncate" title="${sv.deTai}">Đề tài: ${sv.deTai}</div>
+                        </div>`);
+                });
+            });
+        }
+
+        if (payload.customTemplates) {
+            ['phieuGVHD', 'phieuGVPB', 'phieuHD'].forEach(k => {
+                if (payload.customTemplates[k]) {
+                    templates[k] = base64ToArrayBuffer(payload.customTemplates[k]);
+                    if (templates.modifiedFlags) templates.modifiedFlags[k] = true;
+                }
+            });
+        }
+
+        applyScoresToUI(payload.studentScores || {});
+        applySessionPermissionsToUI();
+    } finally {
+        // Nhả cờ sau khi MutationObserver đã qua lượt microtask hiện tại
+        setTimeout(() => {
+            isRestoringSessionDOM = false;
+        }, 0);
+    }
 }
 
-// --- CÁC HÀM GỌI API GOOGLE APPS SCRIPT ---
+// --- CÁC HÀM GỌI API GOOGLE APPS SCRIPT (KIỂM TRA HTTP & JSON AN TOÀN) ---
 async function callGasApi(gasUrl, bodyObj) {
     const res = await fetch(gasUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(bodyObj)
     });
-    return await res.json();
+
+    if (!res.ok) {
+        throw new Error(`Máy chủ GAS phản hồi mã lỗi HTTP ${res.status}`);
+    }
+
+    const rawText = await res.text();
+    try {
+        return JSON.parse(rawText);
+    } catch {
+        throw new Error('Phản hồi từ Google Apps Script không đúng định dạng JSON (kiểm tra lại URL Web App hoặc quyền truy cập Everyone).');
+    }
 }
 
 export async function createCloudSession(gasUrl, sessionId, pin, email) {
+    clearCloudAutoSaveTimer();
     const { summary, payload } = serializeCurrentSession();
     return await callGasApi(gasUrl, {
         action: 'create_session',
@@ -416,6 +461,7 @@ export async function createCloudSession(gasUrl, sessionId, pin, email) {
 }
 
 export async function loadCloudSession(gasUrl, sessionId, pin, otp = '') {
+    clearCloudAutoSaveTimer();
     return await callGasApi(gasUrl, {
         action: 'load',
         sessionId,
@@ -454,8 +500,8 @@ export async function pullLatestScoresFromCloud() {
         sessionId: sessionState.sessionId,
         pin: sessionState.pin
     });
-    if (res.ok) {
-        applyScoresToUI(res.studentScores || {});
+    if (res.ok && res.studentScores && typeof res.studentScores === 'object') {
+        applyScoresToUI(res.studentScores);
     }
     return res;
 }
@@ -474,18 +520,25 @@ export async function pushDeltaScoresToCloud() {
         pin: sessionState.pin,
         deltaScores: delta
     });
-    if (res.ok) {
-        applyScoresToUI(res.studentScores || {});
+    if (res.ok && res.studentScores && typeof res.studentScores === 'object') {
+        applyScoresToUI(res.studentScores);
     }
     return res;
 }
 
-// Tự động lưu vùng Hội đồng sau mỗi thao tác (debounce 2.5s) & Tự động lưu + Khóa HĐ khi tắt trình duyệt
+// Tự động lưu vùng Hội đồng sau mỗi thao tác (debounce 2.5s) & Tự động lưu + Khóa HĐ khi đóng trang thực sự
 export function setupAutoSaveAndLockOnClose(onStatusChange) {
     let autoSaveTimer = null;
     let isSavingInFlight = false;
     let hasPendingAfterSave = false;
     let isClosingSession = false;
+    let lockedDueToPageHide = false;
+
+    cancelPendingAutoSaveFn = () => {
+        clearTimeout(autoSaveTimer);
+        autoSaveTimer = null;
+        hasPendingAfterSave = false;
+    };
 
     const setupFieldIds = ['khoa-select', 'nganh-select', 'dot-thang', 'nam-cham', 'so-qd', 'ngay-ky-qd'];
 
@@ -501,7 +554,7 @@ export function setupAutoSaveAndLockOnClose(onStatusChange) {
     };
 
     const runSaveCycle = async () => {
-        if (isClosingSession) return;
+        if (isClosingSession || isRestoringSessionDOM) return;
         if (!sessionState.isCloudConnected || !sessionState.canEditHD || sessionState.isHDLocked) return;
 
         if (isSavingInFlight) {
@@ -526,9 +579,9 @@ export function setupAutoSaveAndLockOnClose(onStatusChange) {
                         : `⚠️ ${res.message}`
                 );
             }
-        } catch {
+        } catch (err) {
             if (!isClosingSession && typeof onStatusChange === 'function') {
-                onStatusChange('⚠️ Mất kết nối khi tự động lưu');
+                onStatusChange(`⚠️ Lỗi tự động lưu: ${err.message}`);
             }
         } finally {
             isSavingInFlight = false;
@@ -540,7 +593,7 @@ export function setupAutoSaveAndLockOnClose(onStatusChange) {
     };
 
     const triggerAutoSaveHD = () => {
-        if (isClosingSession) return;
+        if (isClosingSession || isRestoringSessionDOM) return;
         if (!sessionState.isCloudConnected || !sessionState.canEditHD || sessionState.isHDLocked) return;
 
         clearTimeout(autoSaveTimer);
@@ -553,12 +606,11 @@ export function setupAutoSaveAndLockOnClose(onStatusChange) {
         }, 2500);
     };
 
-    // Cho phép gọi trực tiếp từ bên ngoài (ví dụ sau khi nạp Excel xong)
     window.triggerCloudSessionAutoSave = triggerAutoSaveHD;
 
     // 1. Theo dõi thêm/bớt/kéo-thả thẻ trong Khu vực Hội đồng, Kho SV và Kho GV
     const observer = new MutationObserver((mutations) => {
-        if (isClosingSession) return;
+        if (isClosingSession || isRestoringSessionDOM) return;
         const hasMeaningfulChange = mutations.some(m => m.addedNodes.length > 0 || m.removedNodes.length > 0);
         if (hasMeaningfulChange) {
             triggerAutoSaveHD();
@@ -579,17 +631,16 @@ export function setupAutoSaveAndLockOnClose(onStatusChange) {
         if (isTrackedTarget(e.target)) triggerAutoSaveHD();
     });
 
-    // 3. Khi tắt tab / đóng trình duyệt: Hủy timer chờ, lưu bản mới nhất & KHÓA quyền sửa HĐ
-    let hasSentCloseLock = false;
+    // 3. Khi tắt tab / đóng trình duyệt: Lưu bản mới nhất & khóa chỉnh sửa HĐ
     const lockSessionOnClose = () => {
-        if (hasSentCloseLock) return;
+        if (isClosingSession) return;
         if (!sessionState.isCloudConnected || !sessionState.canEditHD || sessionState.isHDLocked) return;
 
         const gasUrl = getGasWebAppUrl();
         if (!gasUrl) return;
 
-        hasSentCloseLock = true;
         isClosingSession = true;
+        lockedDueToPageHide = true;
         clearTimeout(autoSaveTimer);
         sessionState.isHDLocked = true;
 
@@ -618,5 +669,15 @@ export function setupAutoSaveAndLockOnClose(onStatusChange) {
         }
     };
 
+    // Nếu trình duyệt chỉ tạm ẩn trang (bfcache / mobile chuyển app) rồi quay lại thì cập nhật lại UI
+    const handlePageShow = () => {
+        if (lockedDueToPageHide) {
+            isClosingSession = false;
+            lockedDueToPageHide = false;
+            applySessionPermissionsToUI();
+        }
+    };
+
     window.addEventListener('pagehide', lockSessionOnClose);
+    window.addEventListener('pageshow', handlePageShow);
 }
