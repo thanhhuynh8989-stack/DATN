@@ -606,6 +606,136 @@ function bindScoreAndExportEvents() {
             alert("Có lỗi xuất Danh sách Phản biện: " + err.message);
         }
     });
+
+    // Mở Modal thống kê Vai trò Giảng viên
+    let cachedLecturerStats = [];
+
+    const renderLecturerStatsTable = (keyword = '') => {
+        const tbody = document.getElementById('tbody-thong-ke-gv');
+        const tfoot = document.getElementById('tfoot-thong-ke-gv');
+        const summaryEl = document.getElementById('summary-thong-ke-gv');
+        if (!tbody || !tfoot) return;
+
+        const q = keyword.trim().toLowerCase();
+        const filtered = cachedLecturerStats.filter(item =>
+            !q ||
+            item.maGV.toLowerCase().includes(q) ||
+            item.hoTen.toLowerCase().includes(q) ||
+            item.donVi.toLowerCase().includes(q)
+        );
+
+        let sumHD = 0, sumCT = 0, sumPB = 0, sumTK = 0, sumAll = 0;
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="9" class="text-muted py-3">Không có dữ liệu giảng viên phù hợp.</td></tr>`;
+            tfoot.innerHTML = '';
+        } else {
+            tbody.innerHTML = filtered.map((item, idx) => {
+                sumHD += item.huongDan;
+                sumCT += item.chuTich;
+                sumPB += item.phanBien;
+                sumTK += item.thuKy;
+                sumAll += item.tongLuot;
+
+                return `
+                    <tr>
+                        <td>${idx + 1}</td>
+                        <td class="font-monospace">${item.maGV || '<span class="text-muted">—</span>'}</td>
+                        <td class="text-start fw-bold">${item.hoTen}</td>
+                        <td class="text-start small text-muted">${item.donVi || 'Đại học Duy Tân'}</td>
+                        <td>${item.huongDan || 0}</td>
+                        <td>${item.chuTich || 0}</td>
+                        <td>${item.phanBien || 0}</td>
+                        <td>${item.thuKy || 0}</td>
+                        <td class="fw-bold text-primary">${item.tongLuot}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            tfoot.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-end">TỔNG CỘNG (${filtered.length} giảng viên):</td>
+                    <td>${sumHD}</td>
+                    <td>${sumCT}</td>
+                    <td>${sumPB}</td>
+                    <td>${sumTK}</td>
+                    <td class="text-primary">${sumAll}</td>
+                </tr>
+            `;
+        }
+
+        if (summaryEl) {
+            summaryEl.textContent = `Tổng số: ${cachedLecturerStats.length} giảng viên`;
+        }
+    };
+
+    document.getElementById('btn-thong-ke-gv')?.addEventListener('click', () => {
+        cachedLecturerStats = buildLecturerRoleStats();
+        if (cachedLecturerStats.length === 0) {
+            return alert("Chưa có dữ liệu Giảng viên hoặc Sinh viên để thống kê!");
+        }
+        const searchInput = document.getElementById('search-thong-ke-gv');
+        if (searchInput) searchInput.value = '';
+        renderLecturerStatsTable('');
+
+        const modalEl = document.getElementById('modalThongKeGV');
+        if (modalEl && window.bootstrap) {
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        }
+    });
+
+    document.getElementById('search-thong-ke-gv')?.addEventListener('input', (e) => {
+        renderLecturerStatsTable(e.target.value);
+    });
+
+    document.getElementById('btn-export-thong-ke-gv')?.addEventListener('click', () => {
+        if (cachedLecturerStats.length === 0) {
+            cachedLecturerStats = buildLecturerRoleStats();
+        }
+        if (cachedLecturerStats.length === 0) {
+            return alert("Không có dữ liệu để xuất Excel!");
+        }
+
+        const meta = getSetupMetadata();
+        const headerRows = [
+            ['BẢNG THỐNG KÊ DANH SÁCH GIẢNG VIÊN THEO VAI TRÒ HỘI ĐỒNG ĐATN'],
+            [`Khoa: ${meta.khoa || '...'} | Ngành: ${meta.nganh || '...'} | Đợt: ${meta.dotThang || '...'} - Năm: ${meta.namCham || '...'}`],
+            [],
+            ['STT', 'Mã GV', 'Họ và tên Giảng viên', 'Đơn vị công tác', 'Hướng dẫn (SV)', 'Chủ tịch (HĐ)', 'Phản biện (HĐ)', 'Thư ký (HĐ)', 'Tổng lượt']
+        ];
+
+        let tHD = 0, tCT = 0, tPB = 0, tTK = 0, tAll = 0;
+        const bodyRows = cachedLecturerStats.map((item, idx) => {
+            tHD += item.huongDan;
+            tCT += item.chuTich;
+            tPB += item.phanBien;
+            tTK += item.thuKy;
+            tAll += item.tongLuot;
+            return [
+                idx + 1,
+                item.maGV,
+                item.hoTen,
+                item.donVi || 'Đại học Duy Tân',
+                item.huongDan,
+                item.chuTich,
+                item.phanBien,
+                item.thuKy,
+                item.tongLuot
+            ];
+        });
+
+        bodyRows.push(['', '', 'TỔNG CỘNG', '', tHD, tCT, tPB, tTK, tAll]);
+
+        const ws = XLSX.utils.aoa_to_sheet([...headerRows, ...bodyRows]);
+        ws['!cols'] = [
+            { wch: 6 }, { wch: 15 }, { wch: 28 }, { wch: 25 },
+            { wch: 16 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 13 }
+        ];
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Thong_Ke_GV');
+        XLSX.writeFile(wb, `Thong_Ke_Vai_Tro_Giang_Vien_Dot_${meta.dotThang || 'DATN'}.xlsx`);
+    });
 }
 
 function bindTipsAndScoringTemplatesEvents() {
@@ -1251,6 +1381,93 @@ function collectExportData(meta, includeEmptyHD = false) {
     });
 
     return exportData;
+}
+
+function normalizeTeacherMatchKey(maGV, hoTen) {
+    const cleanId = String(maGV || '').trim().toUpperCase();
+    if (cleanId && !cleanId.startsWith('GV_')) {
+        return `ID:${cleanId}`;
+    }
+    const cleanName = String(hoTen || '').toLowerCase()
+        .replace(/gs\.?|pgs\.?|ts\.?|ths\.?|gvc\.?|gv\.?|ks\.?|cn\.?|bs\.?|prof\.?|dr\.?/g, ' ')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd')
+        .replace(/[^a-z0-9]/g, '');
+    return cleanName ? `NAME:${cleanName}` : '';
+}
+
+function buildLecturerRoleStats() {
+    const statsMap = new Map();
+
+    const ensureTeacher = ({ maGV = '', hoTen = '', donVi = '' }) => {
+        const key = normalizeTeacherMatchKey(maGV, hoTen);
+        if (!key) return null;
+
+        if (!statsMap.has(key)) {
+            const validId = String(maGV || '').trim();
+            statsMap.set(key, {
+                maGV: (validId && !validId.toUpperCase().startsWith('GV_')) ? validId : '',
+                hoTen: String(hoTen || '').trim(),
+                donVi: String(donVi || '').trim(),
+                huongDan: 0,
+                chuTich: 0,
+                phanBien: 0,
+                thuKy: 0
+            });
+        } else {
+            const item = statsMap.get(key);
+            const validId = String(maGV || '').trim();
+            if (!item.maGV && validId && !validId.toUpperCase().startsWith('GV_')) item.maGV = validId;
+            if ((!item.hoTen || String(hoTen || '').trim().length > item.hoTen.length) && hoTen) {
+                item.hoTen = String(hoTen).trim();
+            }
+            if (!item.donVi && donVi) item.donVi = String(donVi).trim();
+        }
+        return statsMap.get(key);
+    };
+
+    // 1. Nạp danh sách từ Kho Giảng viên (để không sót GV có 0 lượt)
+    document.querySelectorAll('#pool-gv .card-item').forEach(el => {
+        ensureTeacher({
+            maGV: el.getAttribute('data-id') || '',
+            hoTen: el.getAttribute('data-name') || '',
+            donVi: el.getAttribute('data-donvi') || ''
+        });
+    });
+
+    // 2. Đếm số lượt Hướng dẫn từ tất cả SV (cả trong Kho chờ lẫn đã xếp vào Hội đồng)
+    document.querySelectorAll('#pool-sv .card-item, .dropzone-sv .card-item').forEach(svEl => {
+        const maGVHD = svEl.getAttribute('data-magvhd') || '';
+        const gvhd = svEl.getAttribute('data-gvhd') || '';
+        const rec = ensureTeacher({ maGV: maGVHD, hoTen: gvhd });
+        if (rec) rec.huongDan += 1;
+    });
+
+    // 3. Đếm số lượt Chủ tịch, Phản biện, Thư ký theo từng Hội đồng đã lập
+    document.querySelectorAll('.box-hoidong').forEach(box => {
+        const roleMappings = [
+            { role: 'Chủ tịch', field: 'chuTich' },
+            { role: 'Phản biện', field: 'phanBien' },
+            { role: 'Thư ký', field: 'thuKy' }
+        ];
+
+        roleMappings.forEach(({ role, field }) => {
+            const gvEl = box.querySelector(`.dropzone-gv[data-role="${role}"] .card-item`);
+            if (!gvEl) return;
+            const rec = ensureTeacher({
+                maGV: gvEl.getAttribute('data-id') || '',
+                hoTen: gvEl.getAttribute('data-name') || '',
+                donVi: gvEl.getAttribute('data-donvi') || ''
+            });
+            if (rec) rec[field] += 1;
+        });
+    });
+
+    return Array.from(statsMap.values())
+        .map(item => ({
+            ...item,
+            tongLuot: item.huongDan + item.chuTich + item.phanBien + item.thuKy
+        }))
+        .sort((a, b) => b.tongLuot - a.tongLuot || a.hoTen.localeCompare(b.hoTen, 'vi'));
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
