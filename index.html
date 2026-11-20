@@ -178,10 +178,60 @@
                 <button type="button" id="btn-export-diem" class="btn btn-success btn-sm fw-bold text-truncate">
                     📊 (5) Xuất Bảng điểm
                 </button>
+
+                <button type="button" id="btn-thong-ke-gv" class="btn btn-outline-info btn-sm fw-bold">
+                    📊 Thống kê GV
+                </button>
             </div>
         </footer>
     </div>
 
+    <!-- Modal Thống kê Giảng viên theo vai trò -->
+    <div class="modal fade" id="modalThongKeGV" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white py-2">
+                    <h6 class="modal-title fw-bold mb-0">📊 THỐNG KÊ DANH SÁCH GIẢNG VIÊN THEO VAI TRÒ</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-2 align-items-center mb-2">
+                        <div class="col-md-6">
+                            <input type="text" id="search-thong-ke-gv" class="form-control form-control-sm"
+                                   placeholder="🔍 Tìm theo Mã GV, Họ tên giảng viên hoặc Đơn vị...">
+                        </div>
+                        <div class="col-md-6 text-md-end small text-muted" id="summary-thong-ke-gv"></div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover table-sm align-middle text-center mb-0">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th style="width: 50px;">STT</th>
+                                    <th style="width: 115px;">Mã GV</th>
+                                    <th class="text-start">Họ và tên Giảng viên</th>
+                                    <th class="text-start">Đơn vị công tác</th>
+                                    <th style="width: 95px;">Hướng dẫn<br><small class="fw-normal">(SV)</small></th>
+                                    <th style="width: 95px;">Chủ tịch<br><small class="fw-normal">(HĐ)</small></th>
+                                    <th style="width: 95px;">Phản biện<br><small class="fw-normal">(HĐ)</small></th>
+                                    <th style="width: 95px;">Thư ký<br><small class="fw-normal">(HĐ)</small></th>
+                                    <th style="width: 95px;">Tổng lượt</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-thong-ke-gv"></tbody>
+                            <tfoot id="tfoot-thong-ke-gv" class="table-secondary fw-bold"></tfoot>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" id="btn-export-thong-ke-gv" class="btn btn-success btn-sm fw-bold">
+                        📥 Xuất Excel Thống kê GV
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Đóng</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <!-- VÙNG CHỨA CÁC PARTIAL MODALS ĐƯỢC NẠP ĐỘNG -->
     <div id="partials-container"></div>
 
