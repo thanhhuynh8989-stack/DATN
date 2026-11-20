@@ -224,3 +224,88 @@ export function detectDuplicateTeacherNameDifferentId({ svList = [], gvList = []
 
     return conflicts;
 }
+
+// Chuẩn hóa tên SV: Bỏ dấu tiếng Việt -> Xóa toàn bộ khoảng trắng & ký tự đặc biệt -> Viết thường
+export function normalizeStudentKeyForDupCheck(rawName) {
+    if (!rawName) return '';
+    return String(rawName)
+        .toLowerCase()
+        .trim()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/[^a-z0-9]/g, '');
+}
+
+// Đối chiếu chéo giữa DS SV, DS HĐ và SV hiện có để tìm SV trùng tên chuẩn hóa nhưng khác Mã SV
+export function detectDuplicateStudentNameDifferentId({ svList = [], parsedHoidongs = {} }) {
+    // Map: normalizedName -> Map(maSV -> { displayNames: Set, locations: Array })
+    const nameMap = new Map();
+
+    const addRecord = (rawName, rawId, locationDesc) => {
+        const normName = normalizeStudentKeyForDupCheck(rawName);
+        const id = String(rawId || '').trim().toUpperCase();
+        if (!normName || !id) return;
+
+        if (!nameMap.has(normName)) {
+            nameMap.set(normName, new Map());
+        }
+        const idMap = nameMap.get(normName);
+        if (!idMap.has(id)) {
+            idMap.set(id, { displayNames: new Set(), locations: [] });
+        }
+        const entry = idMap.get(id);
+        entry.displayNames.add(String(rawName).trim());
+        if (!entry.locations.includes(locationDesc)) {
+            entry.locations.push(locationDesc);
+        }
+    };
+
+    // 1. Nguồn từ file Danh sách SV & Đồ án
+    svList.forEach(sv => {
+        if (sv.hoTen && sv.maSV) {
+            addRecord(sv.hoTen, sv.maSV, `File SV${sv.lop ? ` (Lớp ${sv.lop})` : ''}`);
+        }
+    });
+
+    // 2. Nguồn từ SV đã có sẵn trên giao diện (kho chờ hoặc hội đồng)
+    document.querySelectorAll('#pool-sv .card-item, .dropzone-sv .card-item').forEach(el => {
+        const svName = el.getAttribute('data-name') || '';
+        const svId = el.getAttribute('data-id') || '';
+        const svLop = el.getAttribute('data-lop') || '';
+        if (svName && svId) {
+            addRecord(svName, svId, `Kho/HĐ hiện tại${svLop ? ` (Lớp ${svLop})` : ''}`);
+        }
+    });
+
+    // 3. Nguồn từ file Danh sách Hội đồng upload
+    Object.keys(parsedHoidongs || {}).forEach(key => {
+        if (key.startsWith('__')) return;
+        const hd = parsedHoidongs[key];
+        if (!hd || typeof hd !== 'object') return;
+        const hdLabel = `HĐ ${hd.soHD}${hd.ngayBV ? ` (${hd.gioBV ? hd.gioBV + ' ' : ''}${hd.ngayBV})` : ''}`;
+        (hd.sinhViens || []).forEach(sv => {
+            if (sv.hoTenSV && sv.maSV) {
+                addRecord(sv.hoTenSV, sv.maSV, `File HĐ: ${hdLabel}${sv.lop ? ` - Lớp ${sv.lop}` : ''}`);
+            }
+        });
+    });
+
+    // Lọc các sinh viên có >= 2 Mã SV khác nhau cho cùng 1 tên chuẩn hóa
+    const conflicts = [];
+    nameMap.forEach((idMap, normName) => {
+        if (idMap.size > 1) {
+            const variants = [];
+            idMap.forEach((info, id) => {
+                variants.push({
+                    maSV: id,
+                    names: Array.from(info.displayNames).join(' / '),
+                    locations: info.locations
+                });
+            });
+            conflicts.push({ normName, variants });
+        }
+    });
+
+    return conflicts;
+}
