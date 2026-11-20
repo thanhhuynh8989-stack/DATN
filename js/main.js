@@ -1444,6 +1444,9 @@ function buildLecturerRoleStats() {
 
     // 3. Đếm số lượt Chủ tịch, Phản biện, Thư ký theo từng Hội đồng đã lập
     document.querySelectorAll('.box-hoidong').forEach(box => {
+        const hasStudentsInHD = box.querySelectorAll('.dropzone-sv .card-item').length > 0;
+        if (!hasStudentsInHD) return;
+
         const roleMappings = [
             { role: 'Chủ tịch', field: 'chuTich' },
             { role: 'Phản biện', field: 'phanBien' },
