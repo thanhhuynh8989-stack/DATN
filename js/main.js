@@ -405,6 +405,17 @@ function bindExcelAndHoiDongEvents() {
             }
 
             if (fileHD) {
+                const hdKeys = Object.keys(parsedHoidongs || {}).filter(k => !k.startsWith('__'));
+                console.log('[RENDER HĐ] Số hội đồng bóc tách được:', hdKeys.length, parsedHoidongs);
+
+                if (hdKeys.length === 0) {
+                    reportSections.push(`
+                        <div class="alert alert-warning py-2 small mb-2">
+                            ⚠️ File Hội đồng đã được đọc nhưng <strong>không bóc tách được Hội đồng nào</strong>. Vui lòng kiểm tra lại cấu trúc cột file Excel Hội đồng.
+                        </div>
+                    `);
+                }
+
                 const { mergeLogs, conflictLogs, duplicateSVLogs } = renderHoidongFromExcel(parsedHoidongs);
 
                 if (conflictLogs.length > 0) {
@@ -459,7 +470,6 @@ function bindExcelAndHoiDongEvents() {
         }
     });
 }
-
 // js/main.js (Phần 3/3)
 const normalizeSingleScore = (rawVal) => {
     const str = String(rawVal ?? '').trim().replace(',', '.');
