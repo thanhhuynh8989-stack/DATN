@@ -74,15 +74,24 @@ function showExcelReviewModal({ title, requireConfirm = false, htmlSections = []
     return new Promise((resolve) => {
         const modalEl = document.getElementById('modalExcelReviewReport');
         if (!modalEl || !window.bootstrap) {
+            if (requireConfirm) {
+                return resolve(confirm(htmlSections.map(s => s.replace(/<[^>]+>/g, ' ')).join('\n\n')));
+            }
             alert(htmlSections.map(s => s.replace(/<[^>]+>/g, ' ')).join('\n\n'));
             return resolve(true);
         }
 
         const titleEl = document.getElementById('review-modal-title');
         const bodyEl = document.getElementById('review-modal-body');
-        const btnCancel = document.getElementById('btn-review-cancel');
-        const btnConfirm = document.getElementById('btn-review-confirm');
+        const rawBtnCancel = document.getElementById('btn-review-cancel');
+        const rawBtnConfirm = document.getElementById('btn-review-confirm');
         const btnCloseX = document.getElementById('btn-review-close-x');
+
+        // Clone để loại bỏ mọi listener cũ bị lưu từ lần mở trước
+        const btnConfirm = rawBtnConfirm ? rawBtnConfirm.cloneNode(true) : null;
+        const btnCancel = rawBtnCancel ? rawBtnCancel.cloneNode(true) : null;
+        if (rawBtnConfirm && btnConfirm) rawBtnConfirm.replaceWith(btnConfirm);
+        if (rawBtnCancel && btnCancel) rawBtnCancel.replaceWith(btnCancel);
 
         if (titleEl) titleEl.textContent = title || '📋 KẾT QUẢ RÀ SOÁT & NẠP DỮ LIỆU EXCEL';
         if (bodyEl) {
@@ -106,8 +115,13 @@ function showExcelReviewModal({ title, requireConfirm = false, htmlSections = []
             }
         }
 
-        const modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
+        const modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl, {
+            backdrop: requireConfirm ? 'static' : true,
+            keyboard: !requireConfirm
+        });
+
         let settled = false;
+        let chosenValue = !requireConfirm;
 
         const finish = (result) => {
             if (settled) return;
@@ -115,13 +129,24 @@ function showExcelReviewModal({ title, requireConfirm = false, htmlSections = []
             btnConfirm?.removeEventListener('click', onConfirm);
             btnCancel?.removeEventListener('click', onCancel);
             modalEl.removeEventListener('hidden.bs.modal', onHidden);
-            modalInstance.hide();
             resolve(result);
         };
 
-        const onConfirm = () => finish(true);
-        const onCancel = () => finish(false);
-        const onHidden = () => finish(!requireConfirm);
+        const onConfirm = () => {
+            chosenValue = true;
+            modalInstance.hide();
+            finish(true);
+        };
+
+        const onCancel = () => {
+            chosenValue = false;
+            modalInstance.hide();
+            finish(false);
+        };
+
+        const onHidden = () => {
+            finish(chosenValue);
+        };
 
         btnConfirm?.addEventListener('click', onConfirm);
         btnCancel?.addEventListener('click', onCancel);
