@@ -135,8 +135,34 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
         ws.getCell(`L${currentRow+3}`).value = `ký ngày    ${ngayKyQDStr}`;
         ws.getCell(`L${currentRow+3}`).font = { name: 'Times New Roman', size: 11 };
 
-        const gioList = [...new Set(Object.values(sheetData.hoidongs).flatMap(h => h.students.map(s => s.gio)).filter(Boolean))];
-        const gioStr = gioList.length > 0 ? gioList.join(', ') : ((sheetData.gio || '').trim() || '......');
+       const parseMinutes = (rawTime) => {
+            const str = String(rawTime || '').trim();
+            if (!str) return null;
+            const startPart = str.split(/[-–]/)[0].trim();
+            const match = startPart.match(/(\d{1,2})\s*[:hH]\s*(\d{1,2})?/);
+            if (!match) return null;
+            const hh = parseInt(match[1], 10);
+            const mm = parseInt(match[2] || '0', 10);
+            if (isNaN(hh) || isNaN(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) return null;
+            return {
+                totalMins: hh * 60 + mm,
+                formatted: `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`
+            };
+        };
+
+        const rawTimes = [
+            ...Object.values(sheetData.hoidongs).flatMap(h => h.students.map(s => s.gio)),
+            sheetData.gio
+        ].filter(Boolean);
+
+        const parsedTimes = rawTimes
+            .map(parseMinutes)
+            .filter(Boolean)
+            .sort((a, b) => a.totalMins - b.totalMins);
+
+        const gioStr = parsedTimes.length > 0
+            ? parsedTimes[0].formatted
+            : ((rawTimes[0] || '').trim() || '......');
         const ngayStr = (sheetData.ngay || '').trim() || '................';
         const phongStr = (sheetData.phong || '').trim() || '......';
         const diaDiemStr = (sheetData.diaDiem || '').trim() || DOTS;
