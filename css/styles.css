@@ -7,6 +7,7 @@ html, body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     font-size: 0.88rem;
     background-color: #f8f9fa;
+    color: #212529;
 }
 
 /* KHUNG TỔNG CO GIÃN 100% ĐỘ RỘNG VÀ CHUYỂN ĐỔI THEO DVH */
@@ -37,9 +38,10 @@ html, body {
     flex-direction: column;
     height: 100%;
     min-height: 0;
-    border: 1px solid rgba(0,0,0,0.08);
+    border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: 8px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+    background-color: #ffffff;
 }
 
 .column-card > .card-header {
@@ -56,15 +58,16 @@ html, body {
     padding: 8px;
 }
 
-/* FOOTER CỐ ĐỊNH ÔM ĐÁY MÀN HÌNH */
+/* THANH TÁC VỤ CUỐI TRANG GỌN GÀNG */
 .footer-section {
     flex-shrink: 0;
-    padding: 8px;
-    background: #ffffff;
-    border-top: 1px solid #e0e0e0;
+    padding: 8px 10px;
+    background-color: #ffffff !important;
+    color: #212529 !important;
+    border: 1px solid #dee2e6;
     border-radius: 8px;
-    box-shadow: 0 -2px 10px rgba(0,0,0,0.06);
-    z-index: 1000;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
+    z-index: 100;
 }
 
 .footer-actions-grid {
@@ -75,12 +78,23 @@ html, body {
     gap: 8px;
 }
 
+.footer-actions-grid .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
 /* CARD KÉO THẢ */
 .card-item {
     cursor: grab;
     user-select: none;
-    transition: all 0.2s ease;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
     border-radius: 6px;
+}
+
+.card-item:active {
+    cursor: grabbing;
 }
 
 /* Nút xóa nhanh trên thẻ SV và GV ở 2 kho chờ */
@@ -93,7 +107,7 @@ html, body {
 
 .btn-remove-card:hover {
     opacity: 1;
-    transform: scale(1.15);
+    transform: scale(1.12);
 }
 
 /* Tự động ẩn nút xóa kho chờ khi thẻ đã được gán vào bên trong Hội đồng */
@@ -101,7 +115,7 @@ html, body {
     display: none !important;
 }
 
-/* Tối ưu & chống tràn màn hình cho các trường cài đặt */
+/* Chống tràn ngang cho các trường cài đặt */
 .setup-fields-row input,
 .setup-fields-row select,
 .setup-fields-row .input-group {
@@ -114,15 +128,17 @@ html, body {
     position: fixed;
     right: 16px;
     bottom: 64px;
-    width: 44px;
-    height: 44px;
+    width: 42px;
+    height: 42px;
     z-index: 1040;
-    border: 2px solid #fff;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    opacity: 0.9;
+    border: 2px solid #ffffff;
+    transition: transform 0.2s ease, opacity 0.2s ease;
 }
 
 #btn-app-tips:hover {
-    transform: scale(1.1);
+    opacity: 1;
+    transform: scale(1.08);
 }
 
 #tipsTab .nav-link {
@@ -132,13 +148,27 @@ html, body {
 
 #tipsTab .nav-link.active {
     background-color: #0d6efd;
-    color: #fff;
+    color: #ffffff;
 }
 
 /* Custom Scrollbar */
-::-webkit-scrollbar { width: 5px; height: 5px; }
-::-webkit-scrollbar-track { background: #f1f1f1; }
-::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f3f5;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #ced4da;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #adb5bd;
+}
 
 /* =========================================================
    TỐI ƯU BỐ CỤC GIAO DIỆN ĐIỆN THOẠI (MOBILE <= 767.98px)
@@ -148,29 +178,29 @@ html, body {
         height: auto;
         min-height: 100%;
         overflow-y: auto !important;
-        overflow-x: hidden;
+        overflow-x: hidden !important;
         -webkit-overflow-scrolling: touch;
         font-size: 13px;
-        padding-bottom: 16px !important;
+        padding-bottom: 12px !important;
     }
 
     .app-container {
         height: auto !important;
         min-height: 100dvh;
         padding: 6px 8px;
-        overflow: visible;
+        overflow-x: hidden !important;
+        overflow-y: visible;
     }
 
     .app-title {
-        font-size: 0.92rem !important;
+        font-size: 0.9rem !important;
         text-align: left !important;
         margin-bottom: 2px !important;
+        line-height: 1.25;
     }
 
     #btn-open-cloud-sync,
     #btn-open-admin {
-        opacity: 1 !important;
-        pointer-events: auto !important;
         font-size: 0.72rem !important;
         padding: 4px 7px !important;
     }
@@ -181,15 +211,10 @@ html, body {
         padding: 6px 8px !important;
     }
 
-    /* Giữ Đợt & Năm chia đôi 1 hàng, các ô khác tự co giãn theo col-* của Bootstrap */
+    /* Giữ Đợt & Năm chia đôi 1 hàng, các ô khác giữ độ rộng theo col-* Bootstrap */
     .setup-fields-row > [class*="col-"] {
-        width: auto !important;
-        flex: 0 0 auto !important;
-        max-width: none !important;
         margin-bottom: 0 !important;
     }
-    .setup-fields-row > .col-12 { width: 100% !important; flex: 0 0 100% !important; max-width: 100% !important; }
-    .setup-fields-row > .col-6  { width: 50% !important;  flex: 0 0 50% !important;  max-width: 50% !important; }
 
     .setup-fields-row .form-control-sm,
     .setup-fields-row .form-select-sm {
@@ -214,6 +239,7 @@ html, body {
     .mobile-col {
         display: none !important;
         width: 100% !important;
+        max-width: 100% !important;
     }
 
     .mobile-col.active {
@@ -221,24 +247,70 @@ html, body {
     }
 
     .column-card > .card-body {
-        max-height: 55vh;
+        max-height: 62vh;
+        overflow-x: hidden !important;
+    }
+
+    /* Chống tràn ngang toàn bộ khu vực Hội đồng & thẻ bên trong trên mobile */
+    #workspace-hd,
+    .box-hoidong,
+    .box-hoidong * {
+        max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
     }
 
     .box-hoidong {
+        overflow-x: hidden !important;
         padding: 8px !important;
     }
 
+    /* Gom các trường Hội đồng (Số HĐ, Ngày, Giờ, Phòng, Cơ sở) thành lưới 2 cột gọn gàng */
     .box-hoidong .hd-meta-row,
     .box-hoidong .row {
         display: grid !important;
-        grid-template-columns: 1fr 1fr !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
         gap: 6px !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+    }
+
+    .box-hoidong .row > [class*="col-"] {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
     }
 
     .box-hoidong input,
     .box-hoidong select {
         font-size: 0.8rem !important;
         width: 100% !important;
+    }
+
+    /* Tách khối Thành viên Hội đồng và Sinh viên bảo vệ xếp dọc trên mobile để chữ không bị bóp */
+    .box-hoidong .d-flex.gap-2,
+    .box-hoidong .d-flex.gap-3,
+    .box-hoidong > .row:last-child {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 8px !important;
+    }
+
+    .box-hoidong .dropzone-gv,
+    .box-hoidong .dropzone-sv,
+    .box-hoidong .dropzone-gv .card-item,
+    .box-hoidong .dropzone-sv .card-item {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: hidden;
+    }
+
+    .box-hoidong .dropzone-sv .card-item .text-truncate {
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+        word-break: break-word;
     }
 
     /* Footer không đè nội dung, xếp lưới 2 cột gọn gàng */
@@ -272,8 +344,9 @@ html, body {
 
     #btn-app-tips {
         right: 12px;
-        bottom: 24px;
+        bottom: 18px;
         width: 38px;
         height: 38px;
+        opacity: 0.78;
     }
 }
