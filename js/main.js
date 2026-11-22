@@ -562,7 +562,33 @@ function bindExcelAndHoiDongEvents() {
         createHoiDongBox();
     });
 
-    document.addEventListener('click', (e) => {
+        document.addEventListener('click', (e) => {
+        // 1. Nút ✕ trả Sinh viên từ Hội đồng về lại Kho chờ (#pool-sv)
+        const btnReturnSV = e.target.closest('.btn-remove-sv-from-hd');
+        if (btnReturnSV) {
+            e.stopPropagation();
+
+            // Chặn thao tác nếu đang ở phiên Cloud nhưng bị khóa cấu trúc hoặc đăng nhập quyền Thư ký
+            if (window.cloudSession?.active && !window.cloudSession?.canEditStructure) {
+                alert('⚠️ Phiên Cloud đang khóa cấu trúc Hội đồng hoặc bạn đang đăng nhập quyền Thư ký nên không thể đưa SV khỏi Hội đồng!');
+                return;
+            }
+
+            const svCard = btnReturnSV.closest('.card-item');
+            const poolSV = document.getElementById('pool-sv');
+            if (!svCard || !poolSV) return;
+
+            // Chuyển nút ✕ từ trạng thái "trả về kho" sang trạng thái "xóa khỏi kho"
+            btnReturnSV.classList.remove('btn-remove-sv-from-hd');
+            btnReturnSV.classList.add('btn-remove-card');
+            btnReturnSV.setAttribute('title', 'Xóa sinh viên này');
+
+            // Đưa thẻ SV lên đầu Kho Sinh viên chờ phân công
+            poolSV.prepend(svCard);
+            return;
+        }
+
+        // 2. Nút ✕ xóa thẻ GV hoặc xóa thẻ SV ngoài Kho chờ
         const btnRemove = e.target.closest('.btn-remove-card');
         if (btnRemove) {
             e.stopPropagation();
