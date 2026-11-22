@@ -423,13 +423,30 @@ export function parseHoiDongRows(rows) {
             lastRawNum = colA;
         }
 
+        const rowRawNum = colA && !isNaN(colA) ? colA : '';
         const roleKey = normalizeRole(chucDanh);
 
-        // QUY TẮC TÁCH HĐ: Cứ gặp chức danh "Chủ tịch" (hoặc chưa có block nào) là bắt đầu 1 HĐ mới
+        // QUY TẮC TÁCH HĐ: Gặp "Chủ tịch" hoặc chưa có block nào thì tạo HĐ mới
         if (roleKey === 'Chủ tịch' || (!currentObj && (maGV || hoTenGV || maSV || hoTenSV))) {
             const parsedInfo = extractScheduleAndPlace(ngayBV);
+            const resolvedIndex = rowRawNum || String(rawList.length + 1);
+            lastRawNum = resolvedIndex;
             currentObj = {
-                rawIndex: lastRawNum || String(rawList.length + 1),
+                rawIndex: resolvedIndex,
+                ngayBV: parsedInfo.ngay || defaultHeaderPlace.ngay || '',
+                gioBV: parsedInfo.gio || defaultHeaderPlace.gio || '',
+                phongBV: parsedInfo.phong || defaultHeaderPlace.phong || '',
+                diaDiemBV: parsedInfo.diaDiem || defaultHeaderPlace.diaDiem || '',
+                thanhVien: [],
+                sinhViens: []
+            };
+            rawList.push(currentObj);
+        } else if (rowRawNum && currentObj && currentObj.rawIndex !== rowRawNum) {
+            // Nếu xuất hiện số HĐ mới rõ ràng ở cột A mà chưa có dòng Chủ tịch thì tách block mới
+            const parsedInfo = extractScheduleAndPlace(ngayBV);
+            lastRawNum = rowRawNum;
+            currentObj = {
+                rawIndex: rowRawNum,
                 ngayBV: parsedInfo.ngay || defaultHeaderPlace.ngay || '',
                 gioBV: parsedInfo.gio || defaultHeaderPlace.gio || '',
                 phongBV: parsedInfo.phong || defaultHeaderPlace.phong || '',
