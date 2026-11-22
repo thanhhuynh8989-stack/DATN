@@ -1,5 +1,5 @@
 // js/excel-reader.js
-import { getAdminBinaryFile, getAdminConfig } from './admin-config.js';
+import { getAdminBinaryFile } from './admin-config.js';
 export let danhMucNganh = []; // Mảng lưu { maChuyenNganh, chuyenNganh, khoa }
 
 // 1. Tự động nạp file DANH_SACH_NGANH.xlsx khi khởi động ứng dụng
@@ -16,7 +16,6 @@ export async function loadDanhSachNganhSilently(url = './sample_files/DANH_SACH_
         const firstSheet = workbook.SheetNames[0];
         const rows = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheet], { header: 1 });
 
-        // Tự động dò dòng tiêu đề và vị trí cột (Mã | Chuyên ngành | Khoa)
         let headerRowIdx = -1;
         let colMa = 0, colNganh = 1, colKhoa = 2;
 
@@ -64,21 +63,19 @@ export async function loadDanhSachNganhSilently(url = './sample_files/DANH_SACH_
     }
 }
 
-// 2. Tra cứu thông tin { chuyenNganh, khoa } từ chuỗi Lớp (VD: "K27 CTP" -> khớp Ma_Chuyen_nganh "CTP")
+// 2. Tra cứu thông tin { chuyenNganh, khoa } từ chuỗi Lớp
 export function findNganhInfoByLop(lopStr) {
     const cleanLop = String(lopStr || '').toUpperCase().trim();
     if (!cleanLop || danhMucNganh.length === 0) return null;
 
     const tokens = cleanLop.split(/[^A-Z0-9]+/).filter(Boolean);
 
-    // Ưu tiên khớp chính xác token (VD: "CTP" === "CTP")
     for (const item of danhMucNganh) {
         if (tokens.includes(item.maChuyenNganh)) {
             return item;
         }
     }
 
-    // Dự phòng: khớp chuỗi con (sắp xếp mã dài trước để tránh "MT" đè "QLMT")
     const sorted = [...danhMucNganh].sort((a, b) => b.maChuyenNganh.length - a.maChuyenNganh.length);
     for (const item of sorted) {
         if (cleanLop.includes(item.maChuyenNganh)) {
@@ -89,7 +86,7 @@ export function findNganhInfoByLop(lopStr) {
     return null;
 }
 
-// 3. Hàm duy nhất dịch mã Lớp sang tên Ngành chuẩn từ danhMucNganh
+// 3. Dịch mã Lớp sang tên Ngành chuẩn từ danhMucNganh
 export function detectNganhFromLop(lopStr) {
     const found = findNganhInfoByLop(lopStr);
     return found ? found.chuyenNganh.toUpperCase() : '';
@@ -115,7 +112,7 @@ export function readExcelFile(file) {
     });
 }
 
-// 5. Bóc tách Danh sách Sinh viên & Đề tài (Tự động nhận diện cột Mã GVHD / Mã GV / Mã Giảng viên)
+// 5. Bóc tách Danh sách Sinh viên & Đề tài
 export function parseSinhVienRows(rows) {
     let headerIdx = -1;
     let detectedNganhFromHeader = '';
@@ -184,12 +181,24 @@ export function parseSinhVienRows(rows) {
         }
     }
 
-    let startRow = headerIdx >= 0 ? headerIdx + 1 : 1;
+    const startRow = headerIdx >= 0 ? headerIdx + 1 : 1;
     const result = [];
     const missingCodeIssues = [];
 
     rows.forEach((row, idx) => {
         if (idx < startRow || !row || row.length === 0) return;
+
+        const upperRow = row.map(c => String(c || '').trim()).join(' ').toUpperCase();
+        if (
+            upperRow.includes('HỘI ĐỒNG THI') ||
+            upperRow.includes('XÉT CNTN') ||
+            upperRow.includes('TRƯỞNG KHOA') ||
+            upperRow.includes('BAN THƯ KÝ') ||
+            upperRow.includes('ĐÀ NẴNG, NGÀY') ||
+            upperRow.includes('CT. HỘI ĐỒNG')
+        ) {
+            return;
+        }
 
         let maSV = '', hoTen = '', lop = '', deTai = '', gvhd = '', maGVHD = '', nganhCol = '';
 
@@ -206,7 +215,6 @@ export function parseSinhVienRows(rows) {
             maGVHD = colMap.maGVHD >= 0 ? String(row[colMap.maGVHD] || '').trim() : '';
             nganhCol = colMap.nganh >= 0 ? String(row[colMap.nganh] || '').trim().toUpperCase() : '';
         } else {
-            // Dự phòng nếu file không có dòng tiêu đề chuẩn
             maSV = String(row[1] || '').trim();
             const col2 = String(row[2] || '').trim();
             const col3 = String(row[3] || '').trim();
@@ -233,12 +241,10 @@ export function parseSinhVienRows(rows) {
 
         if (isHeaderLike || (!maSV && !hoTen && !gvhd && !maGVHD)) return;
 
-        // Cảnh báo nếu có tên SV nhưng thiếu Mã SV
         if (hoTen && !maSV) {
             missingCodeIssues.push(`Dòng ${idx + 1} (File SV): Sinh viên "${hoTen}" bị thiếu Mã SV.`);
         }
 
-        // Cảnh báo nếu có tên GVHD nhưng thiếu Mã Giảng viên
         if (gvhd && !maGVHD) {
             missingCodeIssues.push(`Dòng ${idx + 1} (File SV): GVHD "${gvhd}"${hoTen ? ` (SV: ${hoTen})` : ''} bị thiếu Mã GV.`);
         }
@@ -287,7 +293,7 @@ export function parseGiangVienRows(rows) {
     return result;
 }
 
-// 7. Hàm phụ trợ bóc tách Giờ, Ngày, Phòng, Cơ sở từ chuỗi thời gian & địa điểm (Không tự gán mặc định)
+// 7. Bóc tách Giờ, Ngày, Phòng, Cơ sở
 function extractScheduleAndPlace(rawStr) {
     const text = String(rawStr || '').trim();
     let gio = '';
@@ -340,7 +346,6 @@ function getSessionKey(gioStr) {
     return 'TOI';
 }
 
-// Helper: Tạo chữ ký nhận diện bộ Thành viên + Chức danh chuẩn hóa
 function buildMembersSignature(thanhVienList) {
     const cleanName = (str) => String(str || '').toLowerCase()
         .replace(/gs\.?|pgs\.?|ts\.?|ths\.?|gsv\.?|ks\.?|cn\.?|gv\.?|prof\.?|dr\.?/g, '')
@@ -355,7 +360,7 @@ function buildMembersSignature(thanhVienList) {
         return l;
     };
 
-    const parts = thanhVienList.map(gv => {
+    const parts = (thanhVienList || []).map(gv => {
         const role = getRoleKey(gv.chucDanh);
         const id = String(gv.maGV || '').trim().toUpperCase();
         const validId = (id && !id.startsWith('GV_')) ? id : cleanName(gv.hoTenGV);
@@ -365,7 +370,7 @@ function buildMembersSignature(thanhVienList) {
     return parts.join('|');
 }
 
-// 8. Bóc tách file Excel Danh sách Hội đồng (Tách block mới mỗi khi gặp chức danh "Chủ tịch")
+// 8. Bóc tách file Excel Danh sách Hội đồng (Giữ đúng số HĐ gốc theo từng block)
 export function parseHoiDongRows(rows) {
     const rawList = [];
     const missingCodeIssues = [];
@@ -388,8 +393,6 @@ export function parseHoiDongRows(rows) {
         return '';
     };
 
-    let lastRawNum = '';
-
     rows.forEach((row, idx) => {
         if (idx < 1 || !row || row.length === 0) return;
 
@@ -404,7 +407,7 @@ export function parseHoiDongRows(rows) {
         const hoTenSV = String(row[8] || '').trim();
         const lop = String(row[9] || '').trim();
 
-        const upperRow = row.join(' ').toUpperCase();
+        const upperRow = row.map(c => String(c || '').trim()).join(' ').toUpperCase();
 
         // Chặn dòng tiêu đề và phần chữ ký cuối trang
         if (
@@ -414,39 +417,22 @@ export function parseHoiDongRows(rows) {
             upperRow.includes('BAN THƯ KÝ') ||
             upperRow.includes('HỘI ĐỒNG THI') ||
             upperRow.includes('XÉT CNTN') ||
-            upperRow.includes('ĐÀ NẴNG, NGÀY')
+            upperRow.includes('ĐÀ NẴNG, NGÀY') ||
+            upperRow.includes('CT. HỘI ĐỒNG')
         ) {
             return;
-        }
-
-        if (colA && !isNaN(colA)) {
-            lastRawNum = colA;
         }
 
         const rowRawNum = colA && !isNaN(colA) ? colA : '';
         const roleKey = normalizeRole(chucDanh);
 
-        // QUY TẮC TÁCH HĐ: Gặp "Chủ tịch" hoặc chưa có block nào thì tạo HĐ mới
+        // QUY TẮC TÁCH HĐ: Cứ gặp chức danh "Chủ tịch" (hoặc chưa có block nào) là bắt đầu 1 HĐ mới
         if (roleKey === 'Chủ tịch' || (!currentObj && (maGV || hoTenGV || maSV || hoTenSV))) {
             const parsedInfo = extractScheduleAndPlace(ngayBV);
             const resolvedIndex = rowRawNum || String(rawList.length + 1);
-            lastRawNum = resolvedIndex;
             currentObj = {
                 rawIndex: resolvedIndex,
-                ngayBV: parsedInfo.ngay || defaultHeaderPlace.ngay || '',
-                gioBV: parsedInfo.gio || defaultHeaderPlace.gio || '',
-                phongBV: parsedInfo.phong || defaultHeaderPlace.phong || '',
-                diaDiemBV: parsedInfo.diaDiem || defaultHeaderPlace.diaDiem || '',
-                thanhVien: [],
-                sinhViens: []
-            };
-            rawList.push(currentObj);
-        } else if (rowRawNum && currentObj && currentObj.rawIndex !== rowRawNum) {
-            // Nếu xuất hiện số HĐ mới rõ ràng ở cột A mà chưa có dòng Chủ tịch thì tách block mới
-            const parsedInfo = extractScheduleAndPlace(ngayBV);
-            lastRawNum = rowRawNum;
-            currentObj = {
-                rawIndex: rowRawNum,
+                soHD: resolvedIndex,
                 ngayBV: parsedInfo.ngay || defaultHeaderPlace.ngay || '',
                 gioBV: parsedInfo.gio || defaultHeaderPlace.gio || '',
                 phongBV: parsedInfo.phong || defaultHeaderPlace.phong || '',
@@ -458,9 +444,8 @@ export function parseHoiDongRows(rows) {
         }
 
         if (currentObj) {
-            const hdLabel = `HĐ ${currentObj.rawIndex}`;
+            const hdLabel = `HĐ ${currentObj.soHD}`;
 
-            // Bổ sung thông tin ngày/giờ/phòng nếu nằm ở dòng kế tiếp trong cùng HĐ
             if (ngayBV) {
                 const parsedInfo = extractScheduleAndPlace(ngayBV);
                 if (!currentObj.ngayBV && parsedInfo.ngay) currentObj.ngayBV = parsedInfo.ngay;
@@ -469,7 +454,6 @@ export function parseHoiDongRows(rows) {
                 if (!currentObj.diaDiemBV && parsedInfo.diaDiem) currentObj.diaDiemBV = parsedInfo.diaDiem;
             }
 
-            // Cảnh báo nếu có tên GV trong HĐ nhưng thiếu Mã GV
             if (hoTenGV && !maGV) {
                 missingCodeIssues.push(`Dòng ${idx + 1} (File HĐ - ${hdLabel}): Giảng viên "${hoTenGV}"${roleKey ? ` (${roleKey})` : ''} bị thiếu Mã GV.`);
             }
@@ -481,7 +465,7 @@ export function parseHoiDongRows(rows) {
                 }
             }
 
-            // Lưu ý: chỉ cảnh báo thiếu Mã SV nếu dòng có tên SV (hoTenSV); nếu HĐ chưa có SV thì bỏ qua
+            // Chỉ cảnh báo thiếu Mã SV nếu dòng có tên SV (hoTenSV); nếu HĐ chưa có SV thì bỏ qua
             if (hoTenSV && !maSV) {
                 missingCodeIssues.push(`Dòng ${idx + 1} (File HĐ - ${hdLabel}): Sinh viên "${hoTenSV}" bị thiếu Mã SV.`);
             }
@@ -493,16 +477,16 @@ export function parseHoiDongRows(rows) {
         }
     });
 
-    // RÀ SOÁT GỘP HỘI ĐỒNG & ĐỔI SỐ HỘI ĐỒNG THEO QUY TẮC
+    // RÀ SOÁT GỘP CA CÙNG THÀNH VIÊN + NGÀY + BUỔI + PHÒNG (Giữ nguyên số HĐ của HĐ đích)
     const mergedList = [];
     const logs = [];
-    const memberSigToNumber = new Map();
-    let nextHDNumber = 1;
 
     rawList.forEach(item => {
-        if (item.thanhVien.length === 0 && item.sinhViens.length === 0) return;
+        const thanhVien = Array.isArray(item.thanhVien) ? item.thanhVien : [];
+        const sinhViens = Array.isArray(item.sinhViens) ? item.sinhViens : [];
+        if (thanhVien.length === 0 && sinhViens.length === 0) return;
 
-        const memSig = buildMembersSignature(item.thanhVien);
+        const memSig = buildMembersSignature(thanhVien);
         const sessionKey = getSessionKey(item.gioBV);
         const roomKey = String(item.phongBV || '').trim().toUpperCase();
         const dateKey = String(item.ngayBV || '').trim();
@@ -516,33 +500,22 @@ export function parseHoiDongRows(rows) {
         );
 
         if (sameSlotTarget) {
-            item.sinhViens.forEach(sv => {
+            sinhViens.forEach(sv => {
                 sameSlotTarget.sinhViens.push(sv);
             });
             if (!sameSlotTarget.gioBV && item.gioBV) sameSlotTarget.gioBV = item.gioBV;
             if (!sameSlotTarget.diaDiemBV && item.diaDiemBV) sameSlotTarget.diaDiemBV = item.diaDiemBV;
 
-            logs.push(`• Gộp ca bảo vệ của HĐ ${item.rawIndex} vào ${sameSlotTarget.soHD} (cùng Thành viên, Ngày, Buổi & Phòng).`);
+            logs.push(`• Gộp ca bảo vệ của HĐ ${item.rawIndex} vào HĐ ${sameSlotTarget.soHD} (cùng Thành viên, Ngày, Buổi & Phòng).`);
             return;
-        }
-
-        let assignedNum;
-        if (memSig && memberSigToNumber.has(memSig)) {
-            assignedNum = memberSigToNumber.get(memSig);
-            logs.push(`• Đổi số HĐ ${item.rawIndex} thành Hội Đồng ${assignedNum} (trùng Thành viên & Chức danh nhưng khác buổi/phòng).`);
-        } else {
-            assignedNum = nextHDNumber++;
-            if (memSig) memberSigToNumber.set(memSig, assignedNum);
-            if (String(assignedNum) !== String(item.rawIndex)) {
-                logs.push(`• Đánh lại số HĐ ${item.rawIndex} thành Hội Đồng ${assignedNum}.`);
-            }
         }
 
         mergedList.push({
             ...item,
+            thanhVien,
+            sinhViens,
             memSig,
-            assignedNum,
-            soHD: String(assignedNum)
+            soHD: String(item.rawIndex)
         });
     });
 
