@@ -1,6 +1,7 @@
 // js/hoidong-manager.js
 import { validateGVHDConflictWithHD, validateTeacherIsGVHDOfAnyStudent, checkScheduleConflict, isSameTeacher } from './validators.js';
 import { getAdminConfig } from './admin-config.js';
+import { buildMembersSignature, getSessionKey } from './excel-reader.js';
 
 let hoidongCount = 0;
 
@@ -35,7 +36,7 @@ export function initGlobalSortables() {
     initAddSVModalEvents();
 }
 
-// Export hàm 2: Tạo Box Hội Đồng mới (Lấy danh sách Cơ sở động từ cấu hình Admin)
+// Export hàm 2: Tạo Box Hội Đồng mới
 export function createHoiDongBox(titleText = null, initDate = '', initTime = '', initRoom = '', initLocation = '') {
     hoidongCount++;
     const hdTitle = escapeHtmlAttr(titleText || `HĐ ${hoidongCount}`);
@@ -97,7 +98,103 @@ export function createHoiDongBox(titleText = null, initDate = '', initTime = '',
     return boxId;
 }
 
-// Export hàm 3: Bóc tách file Excel Hội đồng, rà soát trùng Mã SV + trùng GVHD & đẩy SV vi phạm GVHD về Kho chờ
+// Hàm hậu xử lý SAU KHI RENDER XONG:
+// 1. Gộp các box có cùng (Thành viên + Chức danh, Ngày, Buổi, Phòng)
+// 2. Đánh lại số Hội đồng chuẩn xác (cùng Thành viên + Chức danh thì dùng chung 1 số HĐ; khác thì tăng dần 1, 2, 3...)
+export function finalizeAndRenumberHoiDongs() {
+    const workspace = document.getElementById('workspace-hd');
+    if (!workspace) return [];
+
+    const mergeLogs = [];
+    const boxes = Array.from(workspace.querySelectorAll('.box-hoidong'));
+    const keptBoxes = [];
+
+    const readBoxMembers = (box) => {
+        const members = [];
+        ['Chủ tịch', 'Phản biện', 'Thư ký'].forEach(role => {
+            const card = box.querySelector(`.dropzone-gv[data-role="${role}"] .card-item`);
+            if (card) {
+                members.push({
+                    chucDanh: role,
+                    maGV: card.getAttribute('data-id') || '',
+                    hoTenGV: card.getAttribute('data-name') || ''
+                });
+            }
+        });
+        return members;
+    };
+
+    // Bước A: Gộp ca bảo vệ trùng (Thành viên + Chức danh, Ngày, Buổi, Phòng)
+    boxes.forEach((box, idx) => {
+        const oldTitle = box.querySelector('.hd-title')?.value.trim() || `HĐ ${idx + 1}`;
+        const memSig = buildMembersSignature(readBoxMembers(box));
+        const dateKey = (box.querySelector('.hd-date')?.value || '').trim();
+        const timeVal = (box.querySelector('.hd-time')?.value || '').trim();
+        const sessionKey = getSessionKey(timeVal);
+        const roomKey = (box.querySelector('.hd-room')?.value || '').trim().toUpperCase();
+
+        const sameSlotTarget = keptBoxes.find(target =>
+            memSig &&
+            target.memSig === memSig &&
+            target.dateKey === dateKey &&
+            target.sessionKey === sessionKey &&
+            target.roomKey === roomKey
+        );
+
+        if (sameSlotTarget) {
+            const targetSVZone = sameSlotTarget.box.querySelector('.dropzone-sv');
+            const currSVCards = Array.from(box.querySelectorAll('.dropzone-sv .card-item'));
+            currSVCards.forEach(svCard => targetSVZone?.appendChild(svCard));
+
+            if (!sameSlotTarget.box.querySelector('.hd-time')?.value && timeVal) {
+                sameSlotTarget.box.querySelector('.hd-time').value = timeVal;
+            }
+            const currLoc = box.querySelector('.hd-location')?.value || '';
+            const targetLocEl = sameSlotTarget.box.querySelector('.hd-location');
+            if (targetLocEl && !targetLocEl.value && currLoc) {
+                targetLocEl.value = currLoc;
+            }
+
+            box.remove();
+            mergeLogs.push(`• Gộp ca bảo vệ của khối #${idx + 1} vào cùng Hội đồng (trùng Thành viên, Ngày, Buổi & Phòng).`);
+            return;
+        }
+
+        keptBoxes.push({
+            box,
+            oldTitle,
+            memSig,
+            dateKey,
+            sessionKey,
+            roomKey
+        });
+    });
+
+    // Bước B: Đánh lại số Hội đồng chuẩn xác từ 1 -> N
+    const sigToNumber = new Map();
+    let nextNum = 1;
+
+    keptBoxes.forEach((entry, idx) => {
+        let assignedNum;
+        if (entry.memSig && sigToNumber.has(entry.memSig)) {
+            assignedNum = sigToNumber.get(entry.memSig);
+            mergeLogs.push(`• Khối #${idx + 1} dùng chung thành viên với Hội Đồng ${assignedNum} (khác buổi/phòng) → Đánh số Hội Đồng ${assignedNum}.`);
+        } else {
+            assignedNum = nextNum++;
+            if (entry.memSig) sigToNumber.set(entry.memSig, assignedNum);
+        }
+
+        const titleInput = entry.box.querySelector('.hd-title');
+        if (titleInput) {
+            titleInput.value = `Hội Đồng ${assignedNum}`;
+        }
+    });
+
+    hoidongCount = nextNum - 1;
+    return mergeLogs;
+}
+
+// Export hàm 3: Render Hội đồng từ Excel, rút SV từ pool, rồi mới đánh lại số HĐ chính xác
 export function renderHoidongFromExcel(parsedHoidongs) {
     const workspace = document.getElementById('workspace-hd');
     if (!workspace) return { mergeLogs: [], conflictLogs: [], duplicateSVLogs: [] };
@@ -105,17 +202,16 @@ export function renderHoidongFromExcel(parsedHoidongs) {
     hoidongCount = 0;
 
     const safeParsed = parsedHoidongs && typeof parsedHoidongs === 'object' ? parsedHoidongs : {};
-    const mergeLogs = Array.isArray(safeParsed.__mergeLogs) ? safeParsed.__mergeLogs : [];
     const conflictLogs = [];
     const duplicateSVLogs = [];
 
-    // Bước tiền rà soát: Thống kê mỗi Mã SV xuất hiện ở những Hội đồng nào
-    const svAppearances = new Map(); // maSV -> { hoTen, hoidongs: [] }
+    // Bước tiền rà soát: Thống kê mỗi Mã SV xuất hiện ở những khối Hội đồng nào
+    const svAppearances = new Map();
     Object.keys(safeParsed).forEach(hdKey => {
         if (hdKey.startsWith('__')) return;
         const hd = safeParsed[hdKey];
         if (!hd || typeof hd !== 'object') return;
-        const hdLabel = `${hd.soHD || hdKey}${hd.ngayBV ? ` (${hd.gioBV ? hd.gioBV + ' ' : ''}${hd.ngayBV})` : ''}`;
+        const hdLabel = `Khối #${hd.soHD || hdKey}${hd.ngayBV ? ` (${hd.gioBV ? hd.gioBV + ' ' : ''}${hd.ngayBV})` : ''}`;
 
         (Array.isArray(hd.sinhViens) ? hd.sinhViens : []).forEach(sv => {
             const ma = String(sv.maSV || '').trim().toUpperCase();
@@ -130,12 +226,12 @@ export function renderHoidongFromExcel(parsedHoidongs) {
     svAppearances.forEach((info, ma) => {
         if (info.hoidongs.length > 1) {
             duplicateSVLogs.push(
-                `• SV ${info.hoTen} (${ma}) bị lặp lại ${info.hoidongs.length} lần tại: ${info.hoidongs.join(' ; ')} → Đã giữ ở HĐ đầu tiên và loại bỏ bản lặp phía sau, đề nghị kiểm tra sửa lại!`
+                `• SV ${info.hoTen} (${ma}) bị lặp lại ${info.hoidongs.length} lần tại: ${info.hoidongs.join(' ; ')} → Đã giữ ở khối đầu tiên và loại bỏ bản lặp phía sau!`
             );
         }
     });
 
-    const renderedSVSet = new Set(); // Đảm bảo mỗi Mã SV chỉ render 1 lần duy nhất trên giao diện
+    const renderedSVSet = new Set();
 
     Object.keys(safeParsed).forEach(hdKey => {
         if (hdKey.startsWith('__')) return;
@@ -147,7 +243,7 @@ export function renderHoidongFromExcel(parsedHoidongs) {
 
         const formattedDate = formatDateToInput(hd.ngayBV);
         const boxId = createHoiDongBox(
-            hd.soHD,
+            `Hội Đồng ${hd.soHD}`,
             formattedDate,
             hd.gioBV || '',
             hd.phongBV || '',
@@ -180,7 +276,7 @@ export function renderHoidongFromExcel(parsedHoidongs) {
             }
         });
 
-        // 2. Render Sinh viên & RÀ SOÁT TRÙNG MÃ SV + TRÙNG GVHD
+        // 2. Render Sinh viên, rút từ #pool-sv & RÀ SOÁT TRÙNG GVHD
         const svDropzone = boxEl.querySelector('.dropzone-sv');
         const poolSV = document.getElementById('pool-sv');
 
@@ -188,7 +284,6 @@ export function renderHoidongFromExcel(parsedHoidongs) {
             const maSVNorm = String(sv.maSV || '').trim().toUpperCase();
             if (!maSVNorm) return;
 
-            // Bỏ qua nếu Mã SV này đã được xử lý ở Hội đồng trước đó (tránh lặp trùng)
             if (renderedSVSet.has(maSVNorm)) return;
             renderedSVSet.add(maSVNorm);
 
@@ -202,7 +297,6 @@ export function renderHoidongFromExcel(parsedHoidongs) {
             const nganh = poolItem ? (poolItem.getAttribute('data-nganh') || '') : (sv.nganh || '');
             const maGVDisplay = maGVHD ? ` [${maGVHD}]` : '';
 
-            // Kiểm tra GVHD của SV có trùng với thành viên nào trong HĐ này không
             let violatedMember = null;
             for (const member of thanhVien) {
                 if (isSameTeacher({ id1: maGVHD, name1: gvhd }, { id2: member.maGV, name2: member.hoTenGV })) {
@@ -228,12 +322,12 @@ export function renderHoidongFromExcel(parsedHoidongs) {
                 }
 
                 conflictLogs.push(
-                    `• SV ${hoTen} (${sv.maSV}) - GVHD: ${gvhd || maGVHD} trùng với ${violatedMember.chucDanh} (${violatedMember.hoTenGV}) tại ${hd.soHD} → Đã đẩy về Kho chờ, đề nghị xếp sang Hội đồng khác!`
+                    `• SV ${hoTen} (${sv.maSV}) - GVHD: ${gvhd || maGVHD} trùng với ${violatedMember.chucDanh} (${violatedMember.hoTenGV}) → Đã đẩy về Kho chờ, đề nghị xếp sang Hội đồng khác!`
                 );
                 return;
             }
 
-            // Hợp lệ -> Đưa vào Hội đồng và xóa khỏi Kho chờ
+            // Hợp lệ -> Đưa vào Hội đồng và rút khỏi Kho chờ (#pool-sv)
             const svHTML = `
                 <div class="card-item position-relative mb-2 p-2 pe-4 border rounded bg-white shadow-sm" 
                      data-id="${escapeHtmlAttr(sv.maSV)}" data-name="${escapeHtmlAttr(hoTen)}" data-lop="${escapeHtmlAttr(lop)}" data-detai="${escapeHtmlAttr(deTai)}" data-magvhd="${escapeHtmlAttr(maGVHD)}" data-gvhd="${escapeHtmlAttr(gvhd)}" data-nganh="${escapeHtmlAttr(nganh)}">
@@ -250,6 +344,9 @@ export function renderHoidongFromExcel(parsedHoidongs) {
             }
         });
     });
+
+    // SAU KHI RENDER XONG: Gộp ca trùng và đánh lại số HĐ chính xác (1, 2, 3...)
+    const mergeLogs = finalizeAndRenumberHoiDongs();
 
     return { mergeLogs, conflictLogs, duplicateSVLogs };
 }
@@ -313,7 +410,6 @@ function openSelectSVModal(boxId) {
             const maGVHD = (svItem.getAttribute('data-magvhd') || '').trim();
             const gvhd = (svItem.getAttribute('data-gvhd') || '').trim();
 
-            // LỌC CHỐNG VI PHẠM 2 LỚP: Kiểm tra bằng Mã GVHD trước -> dự phòng Tên chuẩn hóa
             const isConflicted = Boolean(validateGVHDConflictWithHD(gvhd, box, maGVHD));
 
             if (!isConflicted) {
