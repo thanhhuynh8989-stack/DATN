@@ -28,6 +28,7 @@ import {
     pullLatestScoresFromCloud, pushDeltaScoresToCloud, restoreSessionFromPayload,
     applySessionPermissionsToUI, setupAutoSaveAndLockOnClose, disconnectCloudSession
 } from './session-sync.js';
+import { syncCollectedGiangVienToPool } from './gv-collector.js';
 
 window.studentScores = window.studentScores || {};
 
