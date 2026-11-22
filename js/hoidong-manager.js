@@ -20,10 +20,42 @@ function escapeHtmlAttr(val) {
         .replace(/>/g, '&gt;');
 }
 
+// Hàm đồng bộ nút ✕ trên thẻ SV theo vị trí (trong HĐ -> trả về Kho chờ; ngoài Kho chờ -> xóa hẳn)
+export function syncSVCardActionButton(svCard, isInHoiDong) {
+    if (!svCard) return;
+    let btn = svCard.querySelector('.btn-remove-card, .btn-remove-sv-from-hd');
+    if (!btn) {
+        svCard.classList.add('position-relative', 'pe-4');
+        btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-sm btn-link text-danger text-decoration-none fw-bold position-absolute top-0 end-0 px-2 py-1';
+        btn.textContent = '✕';
+        svCard.prepend(btn);
+    }
+
+    if (isInHoiDong) {
+        btn.classList.remove('btn-remove-card');
+        btn.classList.add('btn-remove-sv-from-hd');
+        btn.setAttribute('title', 'Đưa sinh viên này khỏi Hội đồng về lại Kho chờ');
+    } else {
+        btn.classList.remove('btn-remove-sv-from-hd');
+        btn.classList.add('btn-remove-card');
+        btn.setAttribute('title', 'Xóa sinh viên này');
+    }
+}
+
 // Export hàm 1: Khởi tạo Sortable toàn cục & Lắng nghe sự kiện click nút "+ Thêm SV"
 export function initGlobalSortables() {
     const poolSV = document.getElementById('pool-sv');
-    if (poolSV) Sortable.create(poolSV, { group: 'sinhvien', animation: 150 });
+    if (poolSV) {
+        Sortable.create(poolSV, {
+            group: 'sinhvien',
+            animation: 150,
+            onAdd: function (evt) {
+                syncSVCardActionButton(evt.item, false);
+            }
+        });
+    }
 
     const poolGV = document.getElementById('pool-gv');
     if (poolGV) {
@@ -144,7 +176,10 @@ export function finalizeAndRenumberHoiDongs() {
         if (sameSlotTarget) {
             const targetSVZone = sameSlotTarget.box.querySelector('.dropzone-sv');
             const currSVCards = Array.from(box.querySelectorAll('.dropzone-sv .card-item'));
-            currSVCards.forEach(svCard => targetSVZone?.appendChild(svCard));
+            currSVCards.forEach(svCard => {
+                syncSVCardActionButton(svCard, true);
+                targetSVZone?.appendChild(svCard);
+            });
 
             if (!sameSlotTarget.box.querySelector('.hd-time')?.value && timeVal) {
                 sameSlotTarget.box.querySelector('.hd-time').value = timeVal;
@@ -318,6 +353,7 @@ export function renderHoidongFromExcel(parsedHoidongs) {
                     poolSV.insertAdjacentHTML('afterbegin', returnHTML);
                 } else if (poolItem) {
                     poolItem.classList.add('border-danger');
+                    syncSVCardActionButton(poolItem, false);
                     poolSV?.prepend(poolItem);
                 }
 
@@ -327,11 +363,11 @@ export function renderHoidongFromExcel(parsedHoidongs) {
                 return;
             }
 
-            // Hợp lệ -> Đưa vào Hội đồng và rút khỏi Kho chờ (#pool-sv)
+            // Hợp lệ -> Đưa vào Hội đồng (có nút ✕ trả về Kho chờ) và rút khỏi Kho chờ (#pool-sv)
             const svHTML = `
                 <div class="card-item position-relative mb-2 p-2 pe-4 border rounded bg-white shadow-sm" 
                      data-id="${escapeHtmlAttr(sv.maSV)}" data-name="${escapeHtmlAttr(hoTen)}" data-lop="${escapeHtmlAttr(lop)}" data-detai="${escapeHtmlAttr(deTai)}" data-magvhd="${escapeHtmlAttr(maGVHD)}" data-gvhd="${escapeHtmlAttr(gvhd)}" data-nganh="${escapeHtmlAttr(nganh)}">
-                    <button type="button" class="btn btn-sm btn-link text-danger text-decoration-none fw-bold position-absolute top-0 end-0 px-2 py-1 btn-remove-card" title="Xóa sinh viên này">✕</button>
+                    <button type="button" class="btn btn-sm btn-link text-danger text-decoration-none fw-bold position-absolute top-0 end-0 px-2 py-1 btn-remove-sv-from-hd" title="Đưa sinh viên này khỏi Hội đồng về lại Kho chờ">✕</button>
                     <div class="fw-bold text-primary">${escapeHtmlAttr(hoTen)} (${escapeHtmlAttr(sv.maSV)})</div>
                     <div class="text-muted small">Lớp: ${escapeHtmlAttr(lop)} | GVHD: <span class="fw-bold text-dark">${escapeHtmlAttr(gvhd || 'Chưa rõ')}${escapeHtmlAttr(maGVDisplay)}</span></div>
                     <div class="text-dark small text-truncate" title="${escapeHtmlAttr(deTai)}">Đề tài: ${escapeHtmlAttr(deTai)}</div>
@@ -375,6 +411,7 @@ function initAddSVModalEvents() {
         checkedInputs.forEach(chk => {
             const poolItem = findPoolSVItemById(chk.value);
             if (poolItem) {
+                syncSVCardActionButton(poolItem, true);
                 svDropzone.appendChild(poolItem);
             }
         });
@@ -471,6 +508,8 @@ function attachSortableToHoiDong(boxId) {
                 if (conflictedMember) {
                     alert(`⛔ VI PHẠM NGUYÊN TẮC: GVHD (${gvhdName || maGVHD}) đang làm thành viên HĐ (${conflictedMember}). Không thể xếp sinh viên ${svName} vào HĐ này!`);
                     evt.from?.appendChild(svCard);
+                } else {
+                    syncSVCardActionButton(svCard, true);
                 }
             }
         });
