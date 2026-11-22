@@ -243,6 +243,19 @@ function bindExcelAndHoiDongEvents() {
             if (fileHD) {
                 const rows = await readExcelFile(fileHD);
                 parsedHoidongs = parseHoiDongRows(rows);
+                console.table(
+                    Object.keys(parsedHoidongs)
+                        .filter(k => !k.startsWith('__'))
+                        .map(k => ({
+                            key: k,
+                            soHD: parsedHoidongs[k].soHD,
+                            rawIndex: parsedHoidongs[k].rawIndex,
+                            ngayBV: parsedHoidongs[k].ngayBV,
+                            gioBV: parsedHoidongs[k].gioBV,
+                            thanhVien: parsedHoidongs[k].thanhVien.map(g => `${g.chucDanh}: ${g.hoTenGV} [${g.maGV}]`).join(' | '),
+                            soSV: parsedHoidongs[k].sinhViens.length
+                        }))
+                );
             }
 
             // 1. Chặn nếu có tên nhưng thiếu Mã SV / Mã GV (không render)
