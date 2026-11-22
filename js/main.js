@@ -481,11 +481,7 @@ function bindExcelAndHoiDongEvents() {
                 if (!userConfirmedSV) return;
             }
 
-            // 7. Đã qua toàn bộ rà soát & xác nhận -> Render Kho GV, Kho SV, và Hội đồng
-            if (fileGV) {
-                renderGiangVienPool(gvList);
-            }
-
+            // 7. Đã qua toàn bộ rà soát & xác nhận -> Render Kho SV, thu thập & hợp nhất Kho GV, và render Hội đồng
             if (fileSV) {
                 renderSinhVienPool(svList);
 
@@ -495,21 +491,19 @@ function bindExcelAndHoiDongEvents() {
                 }
             }
 
-            const reportSections = [
-                `<div class="alert alert-success py-2 small mb-2 fw-bold">✅ Đã nạp dữ liệu Excel thành công!</div>`
-            ];
+            // Thu thập & hợp nhất toàn bộ GV từ File GV + File SV (GVHD) + File HĐ vào Kho GV (tránh trùng Mã GV)
+            const gvSyncResult = syncCollectedGiangVienToPool({
+                gvList,
+                svList,
+                parsedHoidongs,
+                includeExistingPool: true
+            });
 
-            if (dupNameDiffIdList.length > 0 && !fileHD) {
-                const dupHTML = dupNameDiffIdList.map(item =>
-                    `<li>${item.variants.map(v => `<strong>${v.names}</strong> (Mã: <code>${v.maGV}</code> — ${v.locations.join(', ')})`).join(' <strong>vs</strong> ')}</li>`
-                ).join('');
-                reportSections.push(`
-                    <div class="card border-warning mb-2">
-                        <div class="card-header bg-warning text-dark fw-bold small py-1">⚠️ Cảnh báo Giảng viên trùng tên nhưng khác Mã GV</div>
-                        <div class="card-body p-2 small"><ul class="mb-0 ps-3">${dupHTML}</ul></div>
-                    </div>
-                `);
-            }
+            const reportSections = [
+                `<div class="alert alert-success py-2 small mb-2 fw-bold">
+                    ✅ Đã nạp dữ liệu Excel thành công! (Kho Giảng viên hiện có: <strong>${gvSyncResult.totalCount}</strong> giảng viên)
+                </div>`
+            ];
 
             if (fileHD) {
                 const hdKeys = Object.keys(parsedHoidongs || {}).filter(k => !k.startsWith('__'));
