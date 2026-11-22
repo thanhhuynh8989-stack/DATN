@@ -112,7 +112,7 @@ export function readExcelFile(file) {
     });
 }
 
-// 5. Bóc tách Danh sách Sinh viên & Đề tài
+// 5. Bóc tách Danh sách Sinh viên & Đề tài (Hỗ trợ cả cột Họ & Tên tách rời hoặc Merge ngang)
 export function parseSinhVienRows(rows) {
     let headerIdx = -1;
     let detectedNganhFromHeader = '';
@@ -177,6 +177,25 @@ export function parseSinhVienRows(rows) {
                     colMap.nganh = cIdx;
                 }
             });
+
+            // Xử lý ô tiêu đề "HỌ VÀ TÊN" bị merge ngang 2 cột (VD: merge C & D -> C là Họ đệm, D là Tên)
+            if (colMap.hoTen >= 0 && colMap.hoDem < 0 && colMap.ten < 0) {
+                const nextCol = colMap.hoTen + 1;
+                const nextHeaderEmpty = !String(row[nextCol] || '').trim();
+                const isNextColUnassigned = ![
+                    colMap.maSV,
+                    colMap.lop,
+                    colMap.deTai,
+                    colMap.gvhd,
+                    colMap.maGVHD,
+                    colMap.nganh
+                ].includes(nextCol);
+
+                if (nextHeaderEmpty && isNextColUnassigned) {
+                    colMap.hoDem = colMap.hoTen;
+                    colMap.ten = nextCol;
+                }
+            }
             break;
         }
     }
@@ -205,7 +224,9 @@ export function parseSinhVienRows(rows) {
         if (hasCustomColMap) {
             maSV = String(row[colMap.maSV] || '').trim();
             if (colMap.hoDem >= 0 && colMap.ten >= 0) {
-                hoTen = `${String(row[colMap.hoDem] || '').trim()} ${String(row[colMap.ten] || '').trim()}`.trim();
+                hoTen = `${String(row[colMap.hoDem] || '').trim()} ${String(row[colMap.ten] || '').trim()}`
+                    .replace(/\s+/g, ' ')
+                    .trim();
             } else {
                 hoTen = String(row[colMap.hoTen] || '').trim();
             }
@@ -219,7 +240,7 @@ export function parseSinhVienRows(rows) {
             const col2 = String(row[2] || '').trim();
             const col3 = String(row[3] || '').trim();
             if (col3 && !col3.startsWith('K2') && !col3.startsWith('K1') && !col3.startsWith('K3')) {
-                hoTen = `${col2} ${col3}`.trim();
+                hoTen = `${col2} ${col3}`.replace(/\s+/g, ' ').trim();
                 lop = String(row[4] || '').trim();
                 deTai = String(row[5] || '').trim();
                 gvhd = String(row[6] || '').trim();
