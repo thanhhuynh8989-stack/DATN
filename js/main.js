@@ -14,7 +14,13 @@ import {
     saveAdminBinaryFile, deleteAdminBinaryFile
 } from './admin-config.js';
 import { exportWordZIP } from './docx-exporter.js';
-import { detectDuplicateTeacherNameDifferentId, detectDuplicateStudentNameDifferentId, detectDuplicateStudentId, collectMissingCodeWarnings } from './validators.js';
+import {
+    detectDuplicateTeacherIdDifferentName,
+    detectDuplicateTeacherNameDifferentId,
+    detectDuplicateStudentNameDifferentId,
+    detectDuplicateStudentId,
+    collectMissingCodeWarnings
+} from './validators.js';
 import {
     sessionState, getGasWebAppUrl, setGasWebAppUrl, getSavedSessionMeta, saveSessionMeta,
     createCloudSession, loadCloudSession, saveCloudHoiDong, toggleCloudHDLock,
@@ -289,7 +295,44 @@ function bindExcelAndHoiDongEvents() {
                 return;
             }
 
-            // 2. Chặn nếu trùng Mã SV trong file SV hoặc file HĐ (không render)
+            // 2. ƯU TIÊN RÀ SOÁT TRÙNG MÃ GV (1 Mã GV nhưng khác tên GV) — Chặn & yêu cầu sửa file
+            const dupTeacherIdList = detectDuplicateTeacherIdDifferentName({ svList, gvList, parsedHoidongs });
+            if (dupTeacherIdList.length > 0) {
+                const dupTeacherIdHtml = dupTeacherIdList.map((item, idx) => {
+                    const variantsHTML = item.variants.map(v => `
+                        <li class="mb-1">
+                            <strong>${v.names}</strong>
+                            <div class="text-muted small ps-2">↳ Xuất hiện tại: ${v.locations.join(' | ')}</div>
+                        </li>
+                    `).join('');
+
+                    return `
+                        <div class="bg-white border border-danger rounded p-2 mb-2 shadow-sm">
+                            <div class="fw-bold text-danger small mb-1">
+                                #${idx + 1}. Trùng Mã GV <span class="badge bg-danger font-monospace">${item.maGV}</span> cho ${item.variants.length} giảng viên khác nhau:
+                            </div>
+                            <ul class="mb-0 ps-3 small">${variantsHTML}</ul>
+                        </div>
+                    `;
+                }).join('');
+
+                await showExcelReviewModal({
+                    title: '❌ LỖI TRÙNG MÃ GIẢNG VIÊN — CẦN SỬA VÀ TẢI LẠI FILE',
+                    requireConfirm: false,
+                    htmlSections: [
+                        `
+                        <div class="alert alert-danger py-2 px-3 mb-2 small">
+                            <div class="fw-bold mb-1">⛔ Phát hiện cùng 1 Mã GV nhưng gắn cho nhiều Giảng viên khác tên nhau:</div>
+                            <div>Vui lòng kiểm tra và sửa lại đúng Mã GV trong file Excel, sau đó tải lại file trước khi tiếp tục nạp.</div>
+                        </div>
+                        ${dupTeacherIdHtml}
+                        `
+                    ]
+                });
+                return;
+            }
+
+            // 3. Chặn nếu trùng Mã SV trong file SV hoặc file HĐ (không render)
             const dupStudentIdList = detectDuplicateStudentId({ svList, parsedHoidongs });
             if (dupStudentIdList.length > 0) {
                 const dupIdHtml = dupStudentIdList.map((c, idx) => {
@@ -323,7 +366,7 @@ function bindExcelAndHoiDongEvents() {
                 return;
             }
 
-            // 3. Xác nhận nếu GV trùng tên nhưng khác Mã GV
+            // 4. Xác nhận nếu GV trùng tên nhưng khác Mã GV
             const dupNameDiffIdList = detectDuplicateTeacherNameDifferentId({ svList, gvList, parsedHoidongs });
             if (dupNameDiffIdList.length > 0 && fileHD) {
                 const dupItemsHTML = dupNameDiffIdList.map((item, idx) => {
@@ -360,7 +403,7 @@ function bindExcelAndHoiDongEvents() {
                 if (!userConfirmed) return;
             }
 
-            // 4. Xác nhận nếu SV trùng tên nhưng khác Mã SV
+            // 5. Xác nhận nếu SV trùng tên nhưng khác Mã SV
             const dupSVNameDiffIdList = detectDuplicateStudentNameDifferentId({ svList, parsedHoidongs });
             if (dupSVNameDiffIdList.length > 0 && (fileSV || fileHD)) {
                 const dupSVItemsHTML = dupSVNameDiffIdList.map((item, idx) => {
@@ -397,7 +440,7 @@ function bindExcelAndHoiDongEvents() {
                 if (!userConfirmedSV) return;
             }
 
-            // 5. Đã qua toàn bộ rà soát & xác nhận -> Render Kho GV, Kho SV, và Hội đồng
+            // 6. Đã qua toàn bộ rà soát & xác nhận -> Render Kho GV, Kho SV, và Hội đồng
             if (fileGV) {
                 renderGiangVienPool(gvList);
             }
