@@ -337,7 +337,7 @@ function extractScheduleAndPlace(rawStr) {
     return { gio, ngay, phong, diaDiem };
 }
 
-function getSessionKey(gioStr) {
+export function getSessionKey(gioStr) {
     if (!gioStr || !gioStr.includes(':')) return 'MAC_DINH';
     const hour = parseInt(gioStr.split(':')[0], 10);
     if (isNaN(hour)) return 'MAC_DINH';
@@ -346,7 +346,7 @@ function getSessionKey(gioStr) {
     return 'TOI';
 }
 
-function buildMembersSignature(thanhVienList) {
+export function buildMembersSignature(thanhVienList) {
     const cleanName = (str) => String(str || '').toLowerCase()
         .replace(/gs\.?|pgs\.?|ts\.?|ths\.?|gsv\.?|ks\.?|cn\.?|gv\.?|prof\.?|dr\.?/g, '')
         .replace(/\s+/g, ' ')
@@ -370,7 +370,8 @@ function buildMembersSignature(thanhVienList) {
     return parts.join('|');
 }
 
-// 8. Bóc tách file Excel Danh sách Hội đồng (Giữ đúng số HĐ gốc theo từng block)
+// 8. Bóc tách file Excel Danh sách Hội đồng
+// LƯU Ý: Không đọc/không phụ thuộc cột A; tách mỗi HĐ theo chức danh "Chủ tịch", sau khi render xong mới đánh lại số HĐ.
 export function parseHoiDongRows(rows) {
     const rawList = [];
     const missingCodeIssues = [];
@@ -386,7 +387,7 @@ export function parseHoiDongRows(rows) {
     }
 
     const normalizeRole = (cd) => {
-        const l = String(cd || '').toLowerCase();
+        const l = String(cd || '').toLowerCase().trim();
         if (l.includes('chủ tịch')) return 'Chủ tịch';
         if (l.includes('phản biện')) return 'Phản biện';
         if (l.includes('thư ký')) return 'Thư ký';
@@ -394,9 +395,9 @@ export function parseHoiDongRows(rows) {
     };
 
     rows.forEach((row, idx) => {
-        if (idx < 1 || !row || row.length === 0) return;
+        if (!row || row.length === 0) return;
 
-        const colA = String(row[0] || '').trim();
+        // Bỏ qua cột A (row[0]) khi xác định HĐ
         const maGV = String(row[1] || '').trim();
         const hoTenGV = String(row[2] || '').trim();
         const donVi = String(row[3] || '').trim();
@@ -411,8 +412,10 @@ export function parseHoiDongRows(rows) {
 
         // Chặn dòng tiêu đề và phần chữ ký cuối trang
         if (
-            colA.toUpperCase().includes('HỘI ĐỒNG') ||
-            maGV.toUpperCase().includes('MÃ') ||
+            upperRow.includes('MÃ SỐ GV') ||
+            upperRow.includes('MÃ GV') ||
+            upperRow.includes('CHỨC DANH') ||
+            upperRow.includes('TÊN ĐỀ TÀI') ||
             upperRow.includes('TRƯỞNG KHOA') ||
             upperRow.includes('BAN THƯ KÝ') ||
             upperRow.includes('HỘI ĐỒNG THI') ||
@@ -423,16 +426,17 @@ export function parseHoiDongRows(rows) {
             return;
         }
 
-        const rowRawNum = colA && !isNaN(colA) ? colA : '';
+        if (!maGV && !hoTenGV && !chucDanh && !maSV && !hoTenSV && !deTai) return;
+
         const roleKey = normalizeRole(chucDanh);
 
-        // QUY TẮC TÁCH HĐ: Cứ gặp chức danh "Chủ tịch" (hoặc chưa có block nào) là bắt đầu 1 HĐ mới
+        // QUY TẮC TÁCH HĐ: Cứ gặp chức danh "Chủ tịch" (hoặc chưa có block nào) là bắt đầu 1 khối HĐ mới
         if (roleKey === 'Chủ tịch' || (!currentObj && (maGV || hoTenGV || maSV || hoTenSV))) {
             const parsedInfo = extractScheduleAndPlace(ngayBV);
-            const resolvedIndex = rowRawNum || String(rawList.length + 1);
+            const seqIndex = String(rawList.length + 1);
             currentObj = {
-                rawIndex: resolvedIndex,
-                soHD: resolvedIndex,
+                rawIndex: seqIndex,
+                soHD: seqIndex,
                 ngayBV: parsedInfo.ngay || defaultHeaderPlace.ngay || '',
                 gioBV: parsedInfo.gio || defaultHeaderPlace.gio || '',
                 phongBV: parsedInfo.phong || defaultHeaderPlace.phong || '',
@@ -444,7 +448,7 @@ export function parseHoiDongRows(rows) {
         }
 
         if (currentObj) {
-            const hdLabel = `HĐ ${currentObj.soHD}`;
+            const hdLabel = `Khối HĐ #${currentObj.rawIndex} (dòng ${idx + 1})`;
 
             if (ngayBV) {
                 const parsedInfo = extractScheduleAndPlace(ngayBV);
@@ -455,7 +459,7 @@ export function parseHoiDongRows(rows) {
             }
 
             if (hoTenGV && !maGV) {
-                missingCodeIssues.push(`Dòng ${idx + 1} (File HĐ - ${hdLabel}): Giảng viên "${hoTenGV}"${roleKey ? ` (${roleKey})` : ''} bị thiếu Mã GV.`);
+                missingCodeIssues.push(`Dòng ${idx + 1} (${hdLabel}): Giảng viên "${hoTenGV}"${roleKey ? ` (${roleKey})` : ''} bị thiếu Mã GV.`);
             }
 
             if (maGV && hoTenGV && roleKey) {
@@ -467,7 +471,7 @@ export function parseHoiDongRows(rows) {
 
             // Chỉ cảnh báo thiếu Mã SV nếu dòng có tên SV (hoTenSV); nếu HĐ chưa có SV thì bỏ qua
             if (hoTenSV && !maSV) {
-                missingCodeIssues.push(`Dòng ${idx + 1} (File HĐ - ${hdLabel}): Sinh viên "${hoTenSV}" bị thiếu Mã SV.`);
+                missingCodeIssues.push(`Dòng ${idx + 1} (${hdLabel}): Sinh viên "${hoTenSV}" bị thiếu Mã SV.`);
             }
 
             if (maSV && hoTenSV) {
@@ -477,53 +481,18 @@ export function parseHoiDongRows(rows) {
         }
     });
 
-    // RÀ SOÁT GỘP CA CÙNG THÀNH VIÊN + NGÀY + BUỔI + PHÒNG (Giữ nguyên số HĐ của HĐ đích)
-    const mergedList = [];
-    const logs = [];
-
-    rawList.forEach(item => {
-        const thanhVien = Array.isArray(item.thanhVien) ? item.thanhVien : [];
-        const sinhViens = Array.isArray(item.sinhViens) ? item.sinhViens : [];
-        if (thanhVien.length === 0 && sinhViens.length === 0) return;
-
-        const memSig = buildMembersSignature(thanhVien);
-        const sessionKey = getSessionKey(item.gioBV);
-        const roomKey = String(item.phongBV || '').trim().toUpperCase();
-        const dateKey = String(item.ngayBV || '').trim();
-
-        const sameSlotTarget = mergedList.find(existing =>
-            memSig &&
-            existing.memSig === memSig &&
-            existing.ngayBV === dateKey &&
-            getSessionKey(existing.gioBV) === sessionKey &&
-            String(existing.phongBV || '').trim().toUpperCase() === roomKey
-        );
-
-        if (sameSlotTarget) {
-            sinhViens.forEach(sv => {
-                sameSlotTarget.sinhViens.push(sv);
-            });
-            if (!sameSlotTarget.gioBV && item.gioBV) sameSlotTarget.gioBV = item.gioBV;
-            if (!sameSlotTarget.diaDiemBV && item.diaDiemBV) sameSlotTarget.diaDiemBV = item.diaDiemBV;
-
-            logs.push(`• Gộp ca bảo vệ của HĐ ${item.rawIndex} vào HĐ ${sameSlotTarget.soHD} (cùng Thành viên, Ngày, Buổi & Phòng).`);
-            return;
-        }
-
-        mergedList.push({
-            ...item,
-            thanhVien,
-            sinhViens,
-            memSig,
-            soHD: String(item.rawIndex)
-        });
-    });
+    const validBlocks = rawList.filter(item => item.thanhVien.length > 0 || item.sinhViens.length > 0);
 
     const resultMap = {};
-    mergedList.forEach((hd, idx) => {
-        resultMap[`hd_${idx}`] = hd;
+    validBlocks.forEach((hd, idx) => {
+        const num = String(idx + 1);
+        resultMap[`hd_${idx}`] = {
+            ...hd,
+            rawIndex: num,
+            soHD: num
+        };
     });
-    resultMap.__mergeLogs = logs;
+    resultMap.__mergeLogs = [];
     resultMap.__missingCodeIssues = missingCodeIssues;
 
     return resultMap;
