@@ -283,11 +283,9 @@ export function detectDuplicateStudentNameDifferentId({ svList = [], parsedHoido
         if (key.startsWith('__')) return;
         const hd = parsedHoidongs[key];
         if (!hd || typeof hd !== 'object') return;
-        const hdLabel = `HĐ ${hd.soHD}${hd.ngayBV ? ` (${hd.gioBV ? hd.gioBV + ' ' : ''}${hd.ngayBV})` : ''}`;
-        (hd.sinhViens || []).forEach(sv => {
-            if (sv.hoTenSV && sv.maSV) {
-                addRecord(sv.hoTenSV, sv.maSV, `File HĐ: ${hdLabel}${sv.lop ? ` - Lớp ${sv.lop}` : ''}`);
-            }
+        const hdLabel = `${hd.soHD}${hd.ngayBV ? ` (${hd.gioBV ? hd.gioBV + ' ' : ''}${hd.ngayBV})` : ''}`;
+        (Array.isArray(hd.thanhVien) ? hd.thanhVien : []).forEach(tv => {
+            addRecord(tv.hoTenGV, tv.maGV, `File HĐ: ${hdLabel} - ${tv.chucDanh}`);
         });
     });
 
