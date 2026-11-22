@@ -221,6 +221,87 @@ export function detectDuplicateStudentId({ svList = [], parsedHoidongs = {} }) {
     return conflicts;
 }
 
+// Đối chiếu chéo tìm Mã GV bị dùng cho >= 2 Giảng viên khác tên chuẩn hóa (Chặn & yêu cầu sửa file)
+export function detectDuplicateTeacherIdDifferentName({ svList = [], gvList = [], parsedHoidongs = {} }) {
+    // Map: maGV -> Map(normName -> { displayNames: Set, locations: [] })
+    const idMap = new Map();
+
+    const addRecord = (rawId, rawName, locationDesc) => {
+        const id = String(rawId || '').trim().toUpperCase();
+        const normName = normalizeTeacherKeyForDupCheck(rawName);
+        if (!id || id.startsWith('GV_') || !normName) return;
+
+        if (!idMap.has(id)) {
+            idMap.set(id, new Map());
+        }
+        const nameGroup = idMap.get(id);
+        if (!nameGroup.has(normName)) {
+            nameGroup.set(normName, { displayNames: new Set(), locations: [] });
+        }
+        const entry = nameGroup.get(normName);
+        entry.displayNames.add(String(rawName).trim());
+        if (!entry.locations.includes(locationDesc)) {
+            entry.locations.push(locationDesc);
+        }
+    };
+
+    // 1. Nguồn từ Danh sách Giảng viên
+    (gvList || []).forEach((gv, idx) => {
+        if (gv.maGV && gv.hoTenGV) {
+            addRecord(gv.maGV, gv.hoTenGV, `File GV (dòng dữ liệu #${idx + 1})`);
+        }
+    });
+    document.querySelectorAll('#pool-gv .card-item').forEach(el => {
+        const id = el.getAttribute('data-id') || '';
+        const name = el.getAttribute('data-name') || '';
+        if (id && name) addRecord(id, name, `Kho GV hiện tại`);
+    });
+
+    // 2. Nguồn từ Danh sách Sinh viên & Đồ án (cột Mã GVHD + GVHD)
+    (svList || []).forEach(sv => {
+        if (sv.maGVHD && sv.gvhd) {
+            addRecord(sv.maGVHD, sv.gvhd, `File SV: SV ${sv.hoTen} (${sv.maSV})`);
+        }
+    });
+    document.querySelectorAll('#pool-sv .card-item, .dropzone-sv .card-item').forEach(el => {
+        const ma = el.getAttribute('data-magvhd') || '';
+        const gvhd = el.getAttribute('data-gvhd') || '';
+        const svName = el.getAttribute('data-name') || '';
+        const svId = el.getAttribute('data-id') || '';
+        if (ma && gvhd) addRecord(ma, gvhd, `Kho/HĐ hiện tại: SV ${svName} (${svId})`);
+    });
+
+    // 3. Nguồn từ Danh sách Hội đồng upload
+    Object.keys(parsedHoidongs || {}).forEach(key => {
+        if (key.startsWith('__')) return;
+        const hd = parsedHoidongs[key];
+        if (!hd || typeof hd !== 'object') return;
+        const hdLabel = `Khối HĐ #${hd.soHD || key}${hd.ngayBV ? ` (${hd.gioBV ? hd.gioBV + ' ' : ''}${hd.ngayBV})` : ''}`;
+        (hd.thanhVien || []).forEach(tv => {
+            if (tv.maGV && tv.hoTenGV) {
+                addRecord(tv.maGV, tv.hoTenGV, `File HĐ: ${hdLabel} - ${tv.chucDanh}`);
+            }
+        });
+    });
+
+    const conflicts = [];
+    idMap.forEach((nameGroup, maGV) => {
+        if (nameGroup.size > 1) {
+            const variants = [];
+            nameGroup.forEach((info, normName) => {
+                variants.push({
+                    normName,
+                    names: Array.from(info.displayNames).join(' / '),
+                    locations: info.locations
+                });
+            });
+            conflicts.push({ maGV, variants });
+        }
+    });
+
+    return conflicts;
+}
+
 // Đối chiếu chéo tìm GV trùng tên chuẩn hóa nhưng khác Mã GV
 export function detectDuplicateTeacherNameDifferentId({ svList = [], gvList = [], parsedHoidongs = {} }) {
     const nameMap = new Map();
