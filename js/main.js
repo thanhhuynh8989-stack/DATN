@@ -81,78 +81,88 @@ function showExcelReviewModal({ title, requireConfirm = false, htmlSections = []
             return resolve(true);
         }
 
-        const titleEl = document.getElementById('review-modal-title');
-        const bodyEl = document.getElementById('review-modal-body');
-        const rawBtnCancel = document.getElementById('btn-review-cancel');
-        const rawBtnConfirm = document.getElementById('btn-review-confirm');
-        const btnCloseX = document.getElementById('btn-review-close-x');
+        const openModalNow = () => {
+            const titleEl = document.getElementById('review-modal-title');
+            const bodyEl = document.getElementById('review-modal-body');
+            const rawBtnCancel = document.getElementById('btn-review-cancel');
+            const rawBtnConfirm = document.getElementById('btn-review-confirm');
+            const btnCloseX = document.getElementById('btn-review-close-x');
 
-        // Clone để loại bỏ mọi listener cũ bị lưu từ lần mở trước
-        const btnConfirm = rawBtnConfirm ? rawBtnConfirm.cloneNode(true) : null;
-        const btnCancel = rawBtnCancel ? rawBtnCancel.cloneNode(true) : null;
-        if (rawBtnConfirm && btnConfirm) rawBtnConfirm.replaceWith(btnConfirm);
-        if (rawBtnCancel && btnCancel) rawBtnCancel.replaceWith(btnCancel);
+            const btnConfirm = rawBtnConfirm ? rawBtnConfirm.cloneNode(true) : null;
+            const btnCancel = rawBtnCancel ? rawBtnCancel.cloneNode(true) : null;
+            if (rawBtnConfirm && btnConfirm) rawBtnConfirm.replaceWith(btnConfirm);
+            if (rawBtnCancel && btnCancel) rawBtnCancel.replaceWith(btnCancel);
 
-        if (titleEl) titleEl.textContent = title || '📋 KẾT QUẢ RÀ SOÁT & NẠP DỮ LIỆU EXCEL';
-        if (bodyEl) {
-            bodyEl.innerHTML = htmlSections.join('');
-            bodyEl.scrollTop = 0;
-        }
-
-        if (requireConfirm) {
-            btnCancel?.classList.remove('d-none');
-            btnCloseX?.classList.add('d-none');
-            if (btnConfirm) {
-                btnConfirm.textContent = '✅ Xác nhận file đã đúng, tiếp tục nạp';
-                btnConfirm.className = 'btn btn-success btn-sm fw-bold px-3';
+            if (titleEl) titleEl.textContent = title || '📋 KẾT QUẢ RÀ SOÁT & NẠP DỮ LIỆU EXCEL';
+            if (bodyEl) {
+                bodyEl.innerHTML = htmlSections.join('');
+                bodyEl.scrollTop = 0;
             }
+
+            if (requireConfirm) {
+                btnCancel?.classList.remove('d-none');
+                btnCloseX?.classList.add('d-none');
+                if (btnConfirm) {
+                    btnConfirm.textContent = '✅ Xác nhận file đã đúng, tiếp tục nạp';
+                    btnConfirm.className = 'btn btn-success btn-sm fw-bold px-3';
+                }
+            } else {
+                btnCancel?.classList.add('d-none');
+                btnCloseX?.classList.remove('d-none');
+                if (btnConfirm) {
+                    btnConfirm.textContent = '✅ Đã hiểu';
+                    btnConfirm.className = 'btn btn-primary btn-sm fw-bold px-3';
+                }
+            }
+
+            const oldInst = bootstrap.Modal.getInstance(modalEl);
+            if (oldInst) oldInst.dispose();
+
+            const modalInstance = new bootstrap.Modal(modalEl, {
+                backdrop: requireConfirm ? 'static' : true,
+                keyboard: !requireConfirm
+            });
+
+            let settled = false;
+            let chosenValue = !requireConfirm;
+
+            const finish = (result) => {
+                if (settled) return;
+                settled = true;
+                btnConfirm?.removeEventListener('click', onConfirm);
+                btnCancel?.removeEventListener('click', onCancel);
+                modalEl.removeEventListener('hidden.bs.modal', onHidden);
+                resolve(result);
+            };
+
+            const onConfirm = () => {
+                chosenValue = true;
+                modalInstance.hide();
+            };
+
+            const onCancel = () => {
+                chosenValue = false;
+                modalInstance.hide();
+            };
+
+            const onHidden = () => {
+                finish(chosenValue);
+            };
+
+            btnConfirm?.addEventListener('click', onConfirm);
+            btnCancel?.addEventListener('click', onCancel);
+            modalEl.addEventListener('hidden.bs.modal', onHidden);
+
+            modalInstance.show();
+        };
+
+        // Nếu modal đang mở từ bước trước, đợi đóng xong hẳn rồi mới mở modal kế tiếp
+        if (modalEl.classList.contains('show')) {
+            modalEl.addEventListener('hidden.bs.modal', openModalNow, { once: true });
+            bootstrap.Modal.getInstance(modalEl)?.hide();
         } else {
-            btnCancel?.classList.add('d-none');
-            btnCloseX?.classList.remove('d-none');
-            if (btnConfirm) {
-                btnConfirm.textContent = '✅ Đã hiểu';
-                btnConfirm.className = 'btn btn-primary btn-sm fw-bold px-3';
-            }
+            openModalNow();
         }
-
-        const modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl, {
-            backdrop: requireConfirm ? 'static' : true,
-            keyboard: !requireConfirm
-        });
-
-        let settled = false;
-        let chosenValue = !requireConfirm;
-
-        const finish = (result) => {
-            if (settled) return;
-            settled = true;
-            btnConfirm?.removeEventListener('click', onConfirm);
-            btnCancel?.removeEventListener('click', onCancel);
-            modalEl.removeEventListener('hidden.bs.modal', onHidden);
-            resolve(result);
-        };
-
-        const onConfirm = () => {
-            chosenValue = true;
-            modalInstance.hide();
-            finish(true);
-        };
-
-        const onCancel = () => {
-            chosenValue = false;
-            modalInstance.hide();
-            finish(false);
-        };
-
-        const onHidden = () => {
-            finish(chosenValue);
-        };
-
-        btnConfirm?.addEventListener('click', onConfirm);
-        btnCancel?.addEventListener('click', onCancel);
-        modalEl.addEventListener('hidden.bs.modal', onHidden);
-
-        modalInstance.show();
     });
 }
 
