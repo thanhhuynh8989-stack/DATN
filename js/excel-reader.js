@@ -484,10 +484,7 @@ export function parseHoiDongRows(rows) {
             }
 
             if (maGV && hoTenGV && roleKey) {
-                const existRole = currentObj.thanhVien.find(g => normalizeRole(g.chucDanh) === roleKey);
-                if (!existRole) {
-                    currentObj.thanhVien.push({ maGV, hoTenGV, donVi, chucDanh: roleKey });
-                }
+                currentObj.thanhVien.push({ maGV, hoTenGV, donVi, chucDanh: roleKey });
             }
 
             // Chỉ cảnh báo thiếu Mã SV nếu dòng có tên SV (hoTenSV); nếu HĐ chưa có SV thì bỏ qua
