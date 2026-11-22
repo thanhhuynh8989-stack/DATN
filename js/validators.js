@@ -38,6 +38,45 @@ export function validateGVHDConflictWithHD(gvhdName, hdBox, maGVHD = '') {
     return false;
 }
 
+// TẦNG 2: Kiểm tra 1 Mã GV xuất hiện >= 2 lần (giữ nhiều vai trò) trong CÙNG 1 Hội đồng (Chặn & yêu cầu sửa file)
+export function detectDuplicateTeacherIdInSameHD(parsedHoidongs = {}) {
+    const conflicts = [];
+
+    Object.keys(parsedHoidongs || {}).forEach(key => {
+        if (key.startsWith('__')) return;
+        const hd = parsedHoidongs[key];
+        if (!hd || typeof hd !== 'object') return;
+
+        const hdLabel = `Khối HĐ #${hd.soHD || key}${hd.ngayBV ? ` (${hd.gioBV ? hd.gioBV + ' ' : ''}${hd.ngayBV})` : ''}`;
+        const idMap = new Map(); // maGV -> [{ hoTenGV, chucDanh }]
+
+        (Array.isArray(hd.thanhVien) ? hd.thanhVien : []).forEach(tv => {
+            const id = String(tv.maGV || '').trim().toUpperCase();
+            if (!id || id.startsWith('GV_')) return;
+
+            if (!idMap.has(id)) {
+                idMap.set(id, []);
+            }
+            idMap.get(id).push({
+                hoTenGV: String(tv.hoTenGV || '').trim(),
+                chucDanh: String(tv.chucDanh || '').trim()
+            });
+        });
+
+        idMap.forEach((roles, maGV) => {
+            if (roles.length > 1) {
+                conflicts.push({
+                    hdLabel,
+                    maGV,
+                    roles
+                });
+            }
+        });
+    });
+
+    return conflicts;
+}
+
 // Kiểm tra GV được kéo thả có trùng GVHD của bất kỳ SV nào trong HĐ không
 export function validateTeacherIsGVHDOfAnyStudent(gvName, hdBox, gvId = '') {
     const svCards = hdBox.querySelectorAll('.dropzone-sv .card-item');
@@ -305,6 +344,7 @@ export function detectDuplicateTeacherIdDifferentName({ svList = [], gvList = []
 // Đối chiếu chéo tìm GV trùng tên chuẩn hóa nhưng khác Mã GV
 export function detectDuplicateTeacherNameDifferentId({ svList = [], gvList = [], parsedHoidongs = {} }) {
     const nameMap = new Map();
+    const sameHDMap = new Map(); // normName -> Set(hdLabel)
 
     const addRecord = (rawName, rawId, locationDesc) => {
         const normName = normalizeTeacherKeyForDupCheck(rawName);
@@ -353,9 +393,19 @@ export function detectDuplicateTeacherNameDifferentId({ svList = [], gvList = []
         if (key.startsWith('__')) return;
         const hd = parsedHoidongs[key];
         if (!hd || typeof hd !== 'object') return;
-        const hdLabel = `${hd.soHD}${hd.ngayBV ? ` (${hd.gioBV ? hd.gioBV + ' ' : ''}${hd.ngayBV})` : ''}`;
+        const hdLabel = `Khối HĐ #${hd.soHD || key}${hd.ngayBV ? ` (${hd.gioBV ? hd.gioBV + ' ' : ''}${hd.ngayBV})` : ''}`;
+
+        const seenNamesInThisHD = new Set();
         (hd.thanhVien || []).forEach(tv => {
             addRecord(tv.hoTenGV, tv.maGV, `File HĐ: ${hdLabel} - ${tv.chucDanh}`);
+            const norm = normalizeTeacherKeyForDupCheck(tv.hoTenGV);
+            if (norm) {
+                if (seenNamesInThisHD.has(norm)) {
+                    if (!sameHDMap.has(norm)) sameHDMap.set(norm, new Set());
+                    sameHDMap.get(norm).add(hdLabel);
+                }
+                seenNamesInThisHD.add(norm);
+            }
         });
     });
 
@@ -370,7 +420,11 @@ export function detectDuplicateTeacherNameDifferentId({ svList = [], gvList = []
                     locations: info.locations
                 });
             });
-            conflicts.push({ normName, variants });
+            conflicts.push({
+                normName,
+                variants,
+                sameHDLabels: sameHDMap.has(normName) ? Array.from(sameHDMap.get(normName)) : []
+            });
         }
     });
 
