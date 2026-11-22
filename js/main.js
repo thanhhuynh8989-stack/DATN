@@ -755,8 +755,28 @@ function bindScoreAndExportEvents() {
         }
     });
 
-    // Mở Modal thống kê Vai trò Giảng viên
+    // Mở Modal thống kê Vai trò Giảng viên (Kèm danh sách SV theo từng vai trò)
     let cachedLecturerStats = [];
+
+    const escapeHtmlText = (str) => String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+
+    const formatRoleCellHtml = (svList) => {
+        const list = Array.isArray(svList) ? svList : [];
+        if (list.length === 0) {
+            return `<span class="text-muted">0</span>`;
+        }
+        const svLines = list
+            .map(svText => `<div class="text-muted" style="font-size: 0.74rem; line-height: 1.3;">• ${escapeHtmlText(svText)}</div>`)
+            .join('');
+        return `
+            <div class="fw-bold text-dark mb-1">${list.length}</div>
+            <div class="text-start border-top pt-1">${svLines}</div>
+        `;
+    };
 
     const renderLecturerStatsTable = (keyword = '') => {
         const tbody = document.getElementById('tbody-thong-ke-gv');
@@ -765,12 +785,22 @@ function bindScoreAndExportEvents() {
         if (!tbody || !tfoot) return;
 
         const q = keyword.trim().toLowerCase();
-        const filtered = cachedLecturerStats.filter(item =>
-            !q ||
-            item.maGV.toLowerCase().includes(q) ||
-            item.hoTen.toLowerCase().includes(q) ||
-            item.donVi.toLowerCase().includes(q)
-        );
+        const filtered = cachedLecturerStats.filter(item => {
+            if (!q) return true;
+            const allSVText = [
+                ...(item.huongDanSVs || []),
+                ...(item.chuTichSVs || []),
+                ...(item.phanBienSVs || []),
+                ...(item.thuKySVs || [])
+            ].join(' ').toLowerCase();
+
+            return (
+                item.maGV.toLowerCase().includes(q) ||
+                item.hoTen.toLowerCase().includes(q) ||
+                item.donVi.toLowerCase().includes(q) ||
+                allSVText.includes(q)
+            );
+        });
 
         let sumHD = 0, sumCT = 0, sumPB = 0, sumTK = 0, sumAll = 0;
 
@@ -786,15 +816,15 @@ function bindScoreAndExportEvents() {
                 sumAll += item.tongLuot;
 
                 return `
-                    <tr>
+                    <tr class="align-top">
                         <td>${idx + 1}</td>
-                        <td class="font-monospace">${item.maGV || '<span class="text-muted">—</span>'}</td>
-                        <td class="text-start fw-bold">${item.hoTen}</td>
-                        <td class="text-start small text-muted">${item.donVi || 'Đại học Duy Tân'}</td>
-                        <td>${item.huongDan || 0}</td>
-                        <td>${item.chuTich || 0}</td>
-                        <td>${item.phanBien || 0}</td>
-                        <td>${item.thuKy || 0}</td>
+                        <td class="font-monospace">${escapeHtmlText(item.maGV) || '<span class="text-muted">—</span>'}</td>
+                        <td class="text-start fw-bold">${escapeHtmlText(item.hoTen)}</td>
+                        <td class="text-start small text-muted">${escapeHtmlText(item.donVi || 'Đại học Duy Tân')}</td>
+                        <td>${formatRoleCellHtml(item.huongDanSVs)}</td>
+                        <td>${formatRoleCellHtml(item.chuTichSVs)}</td>
+                        <td>${formatRoleCellHtml(item.phanBienSVs)}</td>
+                        <td>${formatRoleCellHtml(item.thuKySVs)}</td>
                         <td class="fw-bold text-primary">${item.tongLuot}</td>
                     </tr>
                 `;
@@ -844,12 +874,28 @@ function bindScoreAndExportEvents() {
             return alert("Không có dữ liệu để xuất Excel!");
         }
 
+        const formatExcelRoleCell = (svList) => {
+            const list = Array.isArray(svList) ? svList : [];
+            if (list.length === 0) return '0';
+            return `${list.length}\n${list.map(s => `- ${s}`).join('\n')}`;
+        };
+
         const meta = getSetupMetadata();
         const headerRows = [
             ['BẢNG THỐNG KÊ DANH SÁCH GIẢNG VIÊN THEO VAI TRÒ HỘI ĐỒNG ĐATN'],
             [`Khoa: ${meta.khoa || '...'} | Ngành: ${meta.nganh || '...'} | Đợt: ${meta.dotThang || '...'} - Năm: ${meta.namCham || '...'}`],
             [],
-            ['STT', 'Mã GV', 'Họ và tên Giảng viên', 'Đơn vị công tác', 'Hướng dẫn (SV)', 'Chủ tịch (HĐ)', 'Phản biện (HĐ)', 'Thư ký (HĐ)', 'Tổng lượt']
+            [
+                'STT',
+                'Mã GV',
+                'Họ và tên Giảng viên',
+                'Đơn vị công tác',
+                'Hướng dẫn (SV)',
+                'Chủ tịch (SV)',
+                'Phản biện (SV)',
+                'Thư ký (SV)',
+                'Tổng lượt SV'
+            ]
         ];
 
         let tHD = 0, tCT = 0, tPB = 0, tTK = 0, tAll = 0;
@@ -864,10 +910,10 @@ function bindScoreAndExportEvents() {
                 item.maGV,
                 item.hoTen,
                 item.donVi || 'Đại học Duy Tân',
-                item.huongDan,
-                item.chuTich,
-                item.phanBien,
-                item.thuKy,
+                formatExcelRoleCell(item.huongDanSVs),
+                formatExcelRoleCell(item.chuTichSVs),
+                formatExcelRoleCell(item.phanBienSVs),
+                formatExcelRoleCell(item.thuKySVs),
                 item.tongLuot
             ];
         });
@@ -876,8 +922,15 @@ function bindScoreAndExportEvents() {
 
         const ws = XLSX.utils.aoa_to_sheet([...headerRows, ...bodyRows]);
         ws['!cols'] = [
-            { wch: 6 }, { wch: 15 }, { wch: 28 }, { wch: 25 },
-            { wch: 16 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 13 }
+            { wch: 6 },
+            { wch: 14 },
+            { wch: 26 },
+            { wch: 22 },
+            { wch: 30 },
+            { wch: 30 },
+            { wch: 30 },
+            { wch: 30 },
+            { wch: 13 }
         ];
 
         const wb = XLSX.utils.book_new();
@@ -1556,10 +1609,10 @@ function buildLecturerRoleStats() {
                 maGV: (validId && !validId.toUpperCase().startsWith('GV_')) ? validId : '',
                 hoTen: String(hoTen || '').trim(),
                 donVi: String(donVi || '').trim(),
-                huongDan: 0,
-                chuTich: 0,
-                phanBien: 0,
-                thuKy: 0
+                huongDanSVs: [],
+                chuTichSVs: [],
+                phanBienSVs: [],
+                thuKySVs: []
             });
         } else {
             const item = statsMap.get(key);
@@ -1573,6 +1626,13 @@ function buildLecturerRoleStats() {
         return statsMap.get(key);
     };
 
+    const formatSVBadge = (svEl) => {
+        const maSV = (svEl.getAttribute('data-id') || '').trim();
+        const hoTenSV = (svEl.getAttribute('data-name') || '').trim();
+        if (hoTenSV && maSV) return `${hoTenSV} (${maSV})`;
+        return hoTenSV || maSV;
+    };
+
     // 1. Nạp danh sách từ Kho Giảng viên (để không sót GV có 0 lượt)
     document.querySelectorAll('#pool-gv .card-item').forEach(el => {
         ensureTeacher({
@@ -1582,26 +1642,30 @@ function buildLecturerRoleStats() {
         });
     });
 
-    // 2. Đếm số lượt Hướng dẫn từ tất cả SV (cả trong Kho chờ lẫn đã xếp vào Hội đồng)
+    // 2. Gom danh sách SV Hướng dẫn (cả trong Kho chờ lẫn đã xếp vào Hội đồng)
     document.querySelectorAll('#pool-sv .card-item, .dropzone-sv .card-item').forEach(svEl => {
         const maGVHD = svEl.getAttribute('data-magvhd') || '';
         const gvhd = svEl.getAttribute('data-gvhd') || '';
         const rec = ensureTeacher({ maGV: maGVHD, hoTen: gvhd });
-        if (rec) rec.huongDan += 1;
+        const svLabel = formatSVBadge(svEl);
+        if (rec && svLabel && !rec.huongDanSVs.includes(svLabel)) {
+            rec.huongDanSVs.push(svLabel);
+        }
     });
 
-    // 3. Đếm số lượt Chủ tịch, Phản biện, Thư ký theo từng Hội đồng đã lập
+    // 3. Gom danh sách SV theo từng vai trò Chủ tịch, Phản biện, Thư ký trong các Hội đồng
     document.querySelectorAll('.box-hoidong').forEach(box => {
-        const hasStudentsInHD = box.querySelectorAll('.dropzone-sv .card-item').length > 0;
-        if (!hasStudentsInHD) return;
+        const svCards = Array.from(box.querySelectorAll('.dropzone-sv .card-item'));
+        const svLabels = svCards.map(formatSVBadge).filter(Boolean);
+        if (svLabels.length === 0) return;
 
         const roleMappings = [
-            { role: 'Chủ tịch', field: 'chuTich' },
-            { role: 'Phản biện', field: 'phanBien' },
-            { role: 'Thư ký', field: 'thuKy' }
+            { role: 'Chủ tịch', listField: 'chuTichSVs' },
+            { role: 'Phản biện', listField: 'phanBienSVs' },
+            { role: 'Thư ký', listField: 'thuKySVs' }
         ];
 
-        roleMappings.forEach(({ role, field }) => {
+        roleMappings.forEach(({ role, listField }) => {
             const gvEl = box.querySelector(`.dropzone-gv[data-role="${role}"] .card-item`);
             if (!gvEl) return;
             const rec = ensureTeacher({
@@ -1609,15 +1673,31 @@ function buildLecturerRoleStats() {
                 hoTen: gvEl.getAttribute('data-name') || '',
                 donVi: gvEl.getAttribute('data-donvi') || ''
             });
-            if (rec) rec[field] += 1;
+            if (rec) {
+                svLabels.forEach(lbl => {
+                    if (!rec[listField].includes(lbl)) {
+                        rec[listField].push(lbl);
+                    }
+                });
+            }
         });
     });
 
     return Array.from(statsMap.values())
-        .map(item => ({
-            ...item,
-            tongLuot: item.huongDan + item.chuTich + item.phanBien + item.thuKy
-        }))
+        .map(item => {
+            const huongDan = item.huongDanSVs.length;
+            const chuTich = item.chuTichSVs.length;
+            const phanBien = item.phanBienSVs.length;
+            const thuKy = item.thuKySVs.length;
+            return {
+                ...item,
+                huongDan,
+                chuTich,
+                phanBien,
+                thuKy,
+                tongLuot: huongDan + chuTich + phanBien + thuKy
+            };
+        })
         .sort((a, b) => b.tongLuot - a.tongLuot || a.hoTen.localeCompare(b.hoTen, 'vi'));
 }
 
