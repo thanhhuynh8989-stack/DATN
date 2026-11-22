@@ -15,6 +15,7 @@ import {
 } from './admin-config.js';
 import { exportWordZIP } from './docx-exporter.js';
 import {
+    detectDuplicateTeacherIdInSameHD,
     detectDuplicateTeacherIdDifferentName,
     detectDuplicateTeacherNameDifferentId,
     detectDuplicateStudentNameDifferentId,
@@ -295,7 +296,41 @@ function bindExcelAndHoiDongEvents() {
                 return;
             }
 
-            // 2. ƯU TIÊN RÀ SOÁT TRÙNG MÃ GV (1 Mã GV nhưng khác tên GV) — Chặn & yêu cầu sửa file
+            // 2. ƯU TIÊN RÀ SOÁT TRÙNG MÃ GV TRONG CÙNG 1 HỘI ĐỒNG — Chặn & yêu cầu sửa file
+            const dupTeacherInSameHDList = detectDuplicateTeacherIdInSameHD(parsedHoidongs);
+            if (dupTeacherInSameHDList.length > 0) {
+                const sameHDHtml = dupTeacherInSameHDList.map((item, idx) => {
+                    const roleLines = item.roles
+                        .map(r => `<li><strong>${r.hoTenGV}</strong> — Vai trò: <span class="badge bg-secondary">${r.chucDanh}</span></li>`)
+                        .join('');
+
+                    return `
+                        <div class="bg-white border border-danger rounded p-2 mb-2 shadow-sm">
+                            <div class="fw-bold text-danger small mb-1">
+                                #${idx + 1}. Mã GV <span class="badge bg-danger font-monospace">${item.maGV}</span> xuất hiện ${item.roles.length} lần trong <u>${item.hdLabel}</u>:
+                            </div>
+                            <ul class="mb-0 ps-3 small">${roleLines}</ul>
+                        </div>
+                    `;
+                }).join('');
+
+                await showExcelReviewModal({
+                    title: '❌ LỖI TRÙNG MÃ GIẢNG VIÊN TRONG CÙNG 1 HỘI ĐỒNG',
+                    requireConfirm: false,
+                    htmlSections: [
+                        `
+                        <div class="alert alert-danger py-2 px-3 mb-2 small">
+                            <div class="fw-bold mb-1">⛔ Một Giảng viên (cùng Mã GV) không thể đảm nhận nhiều vai trò trong cùng 1 Hội đồng:</div>
+                            <div>Vui lòng kiểm tra và sửa lại file Excel Hội đồng trước khi nạp.</div>
+                        </div>
+                        ${sameHDHtml}
+                        `
+                    ]
+                });
+                return;
+            }
+
+            // 3. ƯU TIÊN RÀ SOÁT TRÙNG MÃ GV (1 Mã GV nhưng khác tên GV) — Chặn & yêu cầu sửa file
             const dupTeacherIdList = detectDuplicateTeacherIdDifferentName({ svList, gvList, parsedHoidongs });
             if (dupTeacherIdList.length > 0) {
                 const dupTeacherIdHtml = dupTeacherIdList.map((item, idx) => {
@@ -332,7 +367,7 @@ function bindExcelAndHoiDongEvents() {
                 return;
             }
 
-            // 3. Chặn nếu trùng Mã SV trong file SV hoặc file HĐ (không render)
+            // 4. ƯU TIÊN RÀ SOÁT TRÙNG MÃ SV (trong file SV hoặc file HĐ) — Chặn & yêu cầu sửa file
             const dupStudentIdList = detectDuplicateStudentId({ svList, parsedHoidongs });
             if (dupStudentIdList.length > 0) {
                 const dupIdHtml = dupStudentIdList.map((c, idx) => {
@@ -366,10 +401,14 @@ function bindExcelAndHoiDongEvents() {
                 return;
             }
 
-            // 4. Xác nhận nếu GV trùng tên nhưng khác Mã GV
+            // 5. Xác nhận nếu GV trùng tên nhưng khác Mã GV (cảnh báo đặc biệt nếu trùng ngay trong cùng 1 HĐ)
             const dupNameDiffIdList = detectDuplicateTeacherNameDifferentId({ svList, gvList, parsedHoidongs });
-            if (dupNameDiffIdList.length > 0 && fileHD) {
+            if (dupNameDiffIdList.length > 0 && (fileHD || fileSV || fileGV)) {
                 const dupItemsHTML = dupNameDiffIdList.map((item, idx) => {
+                    const sameHDBadge = item.sameHDLabels && item.sameHDLabels.length > 0
+                        ? `<div class="alert alert-danger py-1 px-2 my-1 small fw-bold">🚨 CẢNH BÁO ĐẶC BIỆT: Trùng tên GV ngay trong cùng 1 Hội đồng (${item.sameHDLabels.join(', ')})!</div>`
+                        : '';
+
                     const variantsHTML = item.variants.map(v => `
                         <li class="mb-1">
                             <span class="badge bg-dark font-monospace">Mã GV: ${v.maGV}</span>
@@ -379,8 +418,9 @@ function bindExcelAndHoiDongEvents() {
                     `).join('');
 
                     return `
-                        <div class="bg-white border border-warning rounded p-2 mb-2 shadow-sm">
+                        <div class="bg-white border ${item.sameHDLabels?.length ? 'border-danger' : 'border-warning'} rounded p-2 mb-2 shadow-sm">
                             <div class="fw-bold text-danger small mb-1">#${idx + 1}. Trùng họ tên giảng viên nhưng khác Mã GV:</div>
+                            ${sameHDBadge}
                             <ul class="mb-0 ps-3 small">${variantsHTML}</ul>
                         </div>
                     `;
@@ -403,7 +443,7 @@ function bindExcelAndHoiDongEvents() {
                 if (!userConfirmed) return;
             }
 
-            // 5. Xác nhận nếu SV trùng tên nhưng khác Mã SV
+            // 6. Xác nhận nếu SV trùng tên nhưng khác Mã SV
             const dupSVNameDiffIdList = detectDuplicateStudentNameDifferentId({ svList, parsedHoidongs });
             if (dupSVNameDiffIdList.length > 0 && (fileSV || fileHD)) {
                 const dupSVItemsHTML = dupSVNameDiffIdList.map((item, idx) => {
@@ -440,7 +480,7 @@ function bindExcelAndHoiDongEvents() {
                 if (!userConfirmedSV) return;
             }
 
-            // 6. Đã qua toàn bộ rà soát & xác nhận -> Render Kho GV, Kho SV, và Hội đồng
+            // 7. Đã qua toàn bộ rà soát & xác nhận -> Render Kho GV, Kho SV, và Hội đồng
             if (fileGV) {
                 renderGiangVienPool(gvList);
             }
