@@ -1,33 +1,23 @@
 // js/validators.js
 
-// Hàm loại bỏ toàn bộ viết tắt học hàm, học vị, chức danh (kể cả dạng có dấu chấm xen kẽ như Th.S, P.GS, T.S, Ph.D...)
+// Hàm loại bỏ toàn bộ viết tắt học hàm, học vị, chức danh (xử lý mọi biến thể: ThS., Th.S, Th.S., ThS.Phạm..., PGS.TS., GVC...)
 function stripAcademicTitles(rawName) {
     if (!rawName) return '';
-    let s = String(rawName).trim();
 
-    // Chuẩn hóa khoảng trắng và thay dấu chấm/phẩy/gạch nối phân cách học vị thành khoảng trắng
-    // VD: "PGS.TS. Nguyễn Văn A" -> "PGS TS Nguyễn Văn A"
-    // VD: "Th.S Phạm Thị Nga" -> "Th S Phạm Thị Nga" -> ghép lại "ThS" để bắt chính xác
-    s = s
-        .replace(/th\s*\.\s*s\.?/gi, ' ')
-        .replace(/p\s*\.\s*g\s*\.\s*s\.?/gi, ' ')
-        .replace(/g\s*\.\s*s\.?/gi, ' ')
-        .replace(/t\s*\.\s*s\s*\.\s*k\s*\.\s*h\.?/gi, ' ')
-        .replace(/t\s*\.\s*s\.?/gi, ' ')
-        .replace(/k\s*\.\s*s\.?/gi, ' ')
-        .replace(/c\s*\.\s*n\.?/gi, ' ')
-        .replace(/g\s*\.\s*v\s*\.\s*c\.?/gi, ' ')
-        .replace(/g\s*\.\s*v\.?/gi, ' ')
-        .replace(/ph\s*\.\s*d\.?/gi, ' ')
-        .replace(/m\s*\.\s*sc\.?/gi, ' ')
-        .replace(/b\s*\.\s*sc\.?/gi, ' ');
+    // 1. Thay mọi dấu chấm, phẩy, gạch ngang, ngoặc đơn thành khoảng trắng trước
+    // VD: "Th.S Phạm Thị Nga" -> "Th S Phạm Thị Nga"
+    // VD: "ThS.Phạm Thị Nga"  -> "ThS Phạm Thị Nga"
+    // VD: "PGS.TS. Nguyễn A"  -> "PGS TS Nguyễn A"
+    let s = String(rawName)
+        .replace(/[.,\-_/()[\]:]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
 
-    // Thay các dấu chấm, gạch ngang, dấu phẩy, ngoặc đơn bằng khoảng trắng
-    s = s.replace(/[.,\-_/()[\]]+/g, ' ');
+    // 2. Xóa các học vị bị tách đôi do dấu chấm ở giữa (Th S, P G S, G S, T S, K S, C N, G V, Ph D, M Sc, B Sc)
+    s = s.replace(/(?:^|\s)(?:th\s+s|p\s+g\s+s|g\s+s|t\s+s\s+k\s+h|t\s+s|k\s+s|c\s+n|g\s+v\s+c|g\s+v|ph\s+d|m\s+sc|b\s+sc)(?=\s|$)/gi, ' ');
 
-    // Loại bỏ danh sách đầy đủ học hàm, học vị, danh hiệu (tiếng Việt & tiếng Anh) đứng độc lập
+    // 3. Xóa các học hàm, học vị, chức danh chuẩn đứng độc lập (chạy 2 lượt cho trường hợp ghép đôi)
     const titlePattern = /(?:^|\s)(?:pgs|gs|tskh|ts|ths|ncs|gvcc|gvc|gv|ks|cn|bscs|bscki|bsckii|bs|dsc|ds|ngnd|ngut|ngưt|ttnd|ttut|ttưt|assoc|asst|prof|dr|phd|msc|bsc|eng|mr|ms|mrs)(?=\s|$)/gi;
-    // Chạy 2 lượt để xử lý chuỗi ghép nhiều học hàm/học vị liên tiếp (VD: "GS TSKH", "PGS TS BS")
     s = s.replace(titlePattern, ' ').replace(titlePattern, ' ');
 
     return s.replace(/\s+/g, ' ').trim();
