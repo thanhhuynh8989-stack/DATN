@@ -397,6 +397,7 @@ export function parseHoiDongRows(rows) {
     const rawList = [];
     const missingCodeIssues = [];
     let currentObj = null;
+    let lastColAHdNum = '';
     let defaultHeaderPlace = { gio: '', ngay: '', phong: '', diaDiem: '' };
 
     for (let i = 0; i < Math.min(rows.length, 8); i++) {
@@ -415,10 +416,17 @@ export function parseHoiDongRows(rows) {
         return '';
     };
 
+    const extractColAHd = (cellA) => {
+        const s = String(cellA || '').trim();
+        if (!s) return '';
+        const m = s.match(/(?:hội\s*đồng|hoi\s*dong|hđ|hd)?\s*(?:số|so|#|:|-|\.)?\s*(\d+[a-zA-Z0-9\-]*)/i);
+        return m ? m[1].trim() : '';
+    };
+
     rows.forEach((row, idx) => {
         if (!row || row.length === 0) return;
 
-        // Bỏ qua cột A (row[0]) khi xác định HĐ
+        const colA = String(row[0] || '').trim();
         const maGV = String(row[1] || '').trim();
         const hoTenGV = String(row[2] || '').trim();
         const donVi = String(row[3] || '').trim();
@@ -430,8 +438,6 @@ export function parseHoiDongRows(rows) {
         const lop = String(row[9] || '').trim();
 
         const upperRow = row.map(c => String(c || '').trim()).join(' ').toUpperCase();
-
-        // Chặn dòng tiêu đề và phần chữ ký cuối trang
         if (
             upperRow.includes('MÃ SỐ GV') ||
             upperRow.includes('MÃ GV') ||
@@ -450,14 +456,19 @@ export function parseHoiDongRows(rows) {
         if (!maGV && !hoTenGV && !chucDanh && !maSV && !hoTenSV && !deTai) return;
 
         const roleKey = normalizeRole(chucDanh);
+        const explicitHdNum = extractColAHd(colA);
+        const isNewExplicitHd = Boolean(explicitHdNum && explicitHdNum !== lastColAHdNum && (roleKey === 'Chủ tịch' || !currentObj));
 
-        // QUY TẮC TÁCH HĐ: Cứ gặp chức danh "Chủ tịch" (hoặc chưa có block nào) là bắt đầu 1 khối HĐ mới
-        if (roleKey === 'Chủ tịch' || (!currentObj && (maGV || hoTenGV || maSV || hoTenSV))) {
+        // Tách khối mới khi: (1) Gặp Chủ tịch mới, hoặc (2) Cột A đổi sang số HĐ mới, hoặc (3) Chưa có khối nào
+        if (roleKey === 'Chủ tịch' || isNewExplicitHd || (!currentObj && (maGV || hoTenGV || maSV || hoTenSV))) {
             const parsedInfo = extractScheduleAndPlace(ngayBV);
-            const seqIndex = String(rawList.length + 1);
+            const seqIndex = explicitHdNum || String(rawList.length + 1);
+            if (explicitHdNum) lastColAHdNum = explicitHdNum;
+
             currentObj = {
-                rawIndex: seqIndex,
+                rawIndex: String(rawList.length + 1),
                 soHD: seqIndex,
+                hasExplicitSoHD: Boolean(explicitHdNum),
                 ngayBV: parsedInfo.ngay || defaultHeaderPlace.ngay || '',
                 gioBV: parsedInfo.gio || defaultHeaderPlace.gio || '',
                 phongBV: parsedInfo.phong || defaultHeaderPlace.phong || '',
@@ -469,7 +480,7 @@ export function parseHoiDongRows(rows) {
         }
 
         if (currentObj) {
-            const hdLabel = `Khối HĐ #${currentObj.rawIndex} (dòng ${idx + 1})`;
+            const hdLabel = `HĐ ${currentObj.soHD} (dòng ${idx + 1})`;
 
             if (ngayBV) {
                 const parsedInfo = extractScheduleAndPlace(ngayBV);
@@ -487,7 +498,6 @@ export function parseHoiDongRows(rows) {
                 currentObj.thanhVien.push({ maGV, hoTenGV, donVi, chucDanh: roleKey });
             }
 
-            // Chỉ cảnh báo thiếu Mã SV nếu dòng có tên SV (hoTenSV); nếu HĐ chưa có SV thì bỏ qua
             if (hoTenSV && !maSV) {
                 missingCodeIssues.push(`Dòng ${idx + 1} (${hdLabel}): Sinh viên "${hoTenSV}" bị thiếu Mã SV.`);
             }
@@ -500,18 +510,20 @@ export function parseHoiDongRows(rows) {
     });
 
     const validBlocks = rawList.filter(item => item.thanhVien.length > 0 || item.sinhViens.length > 0);
+    const hasAnyExplicit = validBlocks.some(b => b.hasExplicitSoHD);
 
     const resultMap = {};
     validBlocks.forEach((hd, idx) => {
-        const num = String(idx + 1);
+        const finalNum = hasAnyExplicit ? hd.soHD : String(idx + 1);
         resultMap[`hd_${idx}`] = {
             ...hd,
-            rawIndex: num,
-            soHD: num
+            rawIndex: String(idx + 1),
+            soHD: finalNum
         };
     });
     resultMap.__mergeLogs = [];
     resultMap.__missingCodeIssues = missingCodeIssues;
+    resultMap.__preserveExplicitNumbers = hasAnyExplicit;
 
     return resultMap;
 }
