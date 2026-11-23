@@ -29,6 +29,7 @@ import {
     applySessionPermissionsToUI, setupAutoSaveAndLockOnClose, disconnectCloudSession
 } from './session-sync.js';
 import { syncCollectedGiangVienToPool } from './gv-collector.js';
+import { openPaymentPreviewModal } from './payment-exporter.js?v=20261123';
 
 window.studentScores = window.studentScores || {};
 
@@ -957,6 +958,23 @@ function bindScoreAndExportEvents() {
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Thong_Ke_GV');
         XLSX.writeFile(wb, `Thong_Ke_Vai_Tro_Giang_Vien_Dot_${meta.dotThang || 'DATN'}.xlsx`);
+    });
+
+    // Gắn sự kiện mở Modal Xem trước & Xuất Bảng Thanh Toán ĐATN (3 sheet)
+    let btnExportThanhToan = document.getElementById('btn-export-thanh-toan');
+    if (!btnExportThanhToan) {
+        const btnThongKeGV = document.getElementById('btn-thong-ke-gv');
+        if (btnThongKeGV && btnThongKeGV.parentElement) {
+            btnThongKeGV.insertAdjacentHTML(
+                'afterend',
+                `<button type="button" id="btn-export-thanh-toan" class="btn btn-success btn-sm fw-bold">💰 Xuất Bảng Thanh Toán</button>`
+            );
+            btnExportThanhToan = document.getElementById('btn-export-thanh-toan');
+        }
+    }
+
+    btnExportThanhToan?.addEventListener('click', () => {
+        openPaymentPreviewModal(() => getSetupMetadata());
     });
 }
 
