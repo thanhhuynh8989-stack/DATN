@@ -1773,6 +1773,5 @@ document.addEventListener("DOMContentLoaded", async () => {
     initGlobalSortables();
 // Kích hoạt bảng tùy chọn & luồng nạp 2 file (Danh sách GV + Phân công tổng hợp)
     initCombinedImportWorkflow();
-});
     bindEvents();
 });
