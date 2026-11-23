@@ -288,7 +288,7 @@ export function renderHoidongFromExcel(parsedHoidongs) {
         const boxEl = boxId ? document.getElementById(boxId) : null;
         if (!boxEl) return;
 
-        // 1. Render Giảng viên vào đúng chức danh
+        // 1. Render Giảng viên vào đúng chức danh (Mỗi chức danh chỉ giữ duy nhất 1 GV kèm nút ✕)
         thanhVien.forEach(gv => {
             let roleName = "";
             const chucDanhStr = String(gv.chucDanh || '');
@@ -299,14 +299,12 @@ export function renderHoidongFromExcel(parsedHoidongs) {
             if (roleName) {
                 const zone = boxEl.querySelector(`.dropzone-gv[data-role="${roleName}"]`);
                 if (zone) {
-                    zone.innerHTML = `
-                        <div class="card-item position-relative bg-light border-info p-1 pe-4 rounded shadow-sm" 
-                             data-id="${escapeHtmlAttr(gv.maGV)}" data-name="${escapeHtmlAttr(gv.hoTenGV)}" data-donvi="${escapeHtmlAttr(gv.donVi || 'Đại học Duy Tân')}">
-                            <button type="button" class="btn btn-sm btn-link text-danger text-decoration-none fw-bold position-absolute top-0 end-0 px-2 py-1 btn-remove-card" title="Xóa giảng viên này">✕</button>
-                            <div class="fw-bold text-dark small">${escapeHtmlAttr(gv.hoTenGV)}</div>
-                            <div class="text-muted text-truncate" style="font-size: 0.75rem;">${escapeHtmlAttr(gv.donVi || 'Đại học Duy Tân')} - Mã: ${escapeHtmlAttr(gv.maGV)}</div>
-                        </div>
-                    `;
+                    zone.innerHTML = '';
+                    zone.appendChild(createGVCardInRoleZone({
+                        maGV: gv.maGV,
+                        hoTenGV: gv.hoTenGV,
+                        donVi: gv.donVi || 'Đại học Duy Tân'
+                    }));
                 }
             }
         });
@@ -515,46 +513,80 @@ function attachSortableToHoiDong(boxId) {
         });
     }
 
+    // Khu vực chức vụ GV trong Hội đồng:
+    // - pull: false & sort: false -> KHÔNG cho nhấn kéo GV bên trong HĐ
+    // - put: true -> Chỉ nhận thả GV từ Kho (#pool-gv) và luôn ghi đè để mỗi vị trí chỉ có duy nhất 1 GV + nút ✕
     box.querySelectorAll('.dropzone-gv').forEach(zone => {
         Sortable.create(zone, {
-            group: 'giangvien',
+            group: {
+                name: 'giangvien',
+                pull: false,
+                put: true
+            },
+            sort: false,
             animation: 150,
             onAdd: function (evt) {
-                const item = evt.item;
-                const gvId = item.getAttribute('data-id') || '';
-                const gvName = item.getAttribute('data-name') || '';
+                const droppedItem = evt.item;
+                const gvId = droppedItem.getAttribute('data-id') || '';
+                const gvName = droppedItem.getAttribute('data-name') || '';
+                const gvDonVi = droppedItem.getAttribute('data-donvi') || 'Đại học Duy Tân';
                 const currBox = evt.to.closest('.box-hoidong');
                 if (!currBox) return;
 
-                if (evt.to.children.length > 1) {
-                    const firstChild = evt.to.children[0];
-                    if (firstChild && firstChild !== item) evt.to.removeChild(firstChild);
-                }
-
-                const otherGVInThisHD = Array.from(currBox.querySelectorAll('.dropzone-gv .card-item')).filter(node => node !== item);
+                // Kiểm tra trùng GV ở vị trí chức danh khác trong cùng HĐ (loại trừ thẻ cũ của chính ô này)
+                const otherGVInThisHD = Array.from(currBox.querySelectorAll('.dropzone-gv .card-item'))
+                    .filter(node => node.parentElement !== zone);
                 if (otherGVInThisHD.some(node => isSameTeacher(
                     { id1: gvId, name1: gvName },
                     { id2: node.getAttribute('data-id') || '', name2: node.getAttribute('data-name') || '' }
                 ))) {
                     alert(`LỖI: Giảng viên ${gvName} đã có vị trí khác trong Hội đồng này!`);
-                    item.remove();
+                    droppedItem.remove();
                     return;
                 }
 
+                // Kiểm tra trùng GVHD của bất kỳ SV nào trong HĐ
                 const violatedSVName = validateTeacherIsGVHDOfAnyStudent(gvName, currBox, gvId);
                 if (violatedSVName) {
                     alert(`⛔ VI PHẠM NGUYÊN TẮC: ${gvName} là GVHD của sinh viên ${violatedSVName} đang thuộc Hội đồng này!`);
-                    item.remove();
+                    droppedItem.remove();
                     return;
                 }
 
+                // Kiểm tra trùng lịch bảo vệ ở HĐ khác cùng Ngày + Giờ
                 const conflictHDTitle = checkScheduleConflict(gvId, gvName, currBox);
                 if (conflictHDTitle) {
                     alert(`CẢNH BÁO TRÙNG LỊCH: GV ${gvName} đang có lịch tại ${conflictHDTitle} trong cùng khung giờ!`);
-                    item.remove();
+                    droppedItem.remove();
                     return;
                 }
+
+                // Hợp lệ -> Xóa toàn bộ nội dung cũ trong ô (đảm bảo chỉ có 1 GV) và gắn thẻ chuẩn có nút ✕
+                zone.innerHTML = '';
+                zone.appendChild(createGVCardInRoleZone({
+                    maGV: gvId,
+                    hoTenGV: gvName,
+                    donVi: gvDonVi
+                }));
             }
         });
     });
+}
+
+// Hàm tạo thẻ GV chuẩn bên trong ô chức vụ của Hội đồng (luôn có nút ✕ xóa khỏi vị trí)
+function createGVCardInRoleZone({ maGV = '', hoTenGV = '', donVi = 'Đại học Duy Tân' }) {
+    const card = document.createElement('div');
+    card.className = 'card-item position-relative bg-light border border-info p-1 pe-4 rounded shadow-sm';
+    card.setAttribute('data-id', maGV);
+    card.setAttribute('data-name', hoTenGV);
+    card.setAttribute('data-donvi', donVi || 'Đại học Duy Tân');
+
+    card.innerHTML = `
+        <button type="button"
+                class="btn btn-sm btn-link text-danger text-decoration-none fw-bold position-absolute top-0 end-0 px-2 py-1 btn-remove-card"
+                title="Xóa giảng viên khỏi vị trí này">✕</button>
+        <div class="fw-bold text-dark small">${escapeHtmlAttr(hoTenGV)}</div>
+        <div class="text-muted text-truncate" style="font-size: 0.75rem;">${escapeHtmlAttr(donVi || 'Đại học Duy Tân')} - Mã: ${escapeHtmlAttr(maGV)}</div>
+    `;
+    return card;
 }
