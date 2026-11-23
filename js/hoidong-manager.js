@@ -20,6 +20,22 @@ function escapeHtmlAttr(val) {
         .replace(/>/g, '&gt;');
 }
 
+/**
+ * Quét toàn bộ các box Hội đồng hiện có trên màn hình để lấy số HĐ kế tiếp (max + 1),
+ * đảm bảo tạo mới không bao giờ bị trùng số hoặc nhảy số vô lý sau khi xóa/gộp.
+ */
+export function getNextAvailableHoiDongNumber() {
+    let maxNum = 0;
+    document.querySelectorAll('#workspace-hd .hd-title').forEach(inp => {
+        const m = String(inp.value || '').match(/\d+/);
+        if (m) {
+            const n = parseInt(m[0], 10);
+            if (!isNaN(n) && n > maxNum) maxNum = n;
+        }
+    });
+    return maxNum + 1;
+}
+
 export function createGVCardInRoleZone({ maGV = '', hoTenGV = '', donVi = 'Đại học Duy Tân' }) {
     const card = document.createElement('div');
     card.className = 'card-item d-flex align-items-start justify-content-between gap-1 bg-white border border-info p-1 rounded shadow-sm';
@@ -69,7 +85,7 @@ export function syncSVCardActionButton(svCard, isInHoiDong) {
     }
 }
 
-// Export hàm 1: Khởi tạo Sortable toàn cục & Lắng nghe sự kiện click nút "+ Thêm SV"
+// Export hàm 1: Khởi tạo Sortable toàn cục & Lắng nghe sự kiện click nút "+ Thêm SV", "+ Gán"
 export function initGlobalSortables() {
     const poolSV = document.getElementById('pool-sv');
     if (poolSV) {
@@ -88,8 +104,13 @@ export function initGlobalSortables() {
 
 // Export hàm 2: Tạo Box Hội Đồng mới
 export function createHoiDongBox(titleText = null, initDate = '', initTime = '', initRoom = '', initLocation = '') {
-    hoidongCount++;
-    const hdTitle = escapeHtmlAttr(titleText || `HĐ ${hoidongCount}`);
+    const nextSuggestedNum = getNextAvailableHoiDongNumber();
+    hoidongCount = nextSuggestedNum;
+
+    const cleanTitle = (titleText && String(titleText).trim())
+        ? String(titleText).trim()
+        : `Hội Đồng ${nextSuggestedNum}`;
+    const hdTitle = escapeHtmlAttr(cleanTitle);
     const boxId = `hd-box-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
     let formattedTime = initTime || '';
@@ -124,7 +145,7 @@ export function createHoiDongBox(titleText = null, initDate = '', initTime = '',
     const boxHTML = `
         <div class="box-hoidong p-2 mb-3 border rounded bg-white shadow-sm" id="${boxId}">
             <div class="d-flex gap-2 mb-2 bg-light p-2 rounded align-items-center flex-wrap">
-                <input type="text" class="form-control form-control-sm fw-bold hd-title" value="${hdTitle}" placeholder="Số/Tên HĐ" style="width: 110px;">
+                <input type="text" class="form-control form-control-sm fw-bold hd-title" value="${hdTitle}" placeholder="Số/Tên HĐ" style="width: 120px;">
                 <input type="date" class="form-control form-control-sm hd-date" value="${escapeHtmlAttr(initDate)}" style="width: 125px;" title="Ngày bảo vệ">
                 <input type="time" class="form-control form-control-sm hd-time" value="${escapeHtmlAttr(formattedTime)}" style="width: 110px;" title="Giờ:Phút bảo vệ">
                 <input type="text" class="form-control form-control-sm hd-room" value="${escapeHtmlAttr(initRoom)}" placeholder="Phòng (111)" style="width: 105px;">
@@ -157,16 +178,21 @@ export function createHoiDongBox(titleText = null, initDate = '', initTime = '',
     workspace.insertAdjacentHTML('beforeend', boxHTML);
     const boxEl = document.getElementById(boxId);
 
-    boxEl?.querySelector('.btn-delete-hd')?.addEventListener('click', () => boxEl.remove());
+    boxEl?.querySelector('.btn-delete-hd')?.addEventListener('click', () => {
+        boxEl.remove();
+        hoidongCount = getNextAvailableHoiDongNumber() - 1;
+    });
 
     attachSortableToHoiDong(boxId);
     return boxId;
 }
 
-// Hàm hậu xử lý SAU KHI RENDER XONG:
-// 1. Gộp các box có cùng (Thành viên + Chức danh, Ngày, Buổi, Phòng)
-// 2. Đánh lại số Hội đồng chuẩn xác (cùng Thành viên + Chức danh thì dùng chung 1 số HĐ; khác thì tăng dần 1, 2, 3...)
-export function finalizeAndRenumberHoiDongs() {
+// Hàm hậu xử lý:
+// 1. Gộp các ca bảo vệ trùng (Thành viên + Chức danh, Ngày, Buổi, Phòng)
+// 2. Đánh số Hội đồng nhất quán:
+//    - Nếu preserveExplicitNumbers = true: giữ nguyên số HĐ gốc từ file Excel (cột A), đồng bộ tên "Hội Đồng <Số>"
+//    - Nếu preserveExplicitNumbers = false: đánh số tuần tự 1 -> N (cùng bộ Thành viên + Chức danh thì dùng chung 1 số HĐ)
+export function finalizeAndRenumberHoiDongs(preserveExplicitNumbers = false) {
     const workspace = document.getElementById('workspace-hd');
     if (!workspace) return [];
 
@@ -189,9 +215,16 @@ export function finalizeAndRenumberHoiDongs() {
         return members;
     };
 
+    const extractExplicitNum = (titleStr) => {
+        const cleaned = String(titleStr || '').trim();
+        const m = cleaned.match(/(?:hội\s*đồng|hoi\s*dong|hđ|hd)?\s*(?:số|so|#|:|-|\.)?\s*(\d+[a-zA-Z0-9\-]*)/i);
+        return m ? m[1].trim() : '';
+    };
+
     // Bước A: Gộp ca bảo vệ trùng (Thành viên + Chức danh, Ngày, Buổi, Phòng)
     boxes.forEach((box, idx) => {
-        const oldTitle = box.querySelector('.hd-title')?.value.trim() || `HĐ ${idx + 1}`;
+        const oldTitle = box.querySelector('.hd-title')?.value.trim() || `Hội Đồng ${idx + 1}`;
+        const explicitNum = extractExplicitNum(oldTitle);
         const memSig = buildMembersSignature(readBoxMembers(box));
         const dateKey = (box.querySelector('.hd-date')?.value || '').trim();
         const timeVal = (box.querySelector('.hd-time')?.value || '').trim();
@@ -224,13 +257,14 @@ export function finalizeAndRenumberHoiDongs() {
             }
 
             box.remove();
-            mergeLogs.push(`• Gộp ca bảo vệ của khối #${idx + 1} vào cùng Hội đồng (trùng Thành viên, Ngày, Buổi & Phòng).`);
+            mergeLogs.push(`• Gộp ca bảo vệ của khối #${idx + 1} vào ${sameSlotTarget.oldTitle} (trùng Thành viên, Ngày, Buổi & Phòng).`);
             return;
         }
 
         keptBoxes.push({
             box,
             oldTitle,
+            explicitNum,
             memSig,
             dateKey,
             sessionKey,
@@ -238,17 +272,23 @@ export function finalizeAndRenumberHoiDongs() {
         });
     });
 
-    // Bước B: Đánh lại số Hội đồng chuẩn xác từ 1 -> N
+    // Bước B: Đánh số Hội đồng chuẩn xác
     const sigToNumber = new Map();
     let nextNum = 1;
 
     keptBoxes.forEach((entry, idx) => {
         let assignedNum;
-        if (entry.memSig && sigToNumber.has(entry.memSig)) {
+
+        if (preserveExplicitNumbers && entry.explicitNum) {
+            assignedNum = entry.explicitNum;
+            if (entry.memSig && !sigToNumber.has(entry.memSig)) {
+                sigToNumber.set(entry.memSig, assignedNum);
+            }
+        } else if (entry.memSig && sigToNumber.has(entry.memSig)) {
             assignedNum = sigToNumber.get(entry.memSig);
             mergeLogs.push(`• Khối #${idx + 1} dùng chung thành viên với Hội Đồng ${assignedNum} (khác buổi/phòng) → Đánh số Hội Đồng ${assignedNum}.`);
         } else {
-            assignedNum = nextNum++;
+            assignedNum = String(nextNum++);
             if (entry.memSig) sigToNumber.set(entry.memSig, assignedNum);
         }
 
@@ -258,7 +298,7 @@ export function finalizeAndRenumberHoiDongs() {
         }
     });
 
-    hoidongCount = nextNum - 1;
+    hoidongCount = getNextAvailableHoiDongNumber() - 1;
     return mergeLogs;
 }
 
@@ -270,6 +310,7 @@ export function renderHoidongFromExcel(parsedHoidongs) {
     hoidongCount = 0;
 
     const safeParsed = parsedHoidongs && typeof parsedHoidongs === 'object' ? parsedHoidongs : {};
+    const preserveExplicitNumbers = Boolean(safeParsed.__preserveExplicitNumbers);
     const conflictLogs = [];
     const duplicateSVLogs = [];
 
@@ -324,10 +365,10 @@ export function renderHoidongFromExcel(parsedHoidongs) {
         // 1. Render Giảng viên vào đúng chức danh (mỗi chức danh chỉ có 1 GV + icon ✕)
         thanhVien.forEach(gv => {
             let roleName = "";
-            const chucDanhStr = String(gv.chucDanh || '');
-            if (chucDanhStr.includes("Chủ tịch")) roleName = "Chủ tịch";
-            else if (chucDanhStr.includes("Phản biện")) roleName = "Phản biện";
-            else if (chucDanhStr.includes("Thư ký")) roleName = "Thư ký";
+            const chucDanhLower = String(gv.chucDanh || '').toLowerCase();
+            if (chucDanhLower.includes("chủ tịch")) roleName = "Chủ tịch";
+            else if (chucDanhLower.includes("phản biện")) roleName = "Phản biện";
+            else if (chucDanhLower.includes("thư ký")) roleName = "Thư ký";
 
             if (roleName) {
                 const zone = boxEl.querySelector(`.dropzone-gv[data-role="${roleName}"]`);
@@ -412,8 +453,8 @@ export function renderHoidongFromExcel(parsedHoidongs) {
         });
     });
 
-    // SAU KHI RENDER XONG: Gộp ca trùng và đánh lại số HĐ chính xác (1, 2, 3...)
-    const mergeLogs = finalizeAndRenumberHoiDongs();
+    // SAU KHI RENDER XONG: Gộp ca trùng và đánh số HĐ nhất quán
+    const mergeLogs = finalizeAndRenumberHoiDongs(preserveExplicitNumbers);
 
     return { mergeLogs, conflictLogs, duplicateSVLogs };
 }
@@ -424,7 +465,6 @@ export function renderHoidongFromExcel(parsedHoidongs) {
 let targetBoxIdForAssignGV = null;
 let targetRoleForAssignGV = null;
 
-// Tự động tạo HTML của Modal chọn GV vào DOM nếu trong index.html chưa khai báo sẵn
 function ensureAssignGVModalExists() {
     let modalEl = document.getElementById('modalGanGiangVien');
     if (modalEl) return modalEl;
@@ -452,10 +492,6 @@ function ensureAssignGVModalExists() {
     return document.getElementById('modalGanGiangVien');
 }
 
-// Lắng nghe 3 sự kiện:
-// (1) Bấm nút ✕ (.btn-remove-gv-role) -> Xóa GV khỏi chức danh hiện tại
-// (2) Bấm nút "+ Gán" (.btn-open-assign-gv) -> Mở Modal chọn/thay thế GV
-// (3) Gõ vào ô tìm kiếm (#search-gv-assign-modal) -> Lọc danh sách GV theo thời gian thực
 function initAssignGVRoleEvents() {
     document.addEventListener('click', (e) => {
         // 1. Nút ✕ xóa GV khỏi chức danh trong HĐ
@@ -531,7 +567,6 @@ function renderAssignGVList(keyword = '') {
     const currentIdInTarget = currentCardInTarget?.getAttribute('data-id') || '';
     const currentNameInTarget = currentCardInTarget?.getAttribute('data-name') || '';
 
-    // Lấy danh sách GV đang giữ 2 chức danh CÒN LẠI trong cùng HĐ này
     const otherRoleCards = Array.from(box.querySelectorAll('.dropzone-gv .card-item'))
         .filter(node => node.parentElement !== targetZone);
 
@@ -553,7 +588,6 @@ function renderAssignGVList(keyword = '') {
             { id2: currentIdInTarget, name2: currentNameInTarget }
         );
 
-        // Kiểm tra 3 ràng buộc nghiệp vụ trước khi cho phép chọn
         const isAlreadyOtherRole = otherRoleCards.some(node => isSameTeacher(
             { id1: maGV, name1: hoTen },
             { id2: node.getAttribute('data-id') || '', name2: node.getAttribute('data-name') || '' }
@@ -587,7 +621,6 @@ function renderAssignGVList(keyword = '') {
         if (!blockReason) {
             btnItem.addEventListener('click', () => {
                 if (targetZone) {
-                    // Xóa GV cũ (nếu có) và gán GV mới vào đúng vị trí chức vụ (chỉ 1 GV duy nhất)
                     targetZone.innerHTML = '';
                     targetZone.appendChild(createGVCardInRoleZone({
                         maGV,
