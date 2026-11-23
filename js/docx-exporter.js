@@ -10,6 +10,62 @@ function sanitizeFolderName(name, fallback = 'Thu_Muc') {
     return cleaned || fallback;
 }
 
+function escapeXml(str) {
+    return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+}
+
+function extractOnlyHoiDongNumber(rawSoHD) {
+    const s = String(rawSoHD || '').trim();
+    if (!s) return '';
+    const m = s.match(/(?:hội\s*đồng|hoi\s*dong|hđ|hd)?\s*(?:số|so|#|:|-|\.)?\s*(\d+[a-zA-Z0-9\-]*)/i);
+    return m && m[1] ? m[1].trim() : s;
+}
+
+function formatDateVN(rawDate) {
+    const s = String(rawDate || '').trim();
+    if (!s) return '.../.../......';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+        const [y, m, d] = s.split('-');
+        return `${d}/${m}/${y}`;
+    }
+    return s;
+}
+
+/**
+ * Chèn dòng đánh dấu lên đầu phần thân văn bản (word/document.xml) của file .docx
+ */
+function prependMarkerLineToDocxZip(zipInstance, markerText) {
+    const docFile = zipInstance.file('word/document.xml');
+    if (!docFile) return;
+
+    const xmlContent = docFile.asText();
+    const markerParagraphXml =
+        `<w:p>` +
+            `<w:pPr>` +
+                `<w:jc w:val="right"/>` +
+                `<w:spacing w:before="0" w:after="60" w:line="240" w:lineRule="auto"/>` +
+            `</w:pPr>` +
+            `<w:r>` +
+                `<w:rPr>` +
+                    `<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>` +
+                    `<w:i/>` +
+                    `<w:color w:val="595959"/>` +
+                    `<w:sz w:val="20"/>` +
+                    `<w:szCs w:val="20"/>` +
+                `</w:rPr>` +
+                `<w:t xml:space="preserve">${escapeXml(markerText)}</w:t>` +
+            `</w:r>` +
+        `</w:p>`;
+
+    const updatedXml = xmlContent.replace(/(<w:body[^>]*>)/i, `$1${markerParagraphXml}`);
+    zipInstance.file('word/document.xml', updatedXml);
+}
+
 export async function exportWordZIP(exportData, meta = {}) {
     const zip = new JSZip();
 
@@ -24,6 +80,9 @@ export async function exportWordZIP(exportData, meta = {}) {
         };
     };
 
+    // Bộ đếm STT sinh viên theo từng Hội đồng (nếu dữ liệu đầu vào chưa có sẵn trường stt)
+    const sttCounterByHD = new Map();
+
     // Tạo cây thư mục: [Tên Hội Đồng] / [MSSV - Họ Tên SV] / [6 file Word]
     exportData.forEach(data => {
         const hdFolderName = sanitizeFolderName(data.so_hd, 'Hoi_Dong');
@@ -31,10 +90,20 @@ export async function exportWordZIP(exportData, meta = {}) {
 
         const svFolderName = sanitizeFolderName(`${data.ma_sv} - ${data.ho_ten}`, 'Sinh_Vien');
         const svFolder = hdFolder.folder(svFolderName);
-        
+
+        const hdNumOnly = extractOnlyHoiDongNumber(data.so_hd);
+        const hdGroupKey = hdNumOnly || hdFolderName;
+        const nextStt = (sttCounterByHD.get(hdGroupKey) || 0) + 1;
+        sttCounterByHD.set(hdGroupKey, nextStt);
+
+        const sttTrongHD = data.stt_hd ?? data.stt ?? nextStt;
+        const ngayBaoVeVN = formatDateVN(data.ngay);
+        const topMarkerLine = `HĐ số ${hdNumOnly || data.so_hd || ''} - STT ${sttTrongHD} - ngày ${ngayBaoVeVN}`;
+
         const baseContext = {
             KHOA: data.khoa || '',
             SO_HOI_DONG: data.so_hd || '',
+            STT_HOI_DONG: String(sttTrongHD),
             NGÀY__BẢO_VỆ: data.ngay || '',
             NGÀY_BẢO_VỆ: data.ngay || '',
             GIỜ: data.gio || '',
@@ -53,15 +122,20 @@ export async function exportWordZIP(exportData, meta = {}) {
         const renderWord = (templateBinary, fileName, extraContext = {}) => {
             if (!templateBinary) return;
             try {
-                const doc = new window.docxtemplater(new PizZip(templateBinary), { 
-                    paragraphLoop: true, 
+                const doc = new window.docxtemplater(new PizZip(templateBinary), {
+                    paragraphLoop: true,
                     linebreaks: true,
                     delimiters: { start: '{{', end: '}}' },
                     parser: customParser
                 });
-                
+
                 doc.render({ ...baseContext, ...extraContext });
-                const outBlob = doc.getZip().generate({ type: "blob" });
+
+                // Chèn dòng đánh dấu lên đầu trang của file Word xuất ra
+                const renderedZip = doc.getZip();
+                prependMarkerLineToDocxZip(renderedZip, topMarkerLine);
+
+                const outBlob = renderedZip.generate({ type: "blob" });
                 svFolder.file(fileName, outBlob);
             } catch (error) {
                 console.error(`Lỗi render file ${fileName}:`, error);
