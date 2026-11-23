@@ -205,8 +205,15 @@ export function collectPaymentSourceFromDOM(meta = {}) {
         const pb = getMember('Phản biện');
         const tk = getMember('Thư ký');
 
-        if (!hdGroupedMap.has(soHD)) {
-            hdGroupedMap.set(soHD, {
+        // Tạo khóa định danh duy nhất theo bộ 3 thành viên + chức danh
+        const ctKey = normalizeTeacherKeyForDupCheck(ct.hoTen) || ct.maGV.toUpperCase();
+        const pbKey = normalizeTeacherKeyForDupCheck(pb.hoTen) || pb.maGV.toUpperCase();
+        const tkKey = normalizeTeacherKeyForDupCheck(tk.hoTen) || tk.maGV.toUpperCase();
+        const hasAnyMember = Boolean(ctKey || pbKey || tkKey);
+        const groupKey = hasAnyMember ? `MEM_${ctKey}|${pbKey}|${tkKey}` : `HD_${soHD}_${idx}`;
+
+        if (!hdGroupedMap.has(groupKey)) {
+            hdGroupedMap.set(groupKey, {
                 soHD,
                 ct,
                 pb,
@@ -215,7 +222,15 @@ export function collectPaymentSourceFromDOM(meta = {}) {
                 totalSV: 0
             });
         }
-        const hdRec = hdGroupedMap.get(soHD);
+        const hdRec = hdGroupedMap.get(groupKey);
+
+        // Nếu gộp nhiều box có số HĐ khác nhau (vd: 12 và 13), ưu tiên giữ số HĐ nhỏ hơn (12)
+        const currNum = parseInt(soHD, 10);
+        const existingNum = parseInt(hdRec.soHD, 10);
+        if (!isNaN(currNum) && !isNaN(existingNum) && currNum < existingNum) {
+            hdRec.soHD = soHD;
+        }
+
         if (!hdRec.ct.hoTen && ct.hoTen) hdRec.ct = ct;
         if (!hdRec.pb.hoTen && pb.hoTen) hdRec.pb = pb;
         if (!hdRec.tk.hoTen && tk.hoTen) hdRec.tk = tk;
@@ -234,11 +249,33 @@ export function collectPaymentSourceFromDOM(meta = {}) {
                 lop,
                 maGVHD: (svEl.getAttribute('data-magvhd') || '').trim(),
                 gvhd: (svEl.getAttribute('data-gvhd') || '').trim(),
-                soHD,
+                soHD: hdRec.soHD,
                 pb
             });
         });
     });
+
+    // Sắp xếp lại thứ tự ngày tăng dần bên trong từng Hội đồng đã gộp (vd: "23/12/2025, 24/12/2025")
+    const parseVNDate = (dStr) => {
+        const p = String(dStr || '').split('/');
+        if (p.length !== 3) return 0;
+        return new Date(Number(p[2]), Number(p[1]) - 1, Number(p[0])).getTime();
+    };
+
+    const hdGroupedList = Array.from(hdGroupedMap.values())
+        .map(hd => {
+            const sortedDates = Array.from(hd.dates).sort((a, b) => parseVNDate(a) - parseVNDate(b));
+            return {
+                ...hd,
+                dates: new Set(sortedDates)
+            };
+        })
+        .sort((a, b) => {
+            const na = parseInt(a.soHD, 10);
+            const nb = parseInt(b.soHD, 10);
+            if (!isNaN(na) && !isNaN(nb)) return na - nb;
+            return String(a.soHD).localeCompare(String(b.soHD), 'vi');
+        });
 
     const detectedNganh = (meta.nganh || '').trim() || Array.from(nganhSet).join(', ');
     const detectedKhoaHoc = Array.from(classSet).sort((a, b) => a.localeCompare(b, 'vi')).join(', ');
@@ -248,12 +285,7 @@ export function collectPaymentSourceFromDOM(meta = {}) {
         nganh: detectedNganh,
         khoaHoc: detectedKhoaHoc,
         assignedStudents,
-        hdGroupedList: Array.from(hdGroupedMap.values()).sort((a, b) => {
-            const na = parseInt(a.soHD, 10);
-            const nb = parseInt(b.soHD, 10);
-            if (!isNaN(na) && !isNaN(nb)) return na - nb;
-            return String(a.soHD).localeCompare(String(b.soHD), 'vi');
-        }),
+        hdGroupedList,
         resolveTeacherMeta
     };
 }
