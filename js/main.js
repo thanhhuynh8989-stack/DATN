@@ -21,7 +21,7 @@ import {
     detectDuplicateStudentNameDifferentId,
     detectDuplicateStudentId,
     collectMissingCodeWarnings
-} from './validators.js?v=20261122';
+} from './validators.js?v=20261123';
 import {
     sessionState, getGasWebAppUrl, setGasWebAppUrl, getSavedSessionMeta, saveSessionMeta,
     createCloudSession, loadCloudSession, saveCloudHoiDong, toggleCloudHDLock,
