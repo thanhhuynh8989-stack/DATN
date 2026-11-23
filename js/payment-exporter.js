@@ -792,7 +792,7 @@ async function buildStyledPaymentWorkbook(sourceData, config, computed) {
     ];
 
     const hdrRow3 = ws3.getRow(6);
-    hdrRow3.height = 34;
+    hdrRow3.height = 42; // Tăng chiều cao tiêu đề để chữ "T.GIAN THAM GIA HĐ TỐT NGHIỆP" hiển thị đủ 3 dòng, không bị cắt mép
     const headers3 = ['STT', 'HỘI ĐỒNG SỐ', 'HỌ VÀ TÊN', '', 'CHỨC DANH', 'T.GIAN THAM GIA HĐ TỐT NGHIỆP', 'SLSV', 'HỆ SỐ', 'Giờ QĐ', 'ĐƠN GIÁ', 'THÀNH TIỀN', 'GHI CHÚ'];
     headers3.forEach((h, i) => {
         const cell = hdrRow3.getCell(i + 1);
@@ -808,15 +808,15 @@ async function buildStyledPaymentWorkbook(sourceData, config, computed) {
     computed.rowsHoiDong.forEach((r, idx) => {
         const rowNum = startRow3 + idx;
         const row = ws3.getRow(rowNum);
-        row.height = 21;
+        row.height = 22;
 
         const vals = [
             r.stt,
-            r.isFirstInBlock ? r.soHD : '',
+            r.isFirstInBlock ? r.soHD : null,
             r.hoDem,
             r.ten,
             r.chucDanh,
-            r.isFirstInBlock ? r.thoiGian : '',
+            r.isFirstInBlock ? r.thoiGian : null,
             r.slsv,
             r.heSo,
             { formula: `G${rowNum}*H${rowNum}`, result: r.gioQD },
@@ -854,16 +854,17 @@ async function buildStyledPaymentWorkbook(sourceData, config, computed) {
             }
         });
 
+        // Gộp dọc 3 dòng và GÁN LẠI GIÁ TRỊ SAU KHI MERGE để ExcelJS không ghi đè thành rỗng
         if (r.isFirstInBlock) {
             ws3.mergeCells(rowNum, 2, rowNum + 2, 2);
             const hdCell = ws3.getCell(rowNum, 2);
-            hdCell.value = r.soHD || String(Math.floor(idx / 3) + 1);
+            hdCell.value = r.soHD;
             hdCell.font = FONT_BASE;
             hdCell.alignment = { horizontal: 'center', vertical: 'middle' };
 
             ws3.mergeCells(rowNum, 6, rowNum + 2, 6);
             const timeCell = ws3.getCell(rowNum, 6);
-            timeCell.value = r.thoiGian || '';
+            timeCell.value = r.thoiGian;
             timeCell.font = FONT_BASE;
             timeCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
         }
