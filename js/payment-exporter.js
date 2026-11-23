@@ -56,6 +56,38 @@ function formatDecimalVN(num) {
     return val.toLocaleString('vi-VN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 }
 
+/**
+ * Tính giá trị số serial ngày theo chuẩn Excel (tương đương giá trị của DATEVALUE(TODAY()))
+ * Trả về chuỗi giá trị tĩnh: "SET@DTU 46349"
+ */
+function getSetDtuSerialStamp() {
+    const now = new Date();
+    const localMidnightUtc = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+    const excelEpochUtc = Date.UTC(1899, 11, 30); // Mốc ngày 0 của Excel (30/12/1899)
+    const excelSerial = Math.floor((localMidnightUtc - excelEpochUtc) / 86400000);
+    return `SET@DTU ${excelSerial}`;
+}
+
+// Tự động nạp thư viện ExcelJS nếu chưa có trên trang (để hỗ trợ full Font Times New Roman 12, Border, Fill, Number Format)
+async function ensureExcelJSLoaded() {
+    if (window.ExcelJS) return window.ExcelJS;
+    await new Promise((resolve, reject) => {
+        const existing = document.querySelector('script[data-exceljs-cdn="1"]');
+        if (existing) {
+            existing.addEventListener('load', resolve);
+            existing.addEventListener('error', reject);
+            return;
+        }
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+        script.setAttribute('data-exceljs-cdn', '1');
+        script.onload = resolve;
+        script.onerror = () => reject(new Error('Không thể tải thư viện định dạng ExcelJS từ CDN.'));
+        document.head.appendChild(script);
+    });
+    return window.ExcelJS;
+}
+
 // Tách Họ đệm (kèm học hàm/học vị) và Tên để đưa vào 2 cột theo mẫu Duy Tân
 function splitTeacherNameAndTitle(rawFullName) {
     const clean = String(rawFullName || '').trim().replace(/\s+/g, ' ');
@@ -351,57 +383,207 @@ export function computePaymentTables(sourceData, config) {
 }
 
 /**
- * Tạo Workbook XLSX (SheetJS) gồm 3 sheet chính + 1 sheet ẩn _META_DATA phục vụ ghép Tổng hợp liên ngành
+ * Xây dựng Workbook bằng ExcelJS:
+ * - Font Times New Roman, cỡ chữ 12 toàn bộ
+ * - Dòng 1: Giá trị tĩnh "SET@DTU <serial>" căn phải
+ * - Header & Footer chữ ký 5 cấp chuẩn mẫu Duy Tân
+ * - Kẻ khung viền đen rõ nét, tô nền xám tiêu đề bảng, định dạng số/tiền tệ chuẩn
  */
-function buildPaymentWorkbook(sourceData, config, computed) {
-    const wb = XLSX.utils.book_new();
-    const khoaUpper = (config.khoa || sourceData.khoa || '').toUpperCase();
-    const nganhUpper = (config.nganh || sourceData.nganh || '').toUpperCase();
-    const khoaHocUpper = (config.khoaHoc || sourceData.khoaHoc || '').toUpperCase();
+async function buildStyledPaymentWorkbook(sourceData, config, computed) {
+    const ExcelJS = await ensureExcelJSLoaded();
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'SET@DTU - Hệ thống Quản lý ĐATN';
+    wb.created = new Date();
+
+    const stampText = getSetDtuSerialStamp();
+    const khoaUpper = (config.khoa || sourceData.khoa || '').toUpperCase().replace(/^KHOA\s+/i, '');
+    const nganhUpper = (config.nganh || sourceData.nganh || '').toUpperCase().replace(/^NGÀNH\s+/i, '');
+    const khoaHocUpper = (config.khoaHoc || sourceData.khoaHoc || '').toUpperCase().replace(/^KHÓA\s+/i, '');
     const truongUpper = (config.truongThanhVien || 'TRƯỜNG CN&KT').toUpperCase();
 
-    const makeFooterRows = (totalColsCount) => {
-        const rowDate = new Array(totalColsCount).fill('');
-        rowDate[Math.max(0, totalColsCount - 4)] = 'Đà Nẵng, ngày .... tháng .... năm ......';
+    const FONT_BASE = { name: 'Times New Roman', size: 12 };
+    const FONT_BOLD = { name: 'Times New Roman', size: 12, bold: true };
+    const FONT_ITALIC = { name: 'Times New Roman', size: 12, italic: true };
+    const FONT_STAMP = { name: 'Times New Roman', size: 11, italic: true, color: { argb: 'FF444444' } };
 
-        const rowSign1 = new Array(totalColsCount).fill('');
-        const rowSign2 = new Array(totalColsCount).fill('');
-
-        if (totalColsCount >= 12) {
-            rowSign1[1] = 'LẬP BẢNG';
-            rowSign1[4] = 'KT. TRƯỞNG KHOA';
-            rowSign2[4] = 'PHÓ TRƯỞNG KHOA';
-            rowSign1[6] = `BGH ${truongUpper}`;
-            rowSign2[6] = 'PHÓ HIỆU TRƯỞNG';
-            rowSign1[8] = 'BAN KH - TC';
-            rowSign1[10] = 'BAN GIÁM ĐỐC';
-        } else {
-            rowSign1[1] = 'LẬP BẢNG';
-            rowSign1[3] = 'KT. TRƯỞNG KHOA';
-            rowSign2[3] = 'PHÓ TRƯỞNG KHOA';
-            rowSign1[5] = `BGH ${truongUpper}`;
-            rowSign2[5] = 'PHÓ HIỆU TRƯỞNG';
-            rowSign1[7] = 'BAN KH - TC';
-            rowSign1[9] = 'BAN GIÁM ĐỐC';
-        }
-
-        return [[], rowDate, rowSign1, rowSign2];
+    const THIN_BORDER = {
+        top: { style: 'thin', color: { argb: 'FF000000' } },
+        left: { style: 'thin', color: { argb: 'FF000000' } },
+        bottom: { style: 'thin', color: { argb: 'FF000000' } },
+        right: { style: 'thin', color: { argb: 'FF000000' } }
     };
 
-    // SHEET 1: Thanh toán HD
-    const ws1Data = [
-        [{ t: 's', f: '"SET@DTU "&DATEVALUE(NOW())' }],
-        ['ĐẠI HỌC DUY TÂN', '', '', '', 'BẢNG THANH TOÁN TIỀN HƯỚNG DẪN ĐATN'],
-        [khoaUpper ? `KHOA ${khoaUpper.replace(/^KHOA\s+/i, '')}` : '', '', '', '', nganhUpper ? `NGÀNH ${nganhUpper.replace(/^NGÀNH\s+/i, '')}` : ''],
-        ['', '', '', '', khoaHocUpper ? `KHÓA ${khoaHocUpper.replace(/^KHÓA\s+/i, '')}` : ''],
-        [],
-        ['TT', 'HỌ VÀ TÊN', '', 'Học vị', 'ĐƠN VỊ', 'SL ĐỀ TÀI', 'HỆ SỐ', 'QUY CHUẨN', 'ĐƠN GIÁ', 'SỐ TIỀN', 'KÝ TÊN', 'GHI CHÚ']
+    // Viền đặc biệt cho 2 cột Họ đệm & Tên (không kẻ đường dọc ở giữa để liền mạch Họ và Tên như mẫu)
+    const NAME_LEFT_BORDER = {
+        top: { style: 'thin', color: { argb: 'FF000000' } },
+        left: { style: 'thin', color: { argb: 'FF000000' } },
+        bottom: { style: 'thin', color: { argb: 'FF000000' } }
+    };
+    const NAME_RIGHT_BORDER = {
+        top: { style: 'thin', color: { argb: 'FF000000' } },
+        right: { style: 'thin', color: { argb: 'FF000000' } },
+        bottom: { style: 'thin', color: { argb: 'FF000000' } }
+    };
+
+    const HEADER_FILL = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFD9D9D9' }
+    };
+
+    const setupHeaderAndFooter = (ws, totalCols, titleText) => {
+        ws.pageSetup = {
+            paperSize: 9, // A4
+            orientation: 'landscape',
+            fitToPage: true,
+            fitToWidth: 1,
+            fitToHeight: 0,
+            margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 }
+        };
+
+        // Dòng 1: Mã kiểm soát SET@DTU (giá trị tĩnh, căn phải)
+        ws.mergeCells(1, 1, 1, totalCols);
+        const r1 = ws.getRow(1);
+        r1.height = 19;
+        const cStamp = ws.getCell(1, 1);
+        cStamp.value = stampText;
+        cStamp.font = FONT_STAMP;
+        cStamp.alignment = { horizontal: 'right', vertical: 'middle' };
+
+        // Dòng 2: ĐẠI HỌC DUY TÂN | BẢNG THANH TOÁN...
+        ws.mergeCells(2, 1, 2, 4);
+        ws.mergeCells(2, 5, 2, totalCols);
+        const r2 = ws.getRow(2);
+        r2.height = 22;
+        ws.getCell(2, 1).value = 'ĐẠI HỌC DUY TÂN';
+        ws.getCell(2, 1).font = FONT_BOLD;
+        ws.getCell(2, 1).alignment = { horizontal: 'center', vertical: 'middle' };
+
+        ws.getCell(2, 5).value = titleText;
+        ws.getCell(2, 5).font = FONT_BOLD;
+        ws.getCell(2, 5).alignment = { horizontal: 'center', vertical: 'middle' };
+
+        // Dòng 3: KHOA ... | NGÀNH ...
+        ws.mergeCells(3, 1, 3, 4);
+        ws.mergeCells(3, 5, 3, totalCols);
+        const r3 = ws.getRow(3);
+        r3.height = 21;
+        const cKhoa = ws.getCell(3, 1);
+        cKhoa.value = khoaUpper ? `KHOA ${khoaUpper}` : '';
+        cKhoa.font = { ...FONT_BOLD, underline: true };
+        cKhoa.alignment = { horizontal: 'center', vertical: 'middle' };
+
+        const cNganh = ws.getCell(3, 5);
+        cNganh.value = nganhUpper ? `NGÀNH ${nganhUpper}` : '';
+        cNganh.font = FONT_BOLD;
+        cNganh.alignment = { horizontal: 'center', vertical: 'middle' };
+
+        // Dòng 4: KHÓA ...
+        ws.mergeCells(4, 5, 4, totalCols);
+        const r4 = ws.getRow(4);
+        r4.height = 21;
+        const cKhoaHoc = ws.getCell(4, 5);
+        cKhoaHoc.value = khoaHocUpper ? `KHÓA ${khoaHocUpper}` : '';
+        cKhoaHoc.font = FONT_BOLD;
+        cKhoaHoc.alignment = { horizontal: 'center', vertical: 'middle' };
+
+        // Dòng 5: Dòng trống ngăn cách
+        ws.getRow(5).height = 10;
+    };
+
+    const appendSignatureFooter = (ws, afterRowIdx, totalCols) => {
+        ws.getRow(afterRowIdx + 1).height = 12;
+
+        const dateRowIdx = afterRowIdx + 2;
+        const sign1RowIdx = afterRowIdx + 3;
+        const sign2RowIdx = afterRowIdx + 4;
+
+        ws.getRow(dateRowIdx).height = 20;
+        ws.getRow(sign1RowIdx).height = 20;
+        ws.getRow(sign2RowIdx).height = 20;
+
+        // Dòng ngày tháng căn phải phía trên BAN GIÁM ĐỐC
+        ws.mergeCells(dateRowIdx, totalCols - 3, dateRowIdx, totalCols);
+        const cDate = ws.getCell(dateRowIdx, totalCols - 3);
+        cDate.value = 'Đà Nẵng, ngày .... tháng .... năm ......';
+        cDate.font = FONT_ITALIC;
+        cDate.alignment = { horizontal: 'right', vertical: 'middle' };
+
+        // Khung chữ ký 5 cấp
+        const signBlocks = totalCols === 12
+            ? [
+                { c1: 1, c2: 3, line1: 'LẬP BẢNG', line2: '' },
+                { c1: 4, c2: 5, line1: 'KT. TRƯỞNG KHOA', line2: 'PHÓ TRƯỞNG KHOA' },
+                { c1: 6, c2: 8, line1: `BGH ${truongUpper}`, line2: 'PHÓ HIỆU TRƯỞNG' },
+                { c1: 9, c2: 10, line1: 'BAN KH - TC', line2: '' },
+                { c1: 11, c2: 12, line1: 'BAN GIÁM ĐỐC', line2: '' }
+            ]
+            : [
+                { c1: 1, c2: 3, line1: 'LẬP BẢNG', line2: '' },
+                { c1: 4, c2: 5, line1: 'KT. TRƯỞNG KHOA', line2: 'PHÓ TRƯỞNG KHOA' },
+                { c1: 6, c2: 7, line1: `BGH ${truongUpper}`, line2: 'PHÓ HIỆU TRƯỞNG' },
+                { c1: 8, c2: 9, line1: 'BAN KH - TC', line2: '' },
+                { c1: 10, c2: 11, line1: 'BAN GIÁM ĐỐC', line2: '' }
+            ];
+
+        signBlocks.forEach(b => {
+            ws.mergeCells(sign1RowIdx, b.c1, sign1RowIdx, b.c2);
+            const cell1 = ws.getCell(sign1RowIdx, b.c1);
+            cell1.value = b.line1;
+            cell1.font = FONT_BOLD;
+            cell1.alignment = { horizontal: 'center', vertical: 'middle' };
+
+            if (b.line2) {
+                ws.mergeCells(sign2RowIdx, b.c1, sign2RowIdx, b.c2);
+                const cell2 = ws.getCell(sign2RowIdx, b.c1);
+                cell2.value = b.line2;
+                cell2.font = FONT_BOLD;
+                cell2.alignment = { horizontal: 'center', vertical: 'middle' };
+            }
+        });
+    };
+
+    // =========================================================================
+    // SHEET 1: Thanh toán HD (12 cột)
+    // =========================================================================
+    const ws1 = wb.addWorksheet('Thanh toán HD');
+    setupHeaderAndFooter(ws1, 12, 'BẢNG THANH TOÁN TIỀN HƯỚNG DẪN ĐATN');
+
+    ws1.columns = [
+        { width: 5 },   // A: TT
+        { width: 22 },  // B: Họ đệm
+        { width: 11 },  // C: Tên
+        { width: 9 },   // D: Học vị
+        { width: 19 },  // E: Đơn vị
+        { width: 11 },  // F: SL Đề tài
+        { width: 9 },   // G: Hệ số
+        { width: 12 },  // H: Quy chuẩn
+        { width: 13 },  // I: Đơn giá
+        { width: 16 },  // J: Số tiền
+        { width: 13 },  // K: Ký tên
+        { width: 14 }   // L: Ghi chú
     ];
+
+    const hdrRow1 = ws1.getRow(6);
+    hdrRow1.height = 30;
+    const headers1 = ['TT', 'HỌ VÀ TÊN', '', 'Học vị', 'ĐƠN VỊ', 'SL ĐỀ TÀI', 'HỆ SỐ', 'QUY CHUẨN', 'ĐƠN GIÁ', 'SỐ TIỀN', 'KÝ TÊN', 'GHI CHÚ'];
+    headers1.forEach((h, i) => {
+        const cell = hdrRow1.getCell(i + 1);
+        cell.value = h;
+        cell.font = FONT_BOLD;
+        cell.fill = HEADER_FILL;
+        cell.border = THIN_BORDER;
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    });
+    ws1.mergeCells(6, 2, 6, 3);
 
     const startRow1 = 7;
     computed.rowsHuongDan.forEach((r, idx) => {
-        const excelRow = startRow1 + idx;
-        ws1Data.push([
+        const rowNum = startRow1 + idx;
+        const row = ws1.getRow(rowNum);
+        row.height = 22;
+
+        const vals = [
             r.tt,
             r.hoDem,
             r.ten,
@@ -409,132 +591,212 @@ function buildPaymentWorkbook(sourceData, config, computed) {
             r.donVi,
             r.slDeTai,
             r.heSo,
-            { t: 'n', f: `F${excelRow}*G${excelRow}` },
+            { formula: `F${rowNum}*G${rowNum}`, result: r.quyChuan },
             r.donGia,
-            { t: 'n', f: `H${excelRow}*I${excelRow}` },
+            { formula: `H${rowNum}*I${rowNum}`, result: r.soTien },
             '',
             ''
-        ]);
+        ];
+
+        vals.forEach((v, cIdx) => {
+            const colNum = cIdx + 1;
+            const cell = row.getCell(colNum);
+            cell.value = v;
+            cell.font = FONT_BASE;
+
+            if (colNum === 2) {
+                cell.border = NAME_LEFT_BORDER;
+                cell.alignment = { horizontal: 'left', vertical: 'middle' };
+            } else if (colNum === 3) {
+                cell.border = NAME_RIGHT_BORDER;
+                cell.alignment = { horizontal: 'left', vertical: 'middle' };
+            } else if (colNum === 5) {
+                cell.border = THIN_BORDER;
+                cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+            } else if (colNum === 9 || colNum === 10) {
+                cell.border = THIN_BORDER;
+                cell.numFmt = '#,##0';
+                cell.alignment = { horizontal: 'right', vertical: 'middle' };
+            } else if (colNum === 7 || colNum === 8) {
+                cell.border = THIN_BORDER;
+                cell.numFmt = '0.##';
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+            } else {
+                cell.border = THIN_BORDER;
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+            }
+        });
     });
 
-    const endRow1 = startRow1 + computed.rowsHuongDan.length - 1;
-    ws1Data.push([
-        '',
-        'Tổng',
-        '',
-        '',
-        '',
-        computed.rowsHuongDan.length > 0 ? { t: 'n', f: `SUM(F${startRow1}:F${endRow1})` } : 0,
-        '',
-        '',
-        '',
-        computed.rowsHuongDan.length > 0 ? { t: 'n', f: `SUM(J${startRow1}:J${endRow1})` } : 0,
-        '',
-        ''
-    ]);
-    ws1Data.push(...makeFooterRows(12));
+    const totalRowIdx1 = startRow1 + computed.rowsHuongDan.length;
+    const totalRow1 = ws1.getRow(totalRowIdx1);
+    totalRow1.height = 24;
+    for (let c = 1; c <= 12; c++) {
+        const cell = totalRow1.getCell(c);
+        cell.font = FONT_BOLD;
+        cell.border = THIN_BORDER;
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    }
+    ws1.mergeCells(totalRowIdx1, 2, totalRowIdx1, 3);
+    totalRow1.getCell(2).value = 'Tổng';
+    totalRow1.getCell(6).value = computed.rowsHuongDan.length > 0
+        ? { formula: `SUM(F${startRow1}:F${totalRowIdx1 - 1})`, result: computed.summary.tongSLHuongDan }
+        : 0;
+    totalRow1.getCell(6).numFmt = '#,##0';
 
-    const ws1 = XLSX.utils.aoa_to_sheet(ws1Data);
-    ws1['!merges'] = [
-        { s: { r: 0, c: 0 }, e: { r: 0, c: 11 } },
-        { s: { r: 1, c: 0 }, e: { r: 1, c: 3 } },
-        { s: { r: 1, c: 4 }, e: { r: 1, c: 11 } },
-        { s: { r: 2, c: 0 }, e: { r: 2, c: 3 } },
-        { s: { r: 2, c: 4 }, e: { r: 2, c: 11 } },
-        { s: { r: 3, c: 4 }, e: { r: 3, c: 11 } },
-        { s: { r: 5, c: 1 }, e: { r: 5, c: 2 } }
-    ];
-    ws1['!cols'] = [
-        { wch: 5 }, { wch: 22 }, { wch: 11 }, { wch: 9 }, { wch: 18 },
-        { wch: 11 }, { wch: 9 }, { wch: 12 }, { wch: 13 }, { wch: 15 }, { wch: 12 }, { wch: 14 }
-    ];
-    XLSX.utils.book_append_sheet(wb, ws1, 'Thanh toán HD');
+    totalRow1.getCell(10).value = computed.rowsHuongDan.length > 0
+        ? { formula: `SUM(J${startRow1}:J${totalRowIdx1 - 1})`, result: computed.summary.tongTienHuongDan }
+        : 0;
+    totalRow1.getCell(10).numFmt = '#,##0';
+    totalRow1.getCell(10).alignment = { horizontal: 'right', vertical: 'middle' };
 
-    // SHEET 2: Chấm PB
-    const ws2Data = [
-        [{ t: 's', f: '"SET@DTU "&DATEVALUE(NOW())' }],
-        ['ĐẠI HỌC DUY TÂN', '', '', '', 'BẢNG THANH TOÁN TIỀN PHẢN BIỆN ĐATN'],
-        [khoaUpper ? `KHOA ${khoaUpper.replace(/^KHOA\s+/i, '')}` : '', '', '', '', nganhUpper ? `NGÀNH ${nganhUpper.replace(/^NGÀNH\s+/i, '')}` : ''],
-        ['', '', '', '', khoaHocUpper ? `KHÓA ${khoaHocUpper.replace(/^KHÓA\s+/i, '')}` : ''],
-        [],
-        ['TT', 'HỌ VÀ TÊN', '', 'Học vị', 'SL ĐỀ TÀI', 'HỆ SỐ', 'QUY CHUẨN', 'ĐƠN GIÁ', 'SỐ TIỀN', 'KÝ TÊN', 'GHI CHÚ']
+    appendSignatureFooter(ws1, totalRowIdx1, 12);
+
+    // =========================================================================
+    // SHEET 2: Chấm PB (11 cột - không có cột Đơn vị giống ảnh mẫu)
+    // =========================================================================
+    const ws2 = wb.addWorksheet('Chấm PB');
+    setupHeaderAndFooter(ws2, 11, 'BẢNG THANH TOÁN TIỀN PHẢN BIỆN ĐATN');
+
+    ws2.columns = [
+        { width: 5 },   // A: TT
+        { width: 22 },  // B: Họ đệm
+        { width: 11 },  // C: Tên
+        { width: 9 },   // D: Học vị
+        { width: 11 },  // E: SL Đề tài
+        { width: 9 },   // F: Hệ số
+        { width: 12 },  // G: Quy chuẩn
+        { width: 13 },  // H: Đơn giá
+        { width: 16 },  // I: Số tiền
+        { width: 14 },  // J: Ký tên
+        { width: 15 }   // K: Ghi chú
     ];
+
+    const hdrRow2 = ws2.getRow(6);
+    hdrRow2.height = 30;
+    const headers2 = ['TT', 'HỌ VÀ TÊN', '', 'Học vị', 'SL ĐỀ TÀI', 'HỆ SỐ', 'QUY CHUẨN', 'ĐƠN GIÁ', 'SỐ TIỀN', 'KÝ TÊN', 'GHI CHÚ'];
+    headers2.forEach((h, i) => {
+        const cell = hdrRow2.getCell(i + 1);
+        cell.value = h;
+        cell.font = FONT_BOLD;
+        cell.fill = HEADER_FILL;
+        cell.border = THIN_BORDER;
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    });
+    ws2.mergeCells(6, 2, 6, 3);
 
     const startRow2 = 7;
     computed.rowsPhanBien.forEach((r, idx) => {
-        const excelRow = startRow2 + idx;
-        ws2Data.push([
+        const rowNum = startRow2 + idx;
+        const row = ws2.getRow(rowNum);
+        row.height = 22;
+
+        const vals = [
             r.tt,
             r.hoDem,
             r.ten,
             r.hocVi,
             r.slDeTai,
             r.heSo,
-            { t: 'n', f: `E${excelRow}*F${excelRow}` },
+            { formula: `E${rowNum}*F${rowNum}`, result: r.quyChuan },
             r.donGia,
-            { t: 'n', f: `G${excelRow}*H${excelRow}` },
+            { formula: `G${rowNum}*H${rowNum}`, result: r.soTien },
             '',
             ''
-        ]);
+        ];
+
+        vals.forEach((v, cIdx) => {
+            const colNum = cIdx + 1;
+            const cell = row.getCell(colNum);
+            cell.value = v;
+            cell.font = FONT_BASE;
+
+            if (colNum === 2) {
+                cell.border = NAME_LEFT_BORDER;
+                cell.alignment = { horizontal: 'left', vertical: 'middle' };
+            } else if (colNum === 3) {
+                cell.border = NAME_RIGHT_BORDER;
+                cell.alignment = { horizontal: 'left', vertical: 'middle' };
+            } else if (colNum === 8 || colNum === 9) {
+                cell.border = THIN_BORDER;
+                cell.numFmt = '#,##0';
+                cell.alignment = { horizontal: 'right', vertical: 'middle' };
+            } else if (colNum === 6 || colNum === 7) {
+                cell.border = THIN_BORDER;
+                cell.numFmt = '0.##';
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+            } else {
+                cell.border = THIN_BORDER;
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+            }
+        });
     });
 
-    const endRow2 = startRow2 + computed.rowsPhanBien.length - 1;
-    ws2Data.push([
-        '',
-        'TỔNG',
-        '',
-        '',
-        computed.rowsPhanBien.length > 0 ? { t: 'n', f: `SUM(E${startRow2}:E${endRow2})` } : 0,
-        '',
-        '',
-        '',
-        computed.rowsPhanBien.length > 0 ? { t: 'n', f: `SUM(I${startRow2}:I${endRow2})` } : 0,
-        '',
-        ''
-    ]);
-    ws2Data.push(...makeFooterRows(11));
+    const totalRowIdx2 = startRow2 + computed.rowsPhanBien.length;
+    const totalRow2 = ws2.getRow(totalRowIdx2);
+    totalRow2.height = 24;
+    for (let c = 1; c <= 11; c++) {
+        const cell = totalRow2.getCell(c);
+        cell.font = FONT_BOLD;
+        cell.border = THIN_BORDER;
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    }
+    ws2.mergeCells(totalRowIdx2, 2, totalRowIdx2, 3);
+    totalRow2.getCell(2).value = 'TỔNG';
+    totalRow2.getCell(5).value = computed.rowsPhanBien.length > 0
+        ? { formula: `SUM(E${startRow2}:E${totalRowIdx2 - 1})`, result: computed.summary.tongSLPhanBien }
+        : 0;
+    totalRow2.getCell(5).numFmt = '#,##0';
 
-    const ws2 = XLSX.utils.aoa_to_sheet(ws2Data);
-    ws2['!merges'] = [
-        { s: { r: 0, c: 0 }, e: { r: 0, c: 10 } },
-        { s: { r: 1, c: 0 }, e: { r: 1, c: 3 } },
-        { s: { r: 1, c: 4 }, e: { r: 1, c: 10 } },
-        { s: { r: 2, c: 0 }, e: { r: 2, c: 3 } },
-        { s: { r: 2, c: 4 }, e: { r: 2, c: 10 } },
-        { s: { r: 3, c: 4 }, e: { r: 3, c: 10 } },
-        { s: { r: 5, c: 1 }, e: { r: 5, c: 2 } }
-    ];
-    ws2['!cols'] = [
-        { wch: 5 }, { wch: 22 }, { wch: 11 }, { wch: 9 },
-        { wch: 11 }, { wch: 9 }, { wch: 12 }, { wch: 13 }, { wch: 15 }, { wch: 12 }, { wch: 14 }
-    ];
-    XLSX.utils.book_append_sheet(wb, ws2, 'Chấm PB');
+    totalRow2.getCell(9).value = computed.rowsPhanBien.length > 0
+        ? { formula: `SUM(I${startRow2}:I${totalRowIdx2 - 1})`, result: computed.summary.tongTienPhanBien }
+        : 0;
+    totalRow2.getCell(9).numFmt = '#,##0';
+    totalRow2.getCell(9).alignment = { horizontal: 'right', vertical: 'middle' };
 
-    // SHEET 3: Chấm BV
-    const ws3Data = [
-        [{ t: 's', f: '"SET@DTU "&DATEVALUE(NOW())' }],
-        ['ĐẠI HỌC DUY TÂN', '', '', '', 'BẢNG CHI TIẾT HỘI ĐỒNG CHẤM TỐT NGHIỆP'],
-        [khoaUpper ? `KHOA ${khoaUpper.replace(/^KHOA\s+/i, '')}` : '', '', '', '', nganhUpper ? `NGÀNH ${nganhUpper.replace(/^NGÀNH\s+/i, '')}` : ''],
-        ['', '', '', '', khoaHocUpper ? `KHÓA ${khoaHocUpper.replace(/^KHÓA\s+/i, '')}` : ''],
-        [],
-        ['STT', 'HỘI ĐỒNG SỐ', 'HỌ VÀ TÊN', '', 'CHỨC DANH', 'T.GIAN THAM GIA HĐ TỐT NGHIỆP', 'SLSV', 'HỆ SỐ', 'Giờ QĐ', 'ĐƠN GIÁ', 'THÀNH TIỀN', 'GHI CHÚ']
+    appendSignatureFooter(ws2, totalRowIdx2, 11);
+
+    // =========================================================================
+    // SHEET 3: Chấm BV (12 cột - mỗi HĐ 1 block 3 dòng, SLSV = tổng SV của HĐ)
+    // =========================================================================
+    const ws3 = wb.addWorksheet('Chấm BV');
+    setupHeaderAndFooter(ws3, 12, 'BẢNG CHI TIẾT HỘI ĐỒNG CHẤM TỐT NGHIỆP');
+
+    ws3.columns = [
+        { width: 5 },   // A: STT
+        { width: 12 },  // B: HỘI ĐỒNG SỐ
+        { width: 22 },  // C: Họ đệm
+        { width: 11 },  // D: Tên
+        { width: 14 },  // E: CHỨC DANH
+        { width: 18 },  // F: T.GIAN THAM GIA HĐ TỐT NGHIỆP
+        { width: 8 },   // G: SLSV
+        { width: 9 },   // H: HỆ SỐ
+        { width: 10 },  // I: Giờ QĐ
+        { width: 13 },  // J: ĐƠN GIÁ
+        { width: 16 },  // K: THÀNH TIỀN
+        { width: 14 }   // L: GHI CHÚ
     ];
+
+    const hdrRow3 = ws3.getRow(6);
+    hdrRow3.height = 34;
+    const headers3 = ['STT', 'HỘI ĐỒNG SỐ', 'HỌ VÀ TÊN', '', 'CHỨC DANH', 'T.GIAN THAM GIA HĐ TỐT NGHIỆP', 'SLSV', 'HỆ SỐ', 'Giờ QĐ', 'ĐƠN GIÁ', 'THÀNH TIỀN', 'GHI CHÚ'];
+    headers3.forEach((h, i) => {
+        const cell = hdrRow3.getCell(i + 1);
+        cell.value = h;
+        cell.font = FONT_BOLD;
+        cell.fill = HEADER_FILL;
+        cell.border = THIN_BORDER;
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    });
+    ws3.mergeCells(6, 3, 6, 4);
 
     const startRow3 = 7;
-    const ws3Merges = [
-        { s: { r: 0, c: 0 }, e: { r: 0, c: 11 } },
-        { s: { r: 1, c: 0 }, e: { r: 1, c: 3 } },
-        { s: { r: 1, c: 4 }, e: { r: 1, c: 11 } },
-        { s: { r: 2, c: 0 }, e: { r: 2, c: 3 } },
-        { s: { r: 2, c: 4 }, e: { r: 2, c: 11 } },
-        { s: { r: 3, c: 4 }, e: { r: 3, c: 11 } },
-        { s: { r: 5, c: 2 }, e: { r: 5, c: 3 } }
-    ];
-
     computed.rowsHoiDong.forEach((r, idx) => {
-        const excelRow = startRow3 + idx;
-        const zeroBasedRow = startRow3 - 1 + idx;
-        ws3Data.push([
+        const rowNum = startRow3 + idx;
+        const row = ws3.getRow(rowNum);
+        row.height = 21;
+
+        const vals = [
             r.stt,
             r.isFirstInBlock ? r.soHD : '',
             r.hoDem,
@@ -543,47 +805,83 @@ function buildPaymentWorkbook(sourceData, config, computed) {
             r.isFirstInBlock ? r.thoiGian : '',
             r.slsv,
             r.heSo,
-            { t: 'n', f: `G${excelRow}*H${excelRow}` },
+            { formula: `G${rowNum}*H${rowNum}`, result: r.gioQD },
             r.donGia,
-            { t: 'n', f: `I${excelRow}*J${excelRow}` },
+            { formula: `I${rowNum}*J${rowNum}`, result: r.thanhTien },
             ''
-        ]);
+        ];
+
+        vals.forEach((v, cIdx) => {
+            const colNum = cIdx + 1;
+            const cell = row.getCell(colNum);
+            cell.value = v;
+            cell.font = FONT_BASE;
+
+            if (colNum === 3) {
+                cell.border = NAME_LEFT_BORDER;
+                cell.alignment = { horizontal: 'left', vertical: 'middle' };
+            } else if (colNum === 4) {
+                cell.border = NAME_RIGHT_BORDER;
+                cell.alignment = { horizontal: 'left', vertical: 'middle' };
+            } else if (colNum === 10 || colNum === 11) {
+                cell.border = THIN_BORDER;
+                cell.numFmt = '#,##0';
+                cell.alignment = { horizontal: 'right', vertical: 'middle' };
+            } else if (colNum === 8 || colNum === 9) {
+                cell.border = THIN_BORDER;
+                cell.numFmt = '0.##';
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+            } else if (colNum === 6) {
+                cell.border = THIN_BORDER;
+                cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+            } else {
+                cell.border = THIN_BORDER;
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+            }
+        });
 
         if (r.isFirstInBlock) {
-            ws3Merges.push({ s: { r: zeroBasedRow, c: 1 }, e: { r: zeroBasedRow + 2, c: 1 } });
-            ws3Merges.push({ s: { r: zeroBasedRow, c: 5 }, e: { r: zeroBasedRow + 2, c: 5 } });
+            ws3.mergeCells(rowNum, 2, rowNum + 2, 2); // Cột HỘI ĐỒNG SỐ
+            ws3.mergeCells(rowNum, 6, rowNum + 2, 6); // Cột T.GIAN THAM GIA HĐ
         }
     });
 
-    const endRow3 = startRow3 + computed.rowsHoiDong.length - 1;
-    ws3Data.push([
-        '',
-        'TỔNG',
-        '',
-        '',
-        '',
-        '',
-        computed.summary.tongSLSVHoiDong,
-        '',
-        computed.rowsHoiDong.length > 0 ? { t: 'n', f: `SUM(I${startRow3}:I${endRow3})` } : 0,
-        '',
-        computed.rowsHoiDong.length > 0 ? { t: 'n', f: `SUM(K${startRow3}:K${endRow3})` } : 0,
-        ''
-    ]);
-    ws3Data.push(...makeFooterRows(12));
+    const totalRowIdx3 = startRow3 + computed.rowsHoiDong.length;
+    const totalRow3 = ws3.getRow(totalRowIdx3);
+    totalRow3.height = 24;
+    for (let c = 1; c <= 12; c++) {
+        const cell = totalRow3.getCell(c);
+        cell.font = FONT_BOLD;
+        cell.border = THIN_BORDER;
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    }
+    ws3.mergeCells(totalRowIdx3, 2, totalRowIdx3, 6);
+    totalRow3.getCell(2).value = 'TỔNG';
+    totalRow3.getCell(7).value = computed.summary.tongSLSVHoiDong;
+    totalRow3.getCell(7).numFmt = '#,##0';
 
-    const ws3 = XLSX.utils.aoa_to_sheet(ws3Data);
-    ws3['!merges'] = ws3Merges;
-    ws3['!cols'] = [
-        { wch: 5 }, { wch: 13 }, { wch: 22 }, { wch: 11 }, { wch: 14 },
-        { wch: 18 }, { wch: 8 }, { wch: 9 }, { wch: 10 }, { wch: 13 }, { wch: 15 }, { wch: 14 }
-    ];
-    XLSX.utils.book_append_sheet(wb, ws3, 'Chấm BV');
+    totalRow3.getCell(9).value = computed.rowsHoiDong.length > 0
+        ? { formula: `SUM(I${startRow3}:I${totalRowIdx3 - 1})`, result: computed.summary.tongGioQDHoiDong }
+        : 0;
+    totalRow3.getCell(9).numFmt = '0.##';
 
+    totalRow3.getCell(11).value = computed.rowsHoiDong.length > 0
+        ? { formula: `SUM(K${startRow3}:K${totalRowIdx3 - 1})`, result: computed.summary.tongTienHoiDong }
+        : 0;
+    totalRow3.getCell(11).numFmt = '#,##0';
+    totalRow3.getCell(11).alignment = { horizontal: 'right', vertical: 'middle' };
+
+    appendSignatureFooter(ws3, totalRowIdx3, 12);
+
+    // =========================================================================
     // SHEET 4 (ẨN): _META_DATA phục vụ ghép Tổng hợp liên ngành sau này
-    const metaPayload = {
+    // =========================================================================
+    const wsMeta = wb.addWorksheet('_META_DATA', { state: 'hidden' });
+    wsMeta.getCell('A1').value = 'DATN_PAYMENT_META_V1';
+    wsMeta.getCell('A2').value = JSON.stringify({
         version: 1,
         exportedAt: new Date().toISOString(),
+        stamp: stampText,
         khoa: config.khoa || sourceData.khoa || '',
         nganh: config.nganh || sourceData.nganh || '',
         khoaHoc: config.khoaHoc || sourceData.khoaHoc || '',
@@ -593,27 +891,25 @@ function buildPaymentWorkbook(sourceData, config, computed) {
         rowsPhanBien: computed.rowsPhanBien,
         rowsHoiDong: computed.rowsHoiDong,
         summary: computed.summary
-    };
-    const wsMeta = XLSX.utils.aoa_to_sheet([
-        ['DATN_PAYMENT_META_V1'],
-        [JSON.stringify(metaPayload)]
-    ]);
-    XLSX.utils.book_append_sheet(wb, wsMeta, '_META_DATA');
-    wb.Workbook = wb.Workbook || {};
-    wb.Workbook.Sheets = [
-        { name: 'Thanh toán HD', Hidden: 0 },
-        { name: 'Chấm PB', Hidden: 0 },
-        { name: 'Chấm BV', Hidden: 0 },
-        { name: '_META_DATA', Hidden: 1 }
-    ];
+    });
 
     return wb;
+}
+
+function arrayBufferToBase64(buffer) {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+    }
+    return btoa(binary);
 }
 
 /**
  * Lưu bản sao file Excel (.xlsx) lên đúng thư mục chứa file JSON Phiên làm việc trên Drive (lưu trữ 60 ngày)
  */
-async function uploadPaymentExcelToSessionFolder(wb, fileName, metadata) {
+async function uploadPaymentExcelToSessionFolder(xlsxBuffer, fileName, metadata) {
     const gasUrl =
         document.getElementById('cloud-gas-url')?.value.trim() ||
         window.GAS_API_URL ||
@@ -635,7 +931,7 @@ async function uploadPaymentExcelToSessionFolder(wb, fileName, metadata) {
         document.getElementById('cloud-session-pin')?.value.trim() ||
         '';
 
-    const base64Data = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
+    const base64Data = arrayBufferToBase64(xlsxBuffer);
 
     const payload = {
         action: 'savePaymentExcelToSessionFolder',
@@ -742,7 +1038,7 @@ function ensurePaymentPreviewModal() {
                     </div>
                     <div class="modal-footer py-2 d-flex justify-content-between flex-wrap gap-2">
                         <div class="small text-muted">
-                            📌 Mỗi sheet tự động gắn mã <code>SET@DTU</code> ở dòng 1 &amp; lưu bản sao vào thư mục Phiên (60 ngày).
+                            📌 Font <strong>Times New Roman 12</strong>, tự động gắn giá trị <code>${escapeHtml(getSetDtuSerialStamp())}</code> căn phải ở dòng 1 &amp; lưu Phiên (60 ngày).
                         </div>
                         <div class="d-flex gap-2">
                             <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Đóng</button>
@@ -802,15 +1098,19 @@ export function openPaymentPreviewModal(getMetaFn) {
         const computed = computePaymentTables(sourceData, cfg);
         const s = computed.summary;
         const tongTatCa = s.tongTienHuongDan + s.tongTienPhanBien + s.tongTienHoiDong;
+        const stampText = getSetDtuSerialStamp();
 
         const headerBanner = `
-            <div class="border rounded p-2 mb-2 bg-light small">
-                <div class="text-muted font-monospace" style="font-size: 0.72rem;">Dòng 1 Excel: <strong>="SET@DTU "&amp;DATEVALUE(NOW())</strong></div>
-                <div class="d-flex justify-content-between flex-wrap mt-1">
-                    <div><strong>ĐẠI HỌC DUY TÂN</strong> — KHOA ${escapeHtml((cfg.khoa || '...').toUpperCase())}</div>
-                    <div class="text-end">
-                        <div><strong>NGÀNH ${escapeHtml((cfg.nganh || '...').toUpperCase())}</strong></div>
-                        <div><strong>KHÓA ${escapeHtml((cfg.khoaHoc || '...').toUpperCase())}</strong></div>
+            <div class="border rounded p-2 mb-2 bg-light" style="font-family: 'Times New Roman', serif; font-size: 13px;">
+                <div class="text-end text-muted fst-italic" style="font-size: 11px;">${escapeHtml(stampText)}</div>
+                <div class="row text-center fw-bold mt-1">
+                    <div class="col-5">
+                        <div>ĐẠI HỌC DUY TÂN</div>
+                        <div class="text-decoration-underline">KHOA ${escapeHtml((cfg.khoa || '...').toUpperCase())}</div>
+                    </div>
+                    <div class="col-7">
+                        <div>NGÀNH ${escapeHtml((cfg.nganh || '...').toUpperCase())}</div>
+                        <div>KHÓA ${escapeHtml((cfg.khoaHoc || '...').toUpperCase())}</div>
                     </div>
                 </div>
             </div>
@@ -825,7 +1125,7 @@ export function openPaymentPreviewModal(getMetaFn) {
 
         document.getElementById('tab-pay-hd').innerHTML = `
             ${headerBanner}
-            <table class="table table-bordered table-sm text-center align-middle small mb-0">
+            <table class="table table-bordered table-sm text-center align-middle mb-0" style="font-family: 'Times New Roman', serif; font-size: 13px;">
                 <thead class="table-secondary">
                     <tr>
                         <th>TT</th><th colspan="2">HỌ VÀ TÊN</th><th>Học vị</th><th>ĐƠN VỊ</th>
@@ -836,24 +1136,24 @@ export function openPaymentPreviewModal(getMetaFn) {
                     ${computed.rowsHuongDan.map(r => `
                         <tr>
                             <td>${r.tt}</td>
-                            <td class="text-start">${escapeHtml(r.hoDem)}</td>
-                            <td class="text-start fw-bold">${escapeHtml(r.ten)}</td>
+                            <td class="text-start border-end-0">${escapeHtml(r.hoDem)}</td>
+                            <td class="text-start border-start-0">${escapeHtml(r.ten)}</td>
                             <td>${escapeHtml(r.hocVi)}</td>
-                            <td class="text-start">${escapeHtml(r.donVi)}</td>
+                            <td>${escapeHtml(r.donVi)}</td>
                             <td>${r.slDeTai}</td>
                             <td>${formatDecimalVN(r.heSo)}</td>
                             <td>${formatDecimalVN(r.quyChuan)}</td>
                             <td class="text-end">${formatVND(r.donGia)}</td>
-                            <td class="text-end fw-bold">${formatVND(r.soTien)}</td>
+                            <td class="text-end">${formatVND(r.soTien)}</td>
                         </tr>
                     `).join('')}
                 </tbody>
-                <tfoot class="table-light fw-bold">
+                <tfoot class="fw-bold">
                     <tr>
                         <td colspan="5">Tổng</td>
                         <td>${s.tongSLHuongDan}</td>
                         <td colspan="3"></td>
-                        <td class="text-end text-primary">${formatVND(s.tongTienHuongDan)}</td>
+                        <td class="text-end">${formatVND(s.tongTienHuongDan)}</td>
                     </tr>
                 </tfoot>
             </table>
@@ -861,7 +1161,7 @@ export function openPaymentPreviewModal(getMetaFn) {
 
         document.getElementById('tab-pay-pb').innerHTML = `
             ${headerBanner}
-            <table class="table table-bordered table-sm text-center align-middle small mb-0">
+            <table class="table table-bordered table-sm text-center align-middle mb-0" style="font-family: 'Times New Roman', serif; font-size: 13px;">
                 <thead class="table-secondary">
                     <tr>
                         <th>TT</th><th colspan="2">HỌ VÀ TÊN</th><th>Học vị</th>
@@ -872,23 +1172,23 @@ export function openPaymentPreviewModal(getMetaFn) {
                     ${computed.rowsPhanBien.map(r => `
                         <tr>
                             <td>${r.tt}</td>
-                            <td class="text-start">${escapeHtml(r.hoDem)}</td>
-                            <td class="text-start fw-bold">${escapeHtml(r.ten)}</td>
+                            <td class="text-start border-end-0">${escapeHtml(r.hoDem)}</td>
+                            <td class="text-start border-start-0">${escapeHtml(r.ten)}</td>
                             <td>${escapeHtml(r.hocVi)}</td>
                             <td>${r.slDeTai}</td>
                             <td>${formatDecimalVN(r.heSo)}</td>
                             <td>${formatDecimalVN(r.quyChuan)}</td>
                             <td class="text-end">${formatVND(r.donGia)}</td>
-                            <td class="text-end fw-bold">${formatVND(r.soTien)}</td>
+                            <td class="text-end">${formatVND(r.soTien)}</td>
                         </tr>
                     `).join('')}
                 </tbody>
-                <tfoot class="table-light fw-bold">
+                <tfoot class="fw-bold">
                     <tr>
                         <td colspan="4">TỔNG</td>
                         <td>${s.tongSLPhanBien}</td>
                         <td colspan="3"></td>
-                        <td class="text-end text-primary">${formatVND(s.tongTienPhanBien)}</td>
+                        <td class="text-end">${formatVND(s.tongTienPhanBien)}</td>
                     </tr>
                 </tfoot>
             </table>
@@ -896,7 +1196,7 @@ export function openPaymentPreviewModal(getMetaFn) {
 
         document.getElementById('tab-pay-bv').innerHTML = `
             ${headerBanner}
-            <table class="table table-bordered table-sm text-center align-middle small mb-0">
+            <table class="table table-bordered table-sm text-center align-middle mb-0" style="font-family: 'Times New Roman', serif; font-size: 13px;">
                 <thead class="table-secondary">
                     <tr>
                         <th>STT</th><th>HỘI ĐỒNG SỐ</th><th colspan="2">HỌ VÀ TÊN</th><th>CHỨC DANH</th>
@@ -907,27 +1207,27 @@ export function openPaymentPreviewModal(getMetaFn) {
                     ${computed.rowsHoiDong.map(r => `
                         <tr>
                             <td>${r.stt}</td>
-                            ${r.isFirstInBlock ? `<td rowspan="3" class="fw-bold bg-light">${escapeHtml(r.soHD)}</td>` : ''}
-                            <td class="text-start">${escapeHtml(r.hoDem)}</td>
-                            <td class="text-start fw-bold">${escapeHtml(r.ten)}</td>
+                            ${r.isFirstInBlock ? `<td rowspan="3">${escapeHtml(r.soHD)}</td>` : ''}
+                            <td class="text-start border-end-0">${escapeHtml(r.hoDem)}</td>
+                            <td class="text-start border-start-0">${escapeHtml(r.ten)}</td>
                             <td>${escapeHtml(r.chucDanh)}</td>
-                            ${r.isFirstInBlock ? `<td rowspan="3" class="bg-light">${escapeHtml(r.thoiGian)}</td>` : ''}
+                            ${r.isFirstInBlock ? `<td rowspan="3">${escapeHtml(r.thoiGian)}</td>` : ''}
                             <td>${r.slsv}</td>
                             <td>${formatDecimalVN(r.heSo)}</td>
                             <td>${formatDecimalVN(r.gioQD)}</td>
                             <td class="text-end">${formatVND(r.donGia)}</td>
-                            <td class="text-end fw-bold">${formatVND(r.thanhTien)}</td>
+                            <td class="text-end">${formatVND(r.thanhTien)}</td>
                         </tr>
                     `).join('')}
                 </tbody>
-                <tfoot class="table-light fw-bold">
+                <tfoot class="fw-bold">
                     <tr>
                         <td colspan="6">TỔNG</td>
                         <td>${s.tongSLSVHoiDong}</td>
                         <td></td>
                         <td>${formatDecimalVN(s.tongGioQDHoiDong)}</td>
                         <td></td>
-                        <td class="text-end text-primary">${formatVND(s.tongTienHoiDong)}</td>
+                        <td class="text-end">${formatVND(s.tongTienHoiDong)}</td>
                     </tr>
                 </tfoot>
             </table>
@@ -943,34 +1243,49 @@ export function openPaymentPreviewModal(getMetaFn) {
         const cfg = readCurrentConfig();
         savePaymentConfig(cfg);
         const computed = computePaymentTables(sourceData, cfg);
-        const wb = buildPaymentWorkbook(sourceData, cfg, computed);
 
-        const nganhSlug = sanitizeFileSlug(cfg.nganh || 'Nganh');
-        const khoaSlug = sanitizeFileSlug(cfg.khoaHoc || 'DATN');
-        const fileName = `Thanh_Toan_DATN_${nganhSlug}_${khoaSlug}.xlsx`;
-
-        // 1. Tải file Excel về máy người dùng
-        XLSX.writeFile(wb, fileName);
-
-        // 2. Tự động lưu bản sao vào thư mục Phiên làm việc trên Drive (lưu trữ 60 ngày)
         const origText = btnConfirm.innerHTML;
         btnConfirm.disabled = true;
-        btnConfirm.innerHTML = '⏳ Đang lưu bản sao lên Phiên Cloud...';
+        btnConfirm.innerHTML = '⏳ Đang tạo file Excel chuẩn định dạng...';
+
         try {
-            const cloudRes = await uploadPaymentExcelToSessionFolder(wb, fileName, {
+            const wb = await buildStyledPaymentWorkbook(sourceData, cfg, computed);
+            const xlsxBuffer = await wb.xlsx.writeBuffer();
+
+            const nganhSlug = sanitizeFileSlug(cfg.nganh || 'Nganh');
+            const khoaSlug = sanitizeFileSlug(cfg.khoaHoc || 'DATN');
+            const fileName = `Thanh_Toan_DATN_${nganhSlug}_${khoaSlug}.xlsx`;
+
+            // 1. Tải file Excel về máy người dùng
+            const blob = new Blob([xlsxBuffer], {
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 5000);
+
+            // 2. Tự động lưu bản sao vào thư mục Phiên làm việc trên Drive (lưu trữ 60 ngày)
+            btnConfirm.innerHTML = '⏳ Đang lưu bản sao lên Phiên Cloud...';
+            const cloudRes = await uploadPaymentExcelToSessionFolder(xlsxBuffer, fileName, {
                 khoa: cfg.khoa,
                 nganh: cfg.nganh,
                 khoaHoc: cfg.khoaHoc,
                 tongTien: computed.summary.tongTienHuongDan + computed.summary.tongTienPhanBien + computed.summary.tongTienHoiDong
             });
+
             if (cloudRes.saved) {
                 alert(`✅ Đã xuất file "${fileName}" và lưu tự động vào thư mục Phiên làm việc (thời hạn lưu trữ 60 ngày)!`);
             } else {
                 alert(`✅ Đã tải file "${fileName}" về máy.\nℹ️ Lưu ý Cloud: ${cloudRes.reason || cloudRes.message || 'Chưa kết nối phiên Cloud nên chỉ lưu bản trên máy.'}`);
             }
         } catch (err) {
-            console.warn('Lỗi lưu bản sao Excel lên thư mục Phiên:', err);
-            alert(`✅ Đã tải file "${fileName}" về máy.\n⚠️ Không thể đồng bộ bản sao lên Drive: ${err.message}`);
+            console.error('Lỗi xuất bảng thanh toán:', err);
+            alert(`❌ Có lỗi khi xuất file Excel thanh toán: ${err.message}`);
         } finally {
             btnConfirm.disabled = false;
             btnConfirm.innerHTML = origText;
