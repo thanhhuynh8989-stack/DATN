@@ -626,25 +626,37 @@ function buildPaymentWorkbook(sourceData, config, computed) {
  * Lưu bản sao file Excel (.xlsx) lên đúng thư mục chứa file JSON Phiên làm việc trên Drive (lưu trữ 60 ngày)
  */
 async function uploadPaymentExcelToSessionFolder(wb, fileName, metadata) {
-    const gasUrl = window.GAS_API_URL || window.CLOUD_API_URL || localStorage.getItem('datn_gas_api_url') || '';
+    // Lấy đúng URL Web App GAS đang cấu hình trong ứng dụng (từ input #cloud-gas-url hoặc localStorage/window)
+    const gasUrl =
+        document.getElementById('cloud-gas-url')?.value.trim() ||
+        window.GAS_API_URL ||
+        window.CLOUD_API_URL ||
+        localStorage.getItem('datn_cloud_gas_url') ||
+        localStorage.getItem('datn_gas_api_url') ||
+        '';
+
     if (!gasUrl) {
-        return { saved: false, reason: 'Chưa cấu hình URL API Cloud' };
+        return { saved: false, reason: 'Chưa cấu hình URL Google Apps Script' };
     }
 
-    const base64Data = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
-    const sessionFolderId =
-        window.cloudSession?.folderId ||
-        window.cloudSession?.sessionFolderId ||
-        localStorage.getItem('datn_session_folder_id') ||
+    const sessionId =
+        window.cloudSession?.sessionId ||
+        document.getElementById('cloud-session-id')?.value.trim() ||
         '';
+    const pin =
+        window.cloudSession?.pin ||
+        document.getElementById('cloud-session-pin')?.value.trim() ||
+        '';
+
+    const base64Data = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
 
     const payload = {
         action: 'savePaymentExcelToSessionFolder',
+        sessionId,
+        pin,
         fileName,
         base64Data,
         mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        sessionFolderId,
-        sessionCode: window.cloudSession?.sessionCode || '',
         retentionDays: 60,
         meta: metadata
     };
@@ -656,7 +668,7 @@ async function uploadPaymentExcelToSessionFolder(wb, fileName, metadata) {
     });
     const json = await res.json();
     return {
-        saved: Boolean(json && (json.success || json.ok)),
+        saved: Boolean(json && json.ok),
         fileUrl: json?.fileUrl || '',
         message: json?.message || ''
     };
