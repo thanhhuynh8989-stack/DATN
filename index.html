@@ -70,43 +70,94 @@
                     </div>
                 </div>
 
-                <div class="row g-2 align-items-end">
-                    <div class="col-12 col-md-3">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <label for="upload-sv" class="form-label fw-bold small mb-0 text-primary">
-                                (1) Nhập Danh sách SV & Đồ án:
-                            </label>
-                            <a href="./sample_files/Mau_Danh_Sach_SV.xlsx" download class="badge bg-secondary text-decoration-none">File mẫu</a>
-                        </div>
-                        <input type="file" id="upload-sv" class="form-control form-control-sm" accept=".xlsx, .xls">
-                    </div>
+                <!-- BẢNG TÙY CHỌN LUỒNG NHẬP DỮ LIỆU -->
+<div class="border border-primary rounded p-2 px-3 mb-2 bg-light">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <span class="fw-bold text-primary small">
+            📋 Bạn đã có Danh sách phân công tổng hợp bao gồm GVHD, Hội đồng chấm Đồ án Tốt nghiệp chưa?
+        </span>
+        <div class="btn-group btn-group-sm" role="group" aria-label="Chọn chế độ nạp dữ liệu">
+            <input type="radio" class="btn-check" name="opt-has-combined" id="opt-has-combined-no" autocomplete="off" checked>
+            <label class="btn btn-outline-secondary fw-semibold" for="opt-has-combined-no">Chưa (Nạp 3 file riêng như cũ)</label>
 
-                    <div class="col-12 col-md-3">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <label for="upload-gv" class="form-label fw-bold small mb-0 text-info text-dark">
-                                (2) Nhập Danh sách GV:
-                            </label>
-                            <a href="./sample_files/Mau_Danh_Sach_GV.xlsx" download class="badge bg-secondary text-decoration-none">File mẫu</a>
-                        </div>
-                        <input type="file" id="upload-gv" class="form-control form-control-sm" accept=".xlsx, .xls">
-                    </div>
+            <input type="radio" class="btn-check" name="opt-has-combined" id="opt-has-combined-yes" autocomplete="off">
+            <label class="btn btn-outline-primary fw-semibold" for="opt-has-combined-yes">Có (Nạp File Tổng hợp + DS GV)</label>
+        </div>
+    </div>
 
-                    <div class="col-12 col-md-3">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <label for="upload-hd" class="form-label fw-bold small mb-0 text-secondary">
-                                (3) Nhập Danh sách HĐ (nếu có):
-                            </label>
-                            <a href="./sample_files/Mau_Danh_Sach_HD.xlsx" download class="badge bg-secondary text-decoration-none">File mẫu</a>
-                        </div>
-                        <input type="file" id="upload-hd" class="form-control form-control-sm" accept=".xlsx, .xls">
-                    </div>
-
-                    <div class="col-12 col-md-3">
-                        <button type="button" id="btn-read-files" class="btn btn-success btn-sm w-100 fw-bold py-2 shadow-sm">
-                            ⚡ NẠP DỮ LIỆU EXCEL
-                        </button>
-                    </div>
+    <!-- LUỒNG MỚI: 2 FILE (DANH SÁCH GV + PHÂN CÔNG TỔNG HỢP) -->
+    <div id="combined-upload-section" class="d-none mt-2 pt-2 border-top">
+        <div class="row g-2 align-items-end">
+            <div class="col-12 col-md-4">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <label for="file-combined-gv" class="form-label fw-bold small mb-0 text-dark">
+                        (1) Nhập Danh sách GV (kèm (A)/(B) nếu trùng):
+                    </label>
+                    <a href="./sample_files/Mau_Danh_Sach_GV.xlsx" download class="badge bg-secondary text-decoration-none">File mẫu</a>
                 </div>
+                <input type="file" id="file-combined-gv" class="form-control form-control-sm" accept=".xlsx, .xls">
+            </div>
+
+            <div class="col-12 col-md-5">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <label for="file-combined-all" class="form-label fw-bold small mb-0 text-primary">
+                        (2) Nhập File Phân công tổng hợp (SV, GVHD, HĐ...):
+                    </label>
+                    <a href="./sample_files/Mau_Phan_Cong_Tong_Hop.xlsx" download class="badge bg-secondary text-decoration-none">File mẫu</a>
+                </div>
+                <input type="file" id="file-combined-all" class="form-control form-control-sm" accept=".xlsx, .xls">
+            </div>
+
+            <div class="col-12 col-md-3">
+                <button type="button" id="btn-read-combined-files" class="btn btn-success btn-sm w-100 fw-bold py-2 shadow-sm">
+                    ⚡ NẠP DỮ LIỆU EXCEL
+                </button>
+            </div>
+        </div>
+        <div id="combined-import-status" class="d-none"></div>
+    </div>
+</div>
+
+<!-- LUỒNG CŨ: 3 FILE RIÊNG BIỆT (GIỮ NGUYÊN 100%) -->
+<div id="legacy-upload-section">
+    <div class="row g-2 align-items-end">
+        <div class="col-12 col-md-3">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <label for="upload-sv" class="form-label fw-bold small mb-0 text-primary">
+                    (1) Nhập Danh sách SV & Đồ án:
+                </label>
+                <a href="./sample_files/Mau_Danh_Sach_SV.xlsx" download class="badge bg-secondary text-decoration-none">File mẫu</a>
+            </div>
+            <input type="file" id="upload-sv" class="form-control form-control-sm" accept=".xlsx, .xls">
+        </div>
+
+        <div class="col-12 col-md-3">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <label for="upload-gv" class="form-label fw-bold small mb-0 text-info text-dark">
+                    (2) Nhập Danh sách GV:
+                </label>
+                <a href="./sample_files/Mau_Danh_Sach_GV.xlsx" download class="badge bg-secondary text-decoration-none">File mẫu</a>
+            </div>
+            <input type="file" id="upload-gv" class="form-control form-control-sm" accept=".xlsx, .xls">
+        </div>
+
+        <div class="col-12 col-md-3">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <label for="upload-hd" class="form-label fw-bold small mb-0 text-secondary">
+                    (3) Nhập Danh sách HĐ (nếu có):
+                </label>
+                <a href="./sample_files/Mau_Danh_Sach_HD.xlsx" download class="badge bg-secondary text-decoration-none">File mẫu</a>
+            </div>
+            <input type="file" id="upload-hd" class="form-control form-control-sm" accept=".xlsx, .xls">
+        </div>
+
+        <div class="col-12 col-md-3">
+            <button type="button" id="btn-read-files" class="btn btn-success btn-sm w-100 fw-bold py-2 shadow-sm">
+                ⚡ NẠP DỮ LIỆU EXCEL
+            </button>
+        </div>
+    </div>
+</div>
             </div>
         </div>
 
