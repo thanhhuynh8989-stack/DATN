@@ -1504,11 +1504,28 @@ function renderGiangVienPool(gvList) {
     });
 }
 
+function extractHoiDongNumberOnly(rawTitle, fallbackIndex = '') {
+    const cleaned = String(rawTitle || '').trim();
+    if (!cleaned) return String(fallbackIndex || '');
+
+    // Loại bỏ tiền tố "Hội đồng", "Hội Đồng", "HĐ", "HD", dấu hai chấm/gạch ngang/số (#/số) ở đầu
+    const stripped = cleaned
+        .replace(/^(?:hội\s*đồng|hoi\s*dong|hđ|hd)\s*(?:số|so|#|:|-|\.)?\s*/i, '')
+        .trim();
+
+    if (stripped) return stripped;
+
+    // Dự phòng: trích xuất cụm chữ số đầu tiên nếu chuỗi chỉ có chữ
+    const numMatch = cleaned.match(/\d+/);
+    return numMatch ? numMatch[0] : String(fallbackIndex || '');
+}
+
 function collectExportData(meta, includeEmptyHD = false) {
     const exportData = [];
 
-    document.querySelectorAll('.box-hoidong').forEach(box => {
-        const hdName = box.querySelector('.hd-title')?.value.trim() || 'Hội Đồng';
+    document.querySelectorAll('.box-hoidong').forEach((box, idx) => {
+        const rawHdTitle = box.querySelector('.hd-title')?.value.trim() || '';
+        const soHDOnly = extractHoiDongNumberOnly(rawHdTitle, idx + 1);
         const gio = box.querySelector('.hd-time')?.value || '';
         const phong = box.querySelector('.hd-room')?.value.trim() || '';
         const diaDiem = box.querySelector('.hd-location')?.value || '';
@@ -1547,7 +1564,7 @@ function collectExportData(meta, includeEmptyHD = false) {
         const baseHD = {
             khoa: meta.khoa,
             nganh: meta.nganh || '',
-            so_hd: hdName,
+            so_hd: soHDOnly,
             ngay: ngay,
             ngay_so: dPart,
             thang_so: mPart,
