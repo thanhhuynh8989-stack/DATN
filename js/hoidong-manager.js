@@ -20,6 +20,31 @@ function escapeHtmlAttr(val) {
         .replace(/>/g, '&gt;');
 }
 
+export function createGVCardInRoleZone({ maGV = '', hoTenGV = '', donVi = 'Đại học Duy Tân' }) {
+    const card = document.createElement('div');
+    card.className = 'card-item d-flex align-items-start justify-content-between gap-1 bg-white border border-info p-1 rounded shadow-sm';
+    card.style.userSelect = 'none';
+    card.style.webkitUserSelect = 'none';
+    card.setAttribute('draggable', 'false');
+    card.setAttribute('data-id', maGV);
+    card.setAttribute('data-name', hoTenGV);
+    card.setAttribute('data-donvi', donVi || 'Đại học Duy Tân');
+
+    card.innerHTML = `
+        <div class="overflow-hidden" style="min-width: 0; flex: 1;">
+            <div class="fw-bold text-dark small text-truncate" title="${escapeHtmlAttr(hoTenGV)}">${escapeHtmlAttr(hoTenGV)}</div>
+            <div class="text-muted text-truncate" style="font-size: 0.72rem;" title="${escapeHtmlAttr(donVi || 'Đại học Duy Tân')} - Mã: ${escapeHtmlAttr(maGV)}">
+                Mã: ${escapeHtmlAttr(maGV)}
+            </div>
+        </div>
+        <button type="button"
+                class="btn btn-sm btn-outline-danger py-0 px-1 fw-bold flex-shrink-0 btn-remove-gv-role"
+                style="line-height: 1.2; font-size: 0.75rem;"
+                title="Xóa giảng viên khỏi chức danh này">✕</button>
+    `;
+    return card;
+}
+
 // Hàm đồng bộ nút ✕ trên thẻ SV theo vị trí (trong HĐ -> trả về Kho chờ; ngoài Kho chờ -> xóa hẳn)
 export function syncSVCardActionButton(svCard, isInHoiDong) {
     if (!svCard) return;
@@ -57,15 +82,8 @@ export function initGlobalSortables() {
         });
     }
 
-    const poolGV = document.getElementById('pool-gv');
-    if (poolGV) {
-        Sortable.create(poolGV, {
-            group: { name: 'giangvien', pull: 'clone', put: false },
-            animation: 150, sort: false
-        });
-    }
-
     initAddSVModalEvents();
+    initAssignGVRoleEvents();
 }
 
 // Export hàm 2: Tạo Box Hội Đồng mới
@@ -88,6 +106,21 @@ export function createHoiDongBox(titleText = null, initDate = '', initTime = '',
         )
     ].join('');
 
+    const renderRoleSlot = (roleLabel, textColorClass) => `
+        <div class="mb-2">
+            <div class="d-flex justify-content-between align-items-center mb-1 gap-1">
+                <small class="${textColorClass} fw-bold">${roleLabel}:</small>
+                <button type="button"
+                        class="btn btn-outline-primary btn-sm py-0 px-1 btn-open-assign-gv"
+                        style="font-size: 0.72rem; line-height: 1.3;"
+                        data-hd-id="${boxId}"
+                        data-role="${roleLabel}"
+                        title="Chọn/Thay thế Giảng viên vào vị trí ${roleLabel}">+ Gán</button>
+            </div>
+            <div class="dropzone-gv border rounded p-1 bg-light" data-role="${roleLabel}" style="min-height: 40px;"></div>
+        </div>
+    `;
+
     const boxHTML = `
         <div class="box-hoidong p-2 mb-3 border rounded bg-white shadow-sm" id="${boxId}">
             <div class="d-flex gap-2 mb-2 bg-light p-2 rounded align-items-center flex-wrap">
@@ -101,19 +134,19 @@ export function createHoiDongBox(titleText = null, initDate = '', initTime = '',
                 <button type="button" class="btn btn-sm btn-outline-danger fw-bold ms-auto btn-delete-hd" title="Xóa Hội đồng này">✕ Xóa</button>
             </div>
             <div class="row">
-                <div class="col-4 border-end">
-                    <div class="mb-1"><small class="text-danger fw-bold">Chủ tịch:</small><div class="dropzone-gv border rounded p-1 bg-light" data-role="Chủ tịch" style="min-height: 38px;"></div></div>
-                    <div class="mb-1"><small class="text-success fw-bold">Phản biện:</small><div class="dropzone-gv border rounded p-1 bg-light" data-role="Phản biện" style="min-height: 38px;"></div></div>
-                    <div><small class="text-primary fw-bold">Thư ký:</small><div class="dropzone-gv border rounded p-1 bg-light" data-role="Thư ký" style="min-height: 38px;"></div></div>
+                <div class="col-5 col-md-4 border-end">
+                    ${renderRoleSlot('Chủ tịch', 'text-danger')}
+                    ${renderRoleSlot('Phản biện', 'text-success')}
+                    ${renderRoleSlot('Thư ký', 'text-primary')}
                 </div>
-                <div class="col-8">
+                <div class="col-7 col-md-8">
                     <div class="d-flex justify-content-between align-items-center mb-1">
                         <small class="fw-bold">Sinh viên bảo vệ:</small>
                         <button type="button" class="btn btn-outline-success btn-sm py-0 px-2 btn-open-add-sv" data-hd-id="${boxId}">
                             + Thêm SV
                         </button>
                     </div>
-                    <div class="dropzone-sv p-2 bg-light border rounded" style="min-height: 120px;"></div>
+                    <div class="dropzone-sv p-2 bg-light border rounded" style="min-height: 140px;"></div>
                 </div>
             </div>
         </div>
@@ -288,7 +321,7 @@ export function renderHoidongFromExcel(parsedHoidongs) {
         const boxEl = boxId ? document.getElementById(boxId) : null;
         if (!boxEl) return;
 
-        // 1. Render Giảng viên vào đúng chức danh (Mỗi chức danh chỉ giữ duy nhất 1 GV kèm nút ✕)
+        // 1. Render Giảng viên vào đúng chức danh (mỗi chức danh chỉ có 1 GV + icon ✕)
         thanhVien.forEach(gv => {
             let roleName = "";
             const chucDanhStr = String(gv.chucDanh || '');
@@ -383,6 +416,197 @@ export function renderHoidongFromExcel(parsedHoidongs) {
     const mergeLogs = finalizeAndRenumberHoiDongs();
 
     return { mergeLogs, conflictLogs, duplicateSVLogs };
+}
+
+// ----------------------------------------------------
+// MODAL GÁN / THAY THẾ GIẢNG VIÊN VÀO CHỨC VỤ HỘI ĐỒNG (+ GÁN)
+// ----------------------------------------------------
+let targetBoxIdForAssignGV = null;
+let targetRoleForAssignGV = null;
+
+// Tự động tạo HTML của Modal chọn GV vào DOM nếu trong index.html chưa khai báo sẵn
+function ensureAssignGVModalExists() {
+    let modalEl = document.getElementById('modalGanGiangVien');
+    if (modalEl) return modalEl;
+
+    const modalHTML = `
+        <div class="modal fade" id="modalGanGiangVien" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header bg-primary text-white py-2">
+                        <h6 class="modal-title fw-bold mb-0" id="modalGanGVTitle">👨‍🏫 CHỌN GIẢNG VIÊN</h6>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng"></button>
+                    </div>
+                    <div class="modal-body p-2">
+                        <input type="text" id="search-gv-assign-modal" class="form-control form-control-sm mb-2" placeholder="🔍 Tìm nhanh theo Mã GV, Họ tên hoặc Đơn vị...">
+                        <div id="list-gv-phu-hop" class="list-group"></div>
+                    </div>
+                    <div class="modal-footer py-2">
+                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Đóng</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    return document.getElementById('modalGanGiangVien');
+}
+
+// Lắng nghe 3 sự kiện:
+// (1) Bấm nút ✕ (.btn-remove-gv-role) -> Xóa GV khỏi chức danh hiện tại
+// (2) Bấm nút "+ Gán" (.btn-open-assign-gv) -> Mở Modal chọn/thay thế GV
+// (3) Gõ vào ô tìm kiếm (#search-gv-assign-modal) -> Lọc danh sách GV theo thời gian thực
+function initAssignGVRoleEvents() {
+    document.addEventListener('click', (e) => {
+        // 1. Nút ✕ xóa GV khỏi chức danh trong HĐ
+        const btnRemoveGVRole = e.target.closest('.btn-remove-gv-role');
+        if (btnRemoveGVRole) {
+            e.stopPropagation();
+            if (window.cloudSession?.active && !window.cloudSession?.canEditStructure) {
+                alert('⚠️ Phiên Cloud đang khóa cấu trúc Hội đồng hoặc bạn đang đăng nhập quyền Thư ký nên không thể sửa thành viên HĐ!');
+                return;
+            }
+            const gvCard = btnRemoveGVRole.closest('.card-item');
+            if (gvCard) gvCard.remove();
+            return;
+        }
+
+        // 2. Nút "+ Gán" ở ô chức vụ GV trong HĐ
+        const btnAssignGV = e.target.closest('.btn-open-assign-gv');
+        if (btnAssignGV) {
+            e.stopPropagation();
+            if (window.cloudSession?.active && !window.cloudSession?.canEditStructure) {
+                alert('⚠️ Phiên Cloud đang khóa cấu trúc Hội đồng hoặc bạn đang đăng nhập quyền Thư ký nên không thể sửa thành viên HĐ!');
+                return;
+            }
+            targetBoxIdForAssignGV = btnAssignGV.getAttribute('data-hd-id');
+            targetRoleForAssignGV = btnAssignGV.getAttribute('data-role');
+            openAssignGVModal(targetBoxIdForAssignGV, targetRoleForAssignGV);
+        }
+    });
+
+    // 3. Lọc nhanh danh sách GV khi gõ tìm kiếm trong Modal
+    document.addEventListener('input', (e) => {
+        if (e.target && e.target.id === 'search-gv-assign-modal') {
+            renderAssignGVList(e.target.value);
+        }
+    });
+}
+
+function openAssignGVModal(boxId, roleName) {
+    const box = document.getElementById(boxId);
+    if (!box || !roleName) return;
+
+    const modalEl = ensureAssignGVModalExists();
+    const hdTitle = box.querySelector('.hd-title')?.value || 'Hội Đồng';
+    const titleEl = document.getElementById('modalGanGVTitle');
+    if (titleEl) {
+        titleEl.innerText = `👨‍🏫 GÁN ${roleName.toUpperCase()} — ${hdTitle.toUpperCase()}`;
+    }
+
+    const searchInput = document.getElementById('search-gv-assign-modal');
+    if (searchInput) searchInput.value = '';
+
+    renderAssignGVList('');
+
+    if (modalEl && window.bootstrap) {
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    }
+}
+
+function renderAssignGVList(keyword = '') {
+    const container = document.getElementById('list-gv-phu-hop');
+    const box = targetBoxIdForAssignGV ? document.getElementById(targetBoxIdForAssignGV) : null;
+    if (!container || !box || !targetRoleForAssignGV) return;
+
+    const poolGVItems = Array.from(document.querySelectorAll('#pool-gv .card-item'));
+    if (poolGVItems.length === 0) {
+        container.innerHTML = '<div class="text-center text-muted py-3">Kho Giảng viên đang trống!</div>';
+        return;
+    }
+
+    const q = keyword.trim().toLowerCase();
+    const targetZone = box.querySelector(`.dropzone-gv[data-role="${targetRoleForAssignGV}"]`);
+    const currentCardInTarget = targetZone?.querySelector('.card-item');
+    const currentIdInTarget = currentCardInTarget?.getAttribute('data-id') || '';
+    const currentNameInTarget = currentCardInTarget?.getAttribute('data-name') || '';
+
+    // Lấy danh sách GV đang giữ 2 chức danh CÒN LẠI trong cùng HĐ này
+    const otherRoleCards = Array.from(box.querySelectorAll('.dropzone-gv .card-item'))
+        .filter(node => node.parentElement !== targetZone);
+
+    container.innerHTML = '';
+    let matchedCount = 0;
+
+    poolGVItems.forEach(gvItem => {
+        const maGV = (gvItem.getAttribute('data-id') || '').trim();
+        const hoTen = (gvItem.getAttribute('data-name') || '').trim();
+        const donVi = (gvItem.getAttribute('data-donvi') || 'Đại học Duy Tân').trim();
+
+        if (q && !maGV.toLowerCase().includes(q) && !hoTen.toLowerCase().includes(q) && !donVi.toLowerCase().includes(q)) {
+            return;
+        }
+        matchedCount++;
+
+        const isCurrentHolder = currentCardInTarget && isSameTeacher(
+            { id1: maGV, name1: hoTen },
+            { id2: currentIdInTarget, name2: currentNameInTarget }
+        );
+
+        // Kiểm tra 3 ràng buộc nghiệp vụ trước khi cho phép chọn
+        const isAlreadyOtherRole = otherRoleCards.some(node => isSameTeacher(
+            { id1: maGV, name1: hoTen },
+            { id2: node.getAttribute('data-id') || '', name2: node.getAttribute('data-name') || '' }
+        ));
+        const violatedSVName = validateTeacherIsGVHDOfAnyStudent(hoTen, box, maGV);
+        const conflictHDTitle = checkScheduleConflict(maGV, hoTen, box);
+
+        let blockReason = '';
+        if (isAlreadyOtherRole) blockReason = 'Đã giữ vai trò khác trong HĐ này';
+        else if (violatedSVName) blockReason = `Là GVHD của SV ${violatedSVName}`;
+        else if (conflictHDTitle) blockReason = `Trùng lịch tại ${conflictHDTitle}`;
+
+        const btnItem = document.createElement('button');
+        btnItem.type = 'button';
+        btnItem.className = `list-group-item list-group-item-action d-flex justify-content-between align-items-center gap-2 ${blockReason ? 'list-group-item-light text-muted' : ''}`;
+        if (blockReason) btnItem.disabled = true;
+
+        btnItem.innerHTML = `
+            <div class="text-start">
+                <div class="fw-bold ${blockReason ? 'text-muted' : 'text-dark'}">
+                    ${escapeHtmlAttr(hoTen)} <span class="badge bg-secondary font-monospace">${escapeHtmlAttr(maGV)}</span>
+                </div>
+                <div class="small text-muted">${escapeHtmlAttr(donVi)}</div>
+                ${blockReason ? `<div class="small text-danger fw-semibold">⛔ ${escapeHtmlAttr(blockReason)}</div>` : ''}
+            </div>
+            <span class="badge ${isCurrentHolder ? 'bg-success' : (blockReason ? 'bg-secondary' : 'bg-primary')}">
+                ${isCurrentHolder ? 'Đang chọn' : (blockReason ? 'Không khả dụng' : 'Chọn')}
+            </span>
+        `;
+
+        if (!blockReason) {
+            btnItem.addEventListener('click', () => {
+                if (targetZone) {
+                    // Xóa GV cũ (nếu có) và gán GV mới vào đúng vị trí chức vụ (chỉ 1 GV duy nhất)
+                    targetZone.innerHTML = '';
+                    targetZone.appendChild(createGVCardInRoleZone({
+                        maGV,
+                        hoTenGV: hoTen,
+                        donVi
+                    }));
+                }
+                const modalEl = document.getElementById('modalGanGiangVien');
+                const modalInstance = modalEl && window.bootstrap ? bootstrap.Modal.getInstance(modalEl) : null;
+                modalInstance?.hide();
+            });
+        }
+
+        container.appendChild(btnItem);
+    });
+
+    if (matchedCount === 0) {
+        container.innerHTML = '<div class="text-center text-muted py-3">Không tìm thấy Giảng viên phù hợp!</div>';
+    }
 }
 
 // ----------------------------------------------------
@@ -491,6 +715,10 @@ function attachSortableToHoiDong(boxId) {
     const box = document.getElementById(boxId);
     if (!box) return;
 
+    // CHỈ gắn Sortable cho khu vực Sinh viên (.dropzone-sv).
+    // Tuyệt đối KHÔNG gắn Sortable cho .dropzone-gv để:
+    // 1. Thẻ SV không bao giờ lọt được vào ô Chức vụ GV.
+    // 2. Thẻ GV trong HĐ không kích hoạt hành vi nhấn giữ / kéo thả trên điện thoại.
     const svZoneEl = box.querySelector('.dropzone-sv');
     if (svZoneEl) {
         Sortable.create(svZoneEl, {
@@ -512,81 +740,4 @@ function attachSortableToHoiDong(boxId) {
             }
         });
     }
-
-    // Khu vực chức vụ GV trong Hội đồng:
-    // - pull: false & sort: false -> KHÔNG cho nhấn kéo GV bên trong HĐ
-    // - put: true -> Chỉ nhận thả GV từ Kho (#pool-gv) và luôn ghi đè để mỗi vị trí chỉ có duy nhất 1 GV + nút ✕
-    box.querySelectorAll('.dropzone-gv').forEach(zone => {
-        Sortable.create(zone, {
-            group: {
-                name: 'giangvien',
-                pull: false,
-                put: true
-            },
-            sort: false,
-            animation: 150,
-            onAdd: function (evt) {
-                const droppedItem = evt.item;
-                const gvId = droppedItem.getAttribute('data-id') || '';
-                const gvName = droppedItem.getAttribute('data-name') || '';
-                const gvDonVi = droppedItem.getAttribute('data-donvi') || 'Đại học Duy Tân';
-                const currBox = evt.to.closest('.box-hoidong');
-                if (!currBox) return;
-
-                // Kiểm tra trùng GV ở vị trí chức danh khác trong cùng HĐ (loại trừ thẻ cũ của chính ô này)
-                const otherGVInThisHD = Array.from(currBox.querySelectorAll('.dropzone-gv .card-item'))
-                    .filter(node => node.parentElement !== zone);
-                if (otherGVInThisHD.some(node => isSameTeacher(
-                    { id1: gvId, name1: gvName },
-                    { id2: node.getAttribute('data-id') || '', name2: node.getAttribute('data-name') || '' }
-                ))) {
-                    alert(`LỖI: Giảng viên ${gvName} đã có vị trí khác trong Hội đồng này!`);
-                    droppedItem.remove();
-                    return;
-                }
-
-                // Kiểm tra trùng GVHD của bất kỳ SV nào trong HĐ
-                const violatedSVName = validateTeacherIsGVHDOfAnyStudent(gvName, currBox, gvId);
-                if (violatedSVName) {
-                    alert(`⛔ VI PHẠM NGUYÊN TẮC: ${gvName} là GVHD của sinh viên ${violatedSVName} đang thuộc Hội đồng này!`);
-                    droppedItem.remove();
-                    return;
-                }
-
-                // Kiểm tra trùng lịch bảo vệ ở HĐ khác cùng Ngày + Giờ
-                const conflictHDTitle = checkScheduleConflict(gvId, gvName, currBox);
-                if (conflictHDTitle) {
-                    alert(`CẢNH BÁO TRÙNG LỊCH: GV ${gvName} đang có lịch tại ${conflictHDTitle} trong cùng khung giờ!`);
-                    droppedItem.remove();
-                    return;
-                }
-
-                // Hợp lệ -> Xóa toàn bộ nội dung cũ trong ô (đảm bảo chỉ có 1 GV) và gắn thẻ chuẩn có nút ✕
-                zone.innerHTML = '';
-                zone.appendChild(createGVCardInRoleZone({
-                    maGV: gvId,
-                    hoTenGV: gvName,
-                    donVi: gvDonVi
-                }));
-            }
-        });
-    });
-}
-
-// Hàm tạo thẻ GV chuẩn bên trong ô chức vụ của Hội đồng (luôn có nút ✕ xóa khỏi vị trí)
-function createGVCardInRoleZone({ maGV = '', hoTenGV = '', donVi = 'Đại học Duy Tân' }) {
-    const card = document.createElement('div');
-    card.className = 'card-item position-relative bg-light border border-info p-1 pe-4 rounded shadow-sm';
-    card.setAttribute('data-id', maGV);
-    card.setAttribute('data-name', hoTenGV);
-    card.setAttribute('data-donvi', donVi || 'Đại học Duy Tân');
-
-    card.innerHTML = `
-        <button type="button"
-                class="btn btn-sm btn-link text-danger text-decoration-none fw-bold position-absolute top-0 end-0 px-2 py-1 btn-remove-card"
-                title="Xóa giảng viên khỏi vị trí này">✕</button>
-        <div class="fw-bold text-dark small">${escapeHtmlAttr(hoTenGV)}</div>
-        <div class="text-muted text-truncate" style="font-size: 0.75rem;">${escapeHtmlAttr(donVi || 'Đại học Duy Tân')} - Mã: ${escapeHtmlAttr(maGV)}</div>
-    `;
-    return card;
 }
