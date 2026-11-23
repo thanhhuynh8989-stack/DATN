@@ -58,7 +58,7 @@ function formatDecimalVN(num) {
 
 /**
  * Tính giá trị số serial ngày theo chuẩn Excel (tương đương giá trị của DATEVALUE(TODAY()))
- * Trả về chuỗi giá trị tĩnh: "SET@DTU 46349"
+ * Trả về chuỗi giá trị tĩnh: "SET@DTU <serial>"
  */
 function getSetDtuSerialStamp() {
     const now = new Date();
@@ -68,7 +68,7 @@ function getSetDtuSerialStamp() {
     return `SET@DTU ${excelSerial}`;
 }
 
-// Tự động nạp thư viện ExcelJS nếu chưa có trên trang (để hỗ trợ full Font Times New Roman 12, Border, Fill, Number Format)
+// Tự động nạp thư viện ExcelJS nếu chưa có trên trang
 async function ensureExcelJSLoaded() {
     if (window.ExcelJS) return window.ExcelJS;
     await new Promise((resolve, reject) => {
@@ -387,7 +387,7 @@ export function computePaymentTables(sourceData, config) {
  * - Font Times New Roman, cỡ chữ 12 toàn bộ
  * - Dòng 1: Giá trị tĩnh "SET@DTU <serial>" căn phải
  * - Header & Footer chữ ký 5 cấp chuẩn mẫu Duy Tân
- * - Kẻ khung viền đen rõ nét, tô nền xám tiêu đề bảng, định dạng số/tiền tệ chuẩn
+ * - Cả 3 sheet đều chuẩn 12 cột (có cột ĐƠN VỊ đầy đủ ở cả Thanh toán HD và Chấm PB)
  */
 async function buildStyledPaymentWorkbook(sourceData, config, computed) {
     const ExcelJS = await ensureExcelJSLoaded();
@@ -413,7 +413,6 @@ async function buildStyledPaymentWorkbook(sourceData, config, computed) {
         right: { style: 'thin', color: { argb: 'FF000000' } }
     };
 
-    // Viền đặc biệt cho 2 cột Họ đệm & Tên (không kẻ đường dọc ở giữa để liền mạch Họ và Tên như mẫu)
     const NAME_LEFT_BORDER = {
         top: { style: 'thin', color: { argb: 'FF000000' } },
         left: { style: 'thin', color: { argb: 'FF000000' } },
@@ -450,7 +449,7 @@ async function buildStyledPaymentWorkbook(sourceData, config, computed) {
         cStamp.font = FONT_STAMP;
         cStamp.alignment = { horizontal: 'right', vertical: 'middle' };
 
-        // Dòng 2: ĐẠI HỌC DUY TÂN | BẢNG THANH TOÁN...
+        // Dòng 2: ĐẠI HỌC DUY TÂN | TIÊU ĐỀ BẢNG
         ws.mergeCells(2, 1, 2, 4);
         ws.mergeCells(2, 5, 2, totalCols);
         const r2 = ws.getRow(2);
@@ -487,7 +486,6 @@ async function buildStyledPaymentWorkbook(sourceData, config, computed) {
         cKhoaHoc.font = FONT_BOLD;
         cKhoaHoc.alignment = { horizontal: 'center', vertical: 'middle' };
 
-        // Dòng 5: Dòng trống ngăn cách
         ws.getRow(5).height = 10;
     };
 
@@ -509,22 +507,14 @@ async function buildStyledPaymentWorkbook(sourceData, config, computed) {
         cDate.font = FONT_ITALIC;
         cDate.alignment = { horizontal: 'right', vertical: 'middle' };
 
-        // Khung chữ ký 5 cấp
-        const signBlocks = totalCols === 12
-            ? [
-                { c1: 1, c2: 3, line1: 'LẬP BẢNG', line2: '' },
-                { c1: 4, c2: 5, line1: 'KT. TRƯỞNG KHOA', line2: 'PHÓ TRƯỞNG KHOA' },
-                { c1: 6, c2: 8, line1: `BGH ${truongUpper}`, line2: 'PHÓ HIỆU TRƯỞNG' },
-                { c1: 9, c2: 10, line1: 'BAN KH - TC', line2: '' },
-                { c1: 11, c2: 12, line1: 'BAN GIÁM ĐỐC', line2: '' }
-            ]
-            : [
-                { c1: 1, c2: 3, line1: 'LẬP BẢNG', line2: '' },
-                { c1: 4, c2: 5, line1: 'KT. TRƯỞNG KHOA', line2: 'PHÓ TRƯỞNG KHOA' },
-                { c1: 6, c2: 7, line1: `BGH ${truongUpper}`, line2: 'PHÓ HIỆU TRƯỞNG' },
-                { c1: 8, c2: 9, line1: 'BAN KH - TC', line2: '' },
-                { c1: 10, c2: 11, line1: 'BAN GIÁM ĐỐC', line2: '' }
-            ];
+        // Khung chữ ký 5 cấp đồng bộ cho bảng 12 cột
+        const signBlocks = [
+            { c1: 1, c2: 3, line1: 'LẬP BẢNG', line2: '' },
+            { c1: 4, c2: 5, line1: 'TRƯỞNG KHOA', line2: '' },
+            { c1: 6, c2: 8, line1: `BGH ${truongUpper}`, line2: '' },
+            { c1: 9, c2: 10, line1: 'BAN KH - TC', line2: '' },
+            { c1: 11, c2: 12, line1: 'BAN GIÁM ĐỐC', line2: '' }
+        ];
 
         signBlocks.forEach(b => {
             ws.mergeCells(sign1RowIdx, b.c1, sign1RowIdx, b.c2);
@@ -554,14 +544,14 @@ async function buildStyledPaymentWorkbook(sourceData, config, computed) {
         { width: 22 },  // B: Họ đệm
         { width: 11 },  // C: Tên
         { width: 9 },   // D: Học vị
-        { width: 19 },  // E: Đơn vị
-        { width: 11 },  // F: SL Đề tài
-        { width: 9 },   // G: Hệ số
-        { width: 12 },  // H: Quy chuẩn
-        { width: 13 },  // I: Đơn giá
-        { width: 16 },  // J: Số tiền
-        { width: 13 },  // K: Ký tên
-        { width: 14 }   // L: Ghi chú
+        { width: 19 },  // E: ĐƠN VỊ
+        { width: 11 },  // F: SL ĐỀ TÀI
+        { width: 9 },   // G: HỆ SỐ
+        { width: 12 },  // H: QUY CHUẨN
+        { width: 13 },  // I: ĐƠN GIÁ
+        { width: 16 },  // J: SỐ TIỀN
+        { width: 13 },  // K: KÝ TÊN
+        { width: 14 }   // L: GHI CHÚ
     ];
 
     const hdrRow1 = ws1.getRow(6);
@@ -653,28 +643,29 @@ async function buildStyledPaymentWorkbook(sourceData, config, computed) {
     appendSignatureFooter(ws1, totalRowIdx1, 12);
 
     // =========================================================================
-    // SHEET 2: Chấm PB (11 cột - không có cột Đơn vị giống ảnh mẫu)
+    // SHEET 2: Chấm PB (12 cột - đã bổ sung cột ĐƠN VỊ sau Học vị)
     // =========================================================================
     const ws2 = wb.addWorksheet('Chấm PB');
-    setupHeaderAndFooter(ws2, 11, 'BẢNG THANH TOÁN TIỀN PHẢN BIỆN ĐATN');
+    setupHeaderAndFooter(ws2, 12, 'BẢNG THANH TOÁN TIỀN PHẢN BIỆN ĐATN');
 
     ws2.columns = [
         { width: 5 },   // A: TT
         { width: 22 },  // B: Họ đệm
         { width: 11 },  // C: Tên
         { width: 9 },   // D: Học vị
-        { width: 11 },  // E: SL Đề tài
-        { width: 9 },   // F: Hệ số
-        { width: 12 },  // G: Quy chuẩn
-        { width: 13 },  // H: Đơn giá
-        { width: 16 },  // I: Số tiền
-        { width: 14 },  // J: Ký tên
-        { width: 15 }   // K: Ghi chú
+        { width: 19 },  // E: ĐƠN VỊ
+        { width: 11 },  // F: SL ĐỀ TÀI
+        { width: 9 },   // G: HỆ SỐ
+        { width: 12 },  // H: QUY CHUẨN
+        { width: 13 },  // I: ĐƠN GIÁ
+        { width: 16 },  // J: SỐ TIỀN
+        { width: 13 },  // K: KÝ TÊN
+        { width: 14 }   // L: GHI CHÚ
     ];
 
     const hdrRow2 = ws2.getRow(6);
     hdrRow2.height = 30;
-    const headers2 = ['TT', 'HỌ VÀ TÊN', '', 'Học vị', 'SL ĐỀ TÀI', 'HỆ SỐ', 'QUY CHUẨN', 'ĐƠN GIÁ', 'SỐ TIỀN', 'KÝ TÊN', 'GHI CHÚ'];
+    const headers2 = ['TT', 'HỌ VÀ TÊN', '', 'Học vị', 'ĐƠN VỊ', 'SL ĐỀ TÀI', 'HỆ SỐ', 'QUY CHUẨN', 'ĐƠN GIÁ', 'SỐ TIỀN', 'KÝ TÊN', 'GHI CHÚ'];
     headers2.forEach((h, i) => {
         const cell = hdrRow2.getCell(i + 1);
         cell.value = h;
@@ -696,11 +687,12 @@ async function buildStyledPaymentWorkbook(sourceData, config, computed) {
             r.hoDem,
             r.ten,
             r.hocVi,
+            r.donVi,
             r.slDeTai,
             r.heSo,
-            { formula: `E${rowNum}*F${rowNum}`, result: r.quyChuan },
+            { formula: `F${rowNum}*G${rowNum}`, result: r.quyChuan },
             r.donGia,
-            { formula: `G${rowNum}*H${rowNum}`, result: r.soTien },
+            { formula: `H${rowNum}*I${rowNum}`, result: r.soTien },
             '',
             ''
         ];
@@ -717,11 +709,14 @@ async function buildStyledPaymentWorkbook(sourceData, config, computed) {
             } else if (colNum === 3) {
                 cell.border = NAME_RIGHT_BORDER;
                 cell.alignment = { horizontal: 'left', vertical: 'middle' };
-            } else if (colNum === 8 || colNum === 9) {
+            } else if (colNum === 5) {
+                cell.border = THIN_BORDER;
+                cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+            } else if (colNum === 9 || colNum === 10) {
                 cell.border = THIN_BORDER;
                 cell.numFmt = '#,##0';
                 cell.alignment = { horizontal: 'right', vertical: 'middle' };
-            } else if (colNum === 6 || colNum === 7) {
+            } else if (colNum === 7 || colNum === 8) {
                 cell.border = THIN_BORDER;
                 cell.numFmt = '0.##';
                 cell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -735,7 +730,7 @@ async function buildStyledPaymentWorkbook(sourceData, config, computed) {
     const totalRowIdx2 = startRow2 + computed.rowsPhanBien.length;
     const totalRow2 = ws2.getRow(totalRowIdx2);
     totalRow2.height = 24;
-    for (let c = 1; c <= 11; c++) {
+    for (let c = 1; c <= 12; c++) {
         const cell = totalRow2.getCell(c);
         cell.font = FONT_BOLD;
         cell.border = THIN_BORDER;
@@ -743,18 +738,18 @@ async function buildStyledPaymentWorkbook(sourceData, config, computed) {
     }
     ws2.mergeCells(totalRowIdx2, 2, totalRowIdx2, 3);
     totalRow2.getCell(2).value = 'TỔNG';
-    totalRow2.getCell(5).value = computed.rowsPhanBien.length > 0
-        ? { formula: `SUM(E${startRow2}:E${totalRowIdx2 - 1})`, result: computed.summary.tongSLPhanBien }
+    totalRow2.getCell(6).value = computed.rowsPhanBien.length > 0
+        ? { formula: `SUM(F${startRow2}:F${totalRowIdx2 - 1})`, result: computed.summary.tongSLPhanBien }
         : 0;
-    totalRow2.getCell(5).numFmt = '#,##0';
+    totalRow2.getCell(6).numFmt = '#,##0';
 
-    totalRow2.getCell(9).value = computed.rowsPhanBien.length > 0
-        ? { formula: `SUM(I${startRow2}:I${totalRowIdx2 - 1})`, result: computed.summary.tongTienPhanBien }
+    totalRow2.getCell(10).value = computed.rowsPhanBien.length > 0
+        ? { formula: `SUM(J${startRow2}:J${totalRowIdx2 - 1})`, result: computed.summary.tongTienPhanBien }
         : 0;
-    totalRow2.getCell(9).numFmt = '#,##0';
-    totalRow2.getCell(9).alignment = { horizontal: 'right', vertical: 'middle' };
+    totalRow2.getCell(10).numFmt = '#,##0';
+    totalRow2.getCell(10).alignment = { horizontal: 'right', vertical: 'middle' };
 
-    appendSignatureFooter(ws2, totalRowIdx2, 11);
+    appendSignatureFooter(ws2, totalRowIdx2, 12);
 
     // =========================================================================
     // SHEET 3: Chấm BV (12 cột - mỗi HĐ 1 block 3 dòng, SLSV = tổng SV của HĐ)
@@ -841,8 +836,8 @@ async function buildStyledPaymentWorkbook(sourceData, config, computed) {
         });
 
         if (r.isFirstInBlock) {
-            ws3.mergeCells(rowNum, 2, rowNum + 2, 2); // Cột HỘI ĐỒNG SỐ
-            ws3.mergeCells(rowNum, 6, rowNum + 2, 6); // Cột T.GIAN THAM GIA HĐ
+            ws3.mergeCells(rowNum, 2, rowNum + 2, 2);
+            ws3.mergeCells(rowNum, 6, rowNum + 2, 6);
         }
     });
 
@@ -1164,7 +1159,7 @@ export function openPaymentPreviewModal(getMetaFn) {
             <table class="table table-bordered table-sm text-center align-middle mb-0" style="font-family: 'Times New Roman', serif; font-size: 13px;">
                 <thead class="table-secondary">
                     <tr>
-                        <th>TT</th><th colspan="2">HỌ VÀ TÊN</th><th>Học vị</th>
+                        <th>TT</th><th colspan="2">HỌ VÀ TÊN</th><th>Học vị</th><th>ĐƠN VỊ</th>
                         <th>SL ĐỀ TÀI</th><th>HỆ SỐ</th><th>QUY CHUẨN</th><th>ĐƠN GIÁ</th><th>SỐ TIỀN</th>
                     </tr>
                 </thead>
@@ -1175,6 +1170,7 @@ export function openPaymentPreviewModal(getMetaFn) {
                             <td class="text-start border-end-0">${escapeHtml(r.hoDem)}</td>
                             <td class="text-start border-start-0">${escapeHtml(r.ten)}</td>
                             <td>${escapeHtml(r.hocVi)}</td>
+                            <td>${escapeHtml(r.donVi)}</td>
                             <td>${r.slDeTai}</td>
                             <td>${formatDecimalVN(r.heSo)}</td>
                             <td>${formatDecimalVN(r.quyChuan)}</td>
@@ -1185,7 +1181,7 @@ export function openPaymentPreviewModal(getMetaFn) {
                 </tbody>
                 <tfoot class="fw-bold">
                     <tr>
-                        <td colspan="4">TỔNG</td>
+                        <td colspan="5">TỔNG</td>
                         <td>${s.tongSLPhanBien}</td>
                         <td colspan="3"></td>
                         <td class="text-end">${formatVND(s.tongTienPhanBien)}</td>
