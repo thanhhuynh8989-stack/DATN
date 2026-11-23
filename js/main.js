@@ -1,5 +1,6 @@
 // js/main.js (Phần 2/3)
 import { initGlobalSortables, createHoiDongBox, renderHoidongFromExcel } from './hoidong-manager.js';
+import { initCombinedImportWorkflow } from './combined-importer.js';
 import { exportExcelReport, exportDSHoiDongExcel, exportPhanBienExcel } from './excel-exporter.js';
 import {
     readExcelFile, parseSinhVienRows, parseGiangVienRows, parseHoiDongRows,
@@ -1770,5 +1771,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     initKhoaNganhDropdowns();
     initGlobalSortables();
+// Kích hoạt bảng tùy chọn & luồng nạp 2 file (Danh sách GV + Phân công tổng hợp)
+    initCombinedImportWorkflow();
+});
     bindEvents();
 });
