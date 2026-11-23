@@ -526,6 +526,7 @@ export function initCombinedImportWorkflow() {
 
     const inputGVFile = document.getElementById('file-combined-gv');
     const inputAllFile = document.getElementById('file-combined-all');
+    const btnReadCombined = document.getElementById('btn-read-combined-files');
     const statusBox = document.getElementById('combined-import-status');
 
     if (!radioNo || !radioYes || !legacySection || !combinedSection) return;
@@ -560,6 +561,13 @@ export function initCombinedImportWorkflow() {
         statusBox.classList.remove('d-none');
     };
 
+    const clearRenderedWorkspace = () => {
+        const ws = document.getElementById('workspace-hd');
+        if (ws) ws.innerHTML = '';
+        const poolSV = document.getElementById('pool-sv');
+        if (poolSV) poolSV.innerHTML = '';
+    };
+
     const runCombinedPipeline = async () => {
         if (!cachedTeacherMaster && !cachedCombinedFile) return;
 
@@ -570,8 +578,7 @@ export function initCombinedImportWorkflow() {
 
         if (cachedTeacherMaster.internalErrors.length > 0) {
             // Chặn render Hội đồng khi File Danh sách GV bị trùng tên chưa gắn (A)/(B) hoặc trùng Mã GV
-            const ws = document.getElementById('workspace-hd');
-            if (ws) ws.innerHTML = '';
+            clearRenderedWorkspace();
             showStatusAlert(
                 'danger',
                 `⛔ TẠM CHẶN DỮ LIỆU: File Danh sách GV có ${cachedTeacherMaster.internalErrors.length} lỗi cần chỉnh sửa trước khi tiếp tục:`,
@@ -592,10 +599,7 @@ export function initCombinedImportWorkflow() {
 
         if (!result.ok) {
             // Chặn cứng: xóa sạch khu vực Hội đồng để buộc người dùng cập nhật khớp dữ liệu
-            const ws = document.getElementById('workspace-hd');
-            if (ws) ws.innerHTML = '';
-            if (document.getElementById('pool-sv')) document.getElementById('pool-sv').innerHTML = '';
-
+            clearRenderedWorkspace();
             showStatusAlert(
                 'danger',
                 `⛔ TẠM CHẶN RENDER HỘI ĐỒNG: Phát hiện ${result.blockingErrors.length} giảng viên chưa khớp với File Danh sách GV (thiếu ký hiệu (A)/(B) hoặc sai tên). Vui lòng cập nhật lại file Excel và tải lại:`,
@@ -640,6 +644,21 @@ export function initCombinedImportWorkflow() {
         const file = e.target.files?.[0];
         if (!file) return;
         cachedCombinedFile = file;
+        await runCombinedPipeline();
+    });
+
+    btnReadCombined?.addEventListener('click', async () => {
+        const gvFile = inputGVFile?.files?.[0];
+        const allFile = inputAllFile?.files?.[0];
+
+        if (!gvFile || !allFile) {
+            showStatusAlert('warning', '⚠️ Vui lòng chọn đầy đủ cả 2 file: (1) Danh sách GV và (2) File Phân công tổng hợp!');
+            return;
+        }
+
+        // Đọc lại trực tiếp từ disk để lấy phiên bản file mới nhất nếu người dùng vừa sửa & lưu trên Excel
+        cachedTeacherMaster = await parseStrictTeacherMasterFile(gvFile);
+        cachedCombinedFile = allFile;
         await runCombinedPipeline();
     });
 }
