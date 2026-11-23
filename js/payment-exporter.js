@@ -1,5 +1,5 @@
 // js/payment-exporter.js
-import { isSameTeacher, normalizeTeacherKeyForDupCheck } from './validators.js';
+import { normalizeTeacherKeyForDupCheck } from './validators.js';
 
 const STORAGE_KEY_PAYMENT_CFG = 'datn_payment_export_cfg_v1';
 
@@ -61,7 +61,6 @@ function splitTeacherNameAndTitle(rawFullName) {
     const clean = String(rawFullName || '').trim().replace(/\s+/g, ' ');
     if (!clean) return { hoDem: '', ten: '', hocVi: '' };
 
-    // Trích xuất học vị phổ biến ở đầu chuỗi (PGS.TS., TS., ThS., Th.S, KS., CN....)
     const titleMatch = clean.match(/^((?:PGS\.?\s*TS\.?|GS\.?\s*TSKH\.?|GS\.?\s*TS\.?|TSKH\.?|TS\.?|Th\.?\s*S\.?|GVC\.?|GV\.?|KS\.?|CN\.?|BS\.?|Dr\.?|Prof\.?)+)\s*(.*)$/i);
     let hocVi = '';
     if (titleMatch && titleMatch[1]) {
@@ -115,7 +114,7 @@ function sanitizeFileSlug(str) {
  * - Gom HĐ theo Số Hội đồng (không phân biệt ngày, địa điểm)
  */
 export function collectPaymentSourceFromDOM(meta = {}) {
-    const khoGVMap = new Map(); // normKey -> { maGV, hoTen, donVi }
+    const khoGVMap = new Map();
     document.querySelectorAll('#pool-gv .card-item').forEach(el => {
         const maGV = (el.getAttribute('data-id') || '').trim();
         const hoTen = (el.getAttribute('data-name') || '').trim();
@@ -141,12 +140,12 @@ export function collectPaymentSourceFromDOM(meta = {}) {
 
     const classSet = new Set();
     const nganhSet = new Set();
-    const hdGroupedMap = new Map(); // soHD -> { soHD, ct, pb, tk, dates: Set, totalSV }
+    const hdGroupedMap = new Map();
     const assignedStudents = [];
 
     document.querySelectorAll('.box-hoidong').forEach((box, idx) => {
         const svCards = Array.from(box.querySelectorAll('.dropzone-sv .card-item'));
-        if (svCards.length === 0) return; // Chỉ tính các HĐ có sinh viên bảo vệ
+        if (svCards.length === 0) return;
 
         const rawTitle = box.querySelector('.hd-title')?.value.trim() || '';
         const soHD = extractHoiDongNumber(rawTitle, idx + 1);
@@ -166,7 +165,6 @@ export function collectPaymentSourceFromDOM(meta = {}) {
         const pb = getMember('Phản biện');
         const tk = getMember('Thư ký');
 
-        // Gom theo Số Hội đồng (không phân biệt ngày, địa điểm)
         if (!hdGroupedMap.has(soHD)) {
             hdGroupedMap.set(soHD, {
                 soHD,
@@ -363,7 +361,6 @@ function buildPaymentWorkbook(sourceData, config, computed) {
     const truongUpper = (config.truongThanhVien || 'TRƯỜNG CN&KT').toUpperCase();
 
     const makeFooterRows = (totalColsCount) => {
-        // Bố trí khung ký tên 5 cấp giống mẫu ảnh Duy Tân
         const rowDate = new Array(totalColsCount).fill('');
         rowDate[Math.max(0, totalColsCount - 4)] = 'Đà Nẵng, ngày .... tháng .... năm ......';
 
@@ -391,9 +388,7 @@ function buildPaymentWorkbook(sourceData, config, computed) {
         return [[], rowDate, rowSign1, rowSign2];
     };
 
-    // ---------------------------------------------------------
     // SHEET 1: Thanh toán HD
-    // ---------------------------------------------------------
     const ws1Data = [
         [{ t: 's', f: '"SET@DTU "&DATEVALUE(NOW())' }],
         ['ĐẠI HỌC DUY TÂN', '', '', '', 'BẢNG THANH TOÁN TIỀN HƯỚNG DẪN ĐATN'],
@@ -455,9 +450,7 @@ function buildPaymentWorkbook(sourceData, config, computed) {
     ];
     XLSX.utils.book_append_sheet(wb, ws1, 'Thanh toán HD');
 
-    // ---------------------------------------------------------
     // SHEET 2: Chấm PB
-    // ---------------------------------------------------------
     const ws2Data = [
         [{ t: 's', f: '"SET@DTU "&DATEVALUE(NOW())' }],
         ['ĐẠI HỌC DUY TÂN', '', '', '', 'BẢNG THANH TOÁN TIỀN PHẢN BIỆN ĐATN'],
@@ -517,9 +510,7 @@ function buildPaymentWorkbook(sourceData, config, computed) {
     ];
     XLSX.utils.book_append_sheet(wb, ws2, 'Chấm PB');
 
-    // ---------------------------------------------------------
-    // SHEET 3: Chấm BV (Mỗi HĐ 1 block 3 dòng, SLSV = tổng SV của HĐ)
-    // ---------------------------------------------------------
+    // SHEET 3: Chấm BV
     const ws3Data = [
         [{ t: 's', f: '"SET@DTU "&DATEVALUE(NOW())' }],
         ['ĐẠI HỌC DUY TÂN', '', '', '', 'BẢNG CHI TIẾT HỘI ĐỒNG CHẤM TỐT NGHIỆP'],
@@ -559,7 +550,6 @@ function buildPaymentWorkbook(sourceData, config, computed) {
         ]);
 
         if (r.isFirstInBlock) {
-            // Merge dọc 3 dòng cho cột HỘI ĐỒNG SỐ (col 1) và T.GIAN THAM GIA HĐ (col 5)
             ws3Merges.push({ s: { r: zeroBasedRow, c: 1 }, e: { r: zeroBasedRow + 2, c: 1 } });
             ws3Merges.push({ s: { r: zeroBasedRow, c: 5 }, e: { r: zeroBasedRow + 2, c: 5 } });
         }
@@ -590,9 +580,7 @@ function buildPaymentWorkbook(sourceData, config, computed) {
     ];
     XLSX.utils.book_append_sheet(wb, ws3, 'Chấm BV');
 
-    // ---------------------------------------------------------
     // SHEET 4 (ẨN): _META_DATA phục vụ ghép Tổng hợp liên ngành sau này
-    // ---------------------------------------------------------
     const metaPayload = {
         version: 1,
         exportedAt: new Date().toISOString(),
@@ -626,7 +614,6 @@ function buildPaymentWorkbook(sourceData, config, computed) {
  * Lưu bản sao file Excel (.xlsx) lên đúng thư mục chứa file JSON Phiên làm việc trên Drive (lưu trữ 60 ngày)
  */
 async function uploadPaymentExcelToSessionFolder(wb, fileName, metadata) {
-    // Lấy đúng URL Web App GAS đang cấu hình trong ứng dụng (từ input #cloud-gas-url hoặc localStorage/window)
     const gasUrl =
         document.getElementById('cloud-gas-url')?.value.trim() ||
         window.GAS_API_URL ||
@@ -687,7 +674,6 @@ function ensurePaymentPreviewModal() {
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng"></button>
                     </div>
                     <div class="modal-body p-3">
-                        <!-- Thanh cấu hình nhanh Header & Định mức -->
                         <div class="card border-success mb-3">
                             <div class="card-header bg-light py-1 px-3 fw-bold small text-success">
                                 ⚙️ Thông tin Header & Định mức thanh toán (Tự động cập nhật bảng xem trước bên dưới)
@@ -734,10 +720,8 @@ function ensurePaymentPreviewModal() {
                             </div>
                         </div>
 
-                        <!-- Tổng quan nhanh 3 khoản -->
                         <div id="pay-preview-summary-bar" class="alert alert-info py-2 px-3 small mb-2 d-flex flex-wrap justify-content-between gap-2"></div>
 
-                        <!-- 3 Tab xem trước 3 Sheet -->
                         <ul class="nav nav-tabs small fw-bold" id="payPreviewTabs" role="tablist">
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-pay-hd" type="button">1. Thanh toán HD</button>
@@ -839,7 +823,6 @@ export function openPaymentPreviewModal(getMetaFn) {
             <span class="text-primary">💰 TỔNG CỘNG: <strong>${formatVND(tongTatCa)} đ</strong></span>
         `;
 
-        // Tab 1: Thanh toán HD
         document.getElementById('tab-pay-hd').innerHTML = `
             ${headerBanner}
             <table class="table table-bordered table-sm text-center align-middle small mb-0">
@@ -876,7 +859,6 @@ export function openPaymentPreviewModal(getMetaFn) {
             </table>
         `;
 
-        // Tab 2: Chấm PB
         document.getElementById('tab-pay-pb').innerHTML = `
             ${headerBanner}
             <table class="table table-bordered table-sm text-center align-middle small mb-0">
@@ -912,7 +894,6 @@ export function openPaymentPreviewModal(getMetaFn) {
             </table>
         `;
 
-        // Tab 3: Chấm BV
         document.getElementById('tab-pay-bv').innerHTML = `
             ${headerBanner}
             <table class="table table-bordered table-sm text-center align-middle small mb-0">
@@ -965,4 +946,38 @@ export function openPaymentPreviewModal(getMetaFn) {
         const wb = buildPaymentWorkbook(sourceData, cfg, computed);
 
         const nganhSlug = sanitizeFileSlug(cfg.nganh || 'Nganh');
-        const khoaSlug = sanitizeFile
+        const khoaSlug = sanitizeFileSlug(cfg.khoaHoc || 'DATN');
+        const fileName = `Thanh_Toan_DATN_${nganhSlug}_${khoaSlug}.xlsx`;
+
+        // 1. Tải file Excel về máy người dùng
+        XLSX.writeFile(wb, fileName);
+
+        // 2. Tự động lưu bản sao vào thư mục Phiên làm việc trên Drive (lưu trữ 60 ngày)
+        const origText = btnConfirm.innerHTML;
+        btnConfirm.disabled = true;
+        btnConfirm.innerHTML = '⏳ Đang lưu bản sao lên Phiên Cloud...';
+        try {
+            const cloudRes = await uploadPaymentExcelToSessionFolder(wb, fileName, {
+                khoa: cfg.khoa,
+                nganh: cfg.nganh,
+                khoaHoc: cfg.khoaHoc,
+                tongTien: computed.summary.tongTienHuongDan + computed.summary.tongTienPhanBien + computed.summary.tongTienHoiDong
+            });
+            if (cloudRes.saved) {
+                alert(`✅ Đã xuất file "${fileName}" và lưu tự động vào thư mục Phiên làm việc (thời hạn lưu trữ 60 ngày)!`);
+            } else {
+                alert(`✅ Đã tải file "${fileName}" về máy.\nℹ️ Lưu ý Cloud: ${cloudRes.reason || cloudRes.message || 'Chưa kết nối phiên Cloud nên chỉ lưu bản trên máy.'}`);
+            }
+        } catch (err) {
+            console.warn('Lỗi lưu bản sao Excel lên thư mục Phiên:', err);
+            alert(`✅ Đã tải file "${fileName}" về máy.\n⚠️ Không thể đồng bộ bản sao lên Drive: ${err.message}`);
+        } finally {
+            btnConfirm.disabled = false;
+            btnConfirm.innerHTML = origText;
+            bootstrap.Modal.getInstance(modalEl)?.hide();
+        }
+    };
+
+    renderPreviewContent();
+    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+}
