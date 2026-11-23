@@ -111,12 +111,21 @@ function splitTeacherNameAndTitle(rawFullName) {
 function extractHoiDongNumber(rawTitle, fallbackIdx) {
     const cleaned = String(rawTitle || '').trim();
     if (!cleaned) return String(fallbackIdx);
+
+    // Ưu tiên tìm số đứng sau chữ Hội đồng / HĐ (ví dụ: "Hội đồng số 01", "HĐ 2", "Hội đồng 3 - Sáng 12/12")
+    const hdNumMatch = cleaned.match(/(?:hội\s*đồng|hoi\s*dong|hđ|hd)\s*(?:số|so|#|:|-|\.)?\s*([0-9]+[a-zA-Z0-9\-]*)/i);
+    if (hdNumMatch && hdNumMatch[1]) {
+        return hdNumMatch[1].trim();
+    }
+
+    // Nếu cả chuỗi chỉ là số hoặc mã ngắn (ví dụ: "1", "01", "HĐ1")
     const stripped = cleaned
         .replace(/^(?:hội\s*đồng|hoi\s*dong|hđ|hd)\s*(?:số|so|#|:|-|\.)?\s*/i, '')
         .trim();
     if (stripped) return stripped;
-    const m = cleaned.match(/\d+/);
-    return m ? m[0] : String(fallbackIdx);
+
+    const anyNum = cleaned.match(/\d+/);
+    return anyNum ? anyNum[0] : String(fallbackIdx);
 }
 
 function formatDateVN(rawDate) {
@@ -179,9 +188,19 @@ export function collectPaymentSourceFromDOM(meta = {}) {
         const svCards = Array.from(box.querySelectorAll('.dropzone-sv .card-item'));
         if (svCards.length === 0) return;
 
-        const rawTitle = box.querySelector('.hd-title')?.value.trim() || '';
-        const soHD = extractHoiDongNumber(rawTitle, idx + 1);
-        const ngayVN = formatDateVN(box.querySelector('.hd-date')?.value || '');
+        // Dò linh hoạt tên/số Hội đồng từ input, attribute hoặc text tiêu đề của box
+        const titleEl = box.querySelector('.hd-title, .hd-name, .hoidong-title, input[type="text"]');
+        const rawTitle = (
+            titleEl?.value ??
+            titleEl?.textContent ??
+            box.getAttribute('data-hd-so') ??
+            box.getAttribute('data-hd-name') ??
+            box.querySelector('.card-header, .box-header, h5, h6')?.textContent ??
+            ''
+        ).trim();
+
+        const soHD = extractHoiDongNumber(rawTitle, idx + 1) || String(idx + 1);
+        const ngayVN = formatDateVN(box.querySelector('.hd-date')?.value || box.getAttribute('data-date') || '');
 
         const getMember = (role) => {
             const card = box.querySelector(`.dropzone-gv[data-role="${role}"] .card-item`);
@@ -837,7 +856,16 @@ async function buildStyledPaymentWorkbook(sourceData, config, computed) {
 
         if (r.isFirstInBlock) {
             ws3.mergeCells(rowNum, 2, rowNum + 2, 2);
+            const hdCell = ws3.getCell(rowNum, 2);
+            hdCell.value = r.soHD || String(Math.floor(idx / 3) + 1);
+            hdCell.font = FONT_BASE;
+            hdCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
             ws3.mergeCells(rowNum, 6, rowNum + 2, 6);
+            const timeCell = ws3.getCell(rowNum, 6);
+            timeCell.value = r.thoiGian || '';
+            timeCell.font = FONT_BASE;
+            timeCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
         }
     });
 
