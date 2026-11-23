@@ -126,14 +126,14 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
         const ngayKyQDStr = (meta.ngayKyQD || '').trim() || '................';
 
         ws.getCell(`D${currentRow+2}`).value = `Đợt:            Tháng ${dotThangStr}`;
-        ws.getCell(`D${currentRow+2}`).font = { name: 'Times New Roman', size: 11 };
+        ws.getCell(`D${currentRow+2}`).font = { name: 'Times New Roman', size: 11, bold: true };
         ws.getCell(`F${currentRow+2}`).value = `Năm : ${namChamStr}`;
         ws.getCell(`F${currentRow+2}`).font = { name: 'Times New Roman', size: 11, bold: true };
 
         ws.getCell(`D${currentRow+3}`).value = `Hội đồng bảo vệ kèm theo Quyết định số  ${soQDStr}`;
         ws.getCell(`D${currentRow+3}`).font = { name: 'Times New Roman', size: 11, bold: true };
         ws.getCell(`L${currentRow+3}`).value = `ký ngày    ${ngayKyQDStr}`;
-        ws.getCell(`L${currentRow+3}`).font = { name: 'Times New Roman', size: 11 };
+        ws.getCell(`L${currentRow+3}`).font = { name: 'Times New Roman', size: 11, bold: true };
 
        const parseMinutes = (rawTime) => {
             const str = String(rawTime || '').trim();
