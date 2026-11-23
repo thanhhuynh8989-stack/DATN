@@ -53,7 +53,7 @@ function formatVND(num) {
 
 function formatDecimalVN(num) {
     const val = Math.round((Number(num) || 0) * 100) / 100;
-    return val.toLocaleString('vi-VN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    return val.toLocaleString('vi-VN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 /**
@@ -63,12 +63,11 @@ function formatDecimalVN(num) {
 function getSetDtuSerialStamp() {
     const now = new Date();
     const localMidnightUtc = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
-    const excelEpochUtc = Date.UTC(1899, 11, 30); // Mốc ngày 0 của Excel (30/12/1899)
+    const excelEpochUtc = Date.UTC(1899, 11, 30);
     const excelSerial = Math.floor((localMidnightUtc - excelEpochUtc) / 86400000);
     return `SET@DTU ${excelSerial}`;
 }
 
-// Tự động nạp thư viện ExcelJS nếu chưa có trên trang
 async function ensureExcelJSLoaded() {
     if (window.ExcelJS) return window.ExcelJS;
     await new Promise((resolve, reject) => {
@@ -88,7 +87,6 @@ async function ensureExcelJSLoaded() {
     return window.ExcelJS;
 }
 
-// Tách Họ đệm (kèm học hàm/học vị) và Tên để đưa vào 2 cột theo mẫu Duy Tân
 function splitTeacherNameAndTitle(rawFullName) {
     const clean = String(rawFullName || '').trim().replace(/\s+/g, ' ');
     if (!clean) return { hoDem: '', ten: '', hocVi: '' };
@@ -112,13 +110,11 @@ function extractHoiDongNumber(rawTitle, fallbackIdx) {
     const cleaned = String(rawTitle || '').trim();
     if (!cleaned) return String(fallbackIdx);
 
-    // Ưu tiên tìm số đứng sau chữ Hội đồng / HĐ (ví dụ: "Hội đồng số 01", "HĐ 2", "Hội đồng 3 - Sáng 12/12")
     const hdNumMatch = cleaned.match(/(?:hội\s*đồng|hoi\s*dong|hđ|hd)\s*(?:số|so|#|:|-|\.)?\s*([0-9]+[a-zA-Z0-9\-]*)/i);
     if (hdNumMatch && hdNumMatch[1]) {
         return hdNumMatch[1].trim();
     }
 
-    // Nếu cả chuỗi chỉ là số hoặc mã ngắn (ví dụ: "1", "01", "HĐ1")
     const stripped = cleaned
         .replace(/^(?:hội\s*đồng|hoi\s*dong|hđ|hd)\s*(?:số|so|#|:|-|\.)?\s*/i, '')
         .trim();
@@ -148,12 +144,6 @@ function sanitizeFileSlug(str) {
         .replace(/^_+|_+$/g, '');
 }
 
-/**
- * Thu thập dữ liệu nền từ DOM Hội đồng:
- * - Chỉ tính SV đã xếp vào Hội đồng
- * - Tự động lấy Ngành & tập hợp Lớp của tất cả SV làm Khóa
- * - Gom HĐ theo Số Hội đồng (không phân biệt ngày, địa điểm)
- */
 export function collectPaymentSourceFromDOM(meta = {}) {
     const khoGVMap = new Map();
     document.querySelectorAll('#pool-gv .card-item').forEach(el => {
@@ -175,7 +165,7 @@ export function collectPaymentSourceFromDOM(meta = {}) {
         const finalName = (fromPool?.hoTen && fromPool.hoTen.length > String(hoTen || '').length)
             ? fromPool.hoTen
             : (String(hoTen || '').trim() || fromPool?.hoTen || '');
-        const finalDonVi = fallbackDonVi || fromPool?.donVi || (meta.khoa ? `Khoa ${meta.khoa}` : 'Đại học Duy Tân');
+        const finalDonVi = fallbackDonVi || fromPool?.donVi || (meta.khoa ? `Khoa ${meta.khoa.replace(/^Khoa\s+/i, '')}` : 'Đại học Duy Tân');
         return { maGV: finalId, hoTen: finalName, donVi: finalDonVi };
     };
 
@@ -188,7 +178,6 @@ export function collectPaymentSourceFromDOM(meta = {}) {
         const svCards = Array.from(box.querySelectorAll('.dropzone-sv .card-item'));
         if (svCards.length === 0) return;
 
-        // Dò linh hoạt tên/số Hội đồng từ input, attribute hoặc text tiêu đề của box
         const titleEl = box.querySelector('.hd-title, .hd-name, .hoidong-title, input[type="text"]');
         const rawTitle = (
             titleEl?.value ??
@@ -269,9 +258,6 @@ export function collectPaymentSourceFromDOM(meta = {}) {
     };
 }
 
-/**
- * Tính toán chi tiết số liệu cho cả 3 bảng thanh toán từ nguồn dữ liệu & cấu hình đơn giá/hệ số
- */
 export function computePaymentTables(sourceData, config) {
     const donGia = Number(config.donGia) || 0;
     const heSoHD = Number(config.heSoHD) || 0;
@@ -280,7 +266,7 @@ export function computePaymentTables(sourceData, config) {
     const heSoHDPB = Number(config.heSoHDPB) || 0;
     const heSoHDTK = Number(config.heSoHDTK) || 0;
 
-    // 1. Bảng Hướng dẫn (chỉ tính SV đã xếp vào HĐ)
+    // 1. Bảng Hướng dẫn
     const hdTeacherMap = new Map();
     sourceData.assignedStudents.forEach(sv => {
         const tMeta = sourceData.resolveTeacherMeta(sv.maGVHD, sv.gvhd);
@@ -316,7 +302,7 @@ export function computePaymentTables(sourceData, config) {
             };
         });
 
-    // 2. Bảng Phản biện (cộng tổng SV theo GV Phản biện ở các HĐ)
+    // 2. Bảng Phản biện
     const pbTeacherMap = new Map();
     sourceData.hdGroupedList.forEach(hd => {
         if (!hd.pb || (!hd.pb.hoTen && !hd.pb.maGV)) return;
@@ -352,11 +338,12 @@ export function computePaymentTables(sourceData, config) {
             };
         });
 
-    // 3. Bảng Chi tiết Hội đồng chấm Tốt nghiệp (mỗi HĐ 1 block 3 dòng, SLSV = tổng SV của HĐ)
+    // 3. Bảng Chi tiết Hội đồng chấm Tốt nghiệp
     const rowsHoiDong = [];
     let sttCounter = 1;
-    sourceData.hdGroupedList.forEach(hd => {
+    sourceData.hdGroupedList.forEach((hd, hdIdx) => {
         const thoiGianStr = Array.from(hd.dates).join(', ');
+        const soHDStr = String(hd.soHD || (hdIdx + 1));
         const roles = [
             { chucDanh: 'Chủ tịch', gv: hd.ct, heSo: heSoCT },
             { chucDanh: 'UV-Phản biện', gv: hd.pb, heSo: heSoHDPB },
@@ -369,7 +356,7 @@ export function computePaymentTables(sourceData, config) {
             const thanhTien = Math.round(gioQD * donGia);
             rowsHoiDong.push({
                 stt: sttCounter++,
-                soHD: hd.soHD,
+                soHD: soHDStr,
                 isFirstInBlock: roleIdx === 0,
                 blockSize: 3,
                 maGV: r.gv?.maGV || '',
@@ -401,13 +388,6 @@ export function computePaymentTables(sourceData, config) {
     return { rowsHuongDan, rowsPhanBien, rowsHoiDong, summary };
 }
 
-/**
- * Xây dựng Workbook bằng ExcelJS:
- * - Font Times New Roman, cỡ chữ 12 toàn bộ
- * - Dòng 1: Giá trị tĩnh "SET@DTU <serial>" căn phải
- * - Header & Footer chữ ký 5 cấp chuẩn mẫu Duy Tân
- * - Cả 3 sheet đều chuẩn 12 cột (có cột ĐƠN VỊ đầy đủ ở cả Thanh toán HD và Chấm PB)
- */
 async function buildStyledPaymentWorkbook(sourceData, config, computed) {
     const ExcelJS = await ensureExcelJSLoaded();
     const wb = new ExcelJS.Workbook();
@@ -451,7 +431,7 @@ async function buildStyledPaymentWorkbook(sourceData, config, computed) {
 
     const setupHeaderAndFooter = (ws, totalCols, titleText) => {
         ws.pageSetup = {
-            paperSize: 9, // A4
+            paperSize: 9,
             orientation: 'landscape',
             fitToPage: true,
             fitToWidth: 1,
@@ -459,7 +439,6 @@ async function buildStyledPaymentWorkbook(sourceData, config, computed) {
             margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 }
         };
 
-        // Dòng 1: Mã kiểm soát SET@DTU (giá trị tĩnh, căn phải)
         ws.mergeCells(1, 1, 1, totalCols);
         const r1 = ws.getRow(1);
         r1.height = 19;
@@ -468,7 +447,6 @@ async function buildStyledPaymentWorkbook(sourceData, config, computed) {
         cStamp.font = FONT_STAMP;
         cStamp.alignment = { horizontal: 'right', vertical: 'middle' };
 
-        // Dòng 2: ĐẠI HỌC DUY TÂN | TIÊU ĐỀ BẢNG
         ws.mergeCells(2, 1, 2, 4);
         ws.mergeCells(2, 5, 2, totalCols);
         const r2 = ws.getRow(2);
@@ -481,7 +459,6 @@ async function buildStyledPaymentWorkbook(sourceData, config, computed) {
         ws.getCell(2, 5).font = FONT_BOLD;
         ws.getCell(2, 5).alignment = { horizontal: 'center', vertical: 'middle' };
 
-        // Dòng 3: KHOA ... | NGÀNH ...
         ws.mergeCells(3, 1, 3, 4);
         ws.mergeCells(3, 5, 3, totalCols);
         const r3 = ws.getRow(3);
@@ -496,7 +473,6 @@ async function buildStyledPaymentWorkbook(sourceData, config, computed) {
         cNganh.font = FONT_BOLD;
         cNganh.alignment = { horizontal: 'center', vertical: 'middle' };
 
-        // Dòng 4: KHÓA ...
         ws.mergeCells(4, 5, 4, totalCols);
         const r4 = ws.getRow(4);
         r4.height = 21;
@@ -519,14 +495,12 @@ async function buildStyledPaymentWorkbook(sourceData, config, computed) {
         ws.getRow(sign1RowIdx).height = 20;
         ws.getRow(sign2RowIdx).height = 20;
 
-        // Dòng ngày tháng căn phải phía trên BAN GIÁM ĐỐC
         ws.mergeCells(dateRowIdx, totalCols - 3, dateRowIdx, totalCols);
         const cDate = ws.getCell(dateRowIdx, totalCols - 3);
         cDate.value = 'Đà Nẵng, ngày .... tháng .... năm ......';
         cDate.font = FONT_ITALIC;
         cDate.alignment = { horizontal: 'right', vertical: 'middle' };
 
-        // Khung chữ ký 5 cấp đồng bộ cho bảng 12 cột
         const signBlocks = [
             { c1: 1, c2: 3, line1: 'LẬP BẢNG', line2: '' },
             { c1: 4, c2: 5, line1: 'TRƯỞNG KHOA', line2: '' },
@@ -553,24 +527,14 @@ async function buildStyledPaymentWorkbook(sourceData, config, computed) {
     };
 
     // =========================================================================
-    // SHEET 1: Thanh toán HD (12 cột)
+    // SHEET 1: Thanh toán HD
     // =========================================================================
     const ws1 = wb.addWorksheet('Thanh toán HD');
     setupHeaderAndFooter(ws1, 12, 'BẢNG THANH TOÁN TIỀN HƯỚNG DẪN ĐATN');
 
     ws1.columns = [
-        { width: 5 },   // A: TT
-        { width: 22 },  // B: Họ đệm
-        { width: 11 },  // C: Tên
-        { width: 9 },   // D: Học vị
-        { width: 19 },  // E: ĐƠN VỊ
-        { width: 11 },  // F: SL ĐỀ TÀI
-        { width: 9 },   // G: HỆ SỐ
-        { width: 12 },  // H: QUY CHUẨN
-        { width: 13 },  // I: ĐƠN GIÁ
-        { width: 16 },  // J: SỐ TIỀN
-        { width: 13 },  // K: KÝ TÊN
-        { width: 14 }   // L: GHI CHÚ
+        { width: 5 }, { width: 22 }, { width: 11 }, { width: 9 }, { width: 19 },
+        { width: 11 }, { width: 9 }, { width: 12 }, { width: 13 }, { width: 16 }, { width: 13 }, { width: 14 }
     ];
 
     const hdrRow1 = ws1.getRow(6);
@@ -628,7 +592,7 @@ async function buildStyledPaymentWorkbook(sourceData, config, computed) {
                 cell.alignment = { horizontal: 'right', vertical: 'middle' };
             } else if (colNum === 7 || colNum === 8) {
                 cell.border = THIN_BORDER;
-                cell.numFmt = '0.##';
+                cell.numFmt = '0.00'; // Luôn giữ đủ 2 chữ số thập phân (tránh lỗi 8, hoặc 2,1)
                 cell.alignment = { horizontal: 'center', vertical: 'middle' };
             } else {
                 cell.border = THIN_BORDER;
@@ -662,24 +626,14 @@ async function buildStyledPaymentWorkbook(sourceData, config, computed) {
     appendSignatureFooter(ws1, totalRowIdx1, 12);
 
     // =========================================================================
-    // SHEET 2: Chấm PB (12 cột - đã bổ sung cột ĐƠN VỊ sau Học vị)
+    // SHEET 2: Chấm PB
     // =========================================================================
     const ws2 = wb.addWorksheet('Chấm PB');
     setupHeaderAndFooter(ws2, 12, 'BẢNG THANH TOÁN TIỀN PHẢN BIỆN ĐATN');
 
     ws2.columns = [
-        { width: 5 },   // A: TT
-        { width: 22 },  // B: Họ đệm
-        { width: 11 },  // C: Tên
-        { width: 9 },   // D: Học vị
-        { width: 19 },  // E: ĐƠN VỊ
-        { width: 11 },  // F: SL ĐỀ TÀI
-        { width: 9 },   // G: HỆ SỐ
-        { width: 12 },  // H: QUY CHUẨN
-        { width: 13 },  // I: ĐƠN GIÁ
-        { width: 16 },  // J: SỐ TIỀN
-        { width: 13 },  // K: KÝ TÊN
-        { width: 14 }   // L: GHI CHÚ
+        { width: 5 }, { width: 22 }, { width: 11 }, { width: 9 }, { width: 19 },
+        { width: 11 }, { width: 9 }, { width: 12 }, { width: 13 }, { width: 16 }, { width: 13 }, { width: 14 }
     ];
 
     const hdrRow2 = ws2.getRow(6);
@@ -737,7 +691,7 @@ async function buildStyledPaymentWorkbook(sourceData, config, computed) {
                 cell.alignment = { horizontal: 'right', vertical: 'middle' };
             } else if (colNum === 7 || colNum === 8) {
                 cell.border = THIN_BORDER;
-                cell.numFmt = '0.##';
+                cell.numFmt = '0.00'; // Hiển thị 1,60 và 8,00 thay vì 8,
                 cell.alignment = { horizontal: 'center', vertical: 'middle' };
             } else {
                 cell.border = THIN_BORDER;
@@ -771,28 +725,18 @@ async function buildStyledPaymentWorkbook(sourceData, config, computed) {
     appendSignatureFooter(ws2, totalRowIdx2, 12);
 
     // =========================================================================
-    // SHEET 3: Chấm BV (12 cột - mỗi HĐ 1 block 3 dòng, SLSV = tổng SV của HĐ)
+    // SHEET 3: Chấm BV
     // =========================================================================
     const ws3 = wb.addWorksheet('Chấm BV');
     setupHeaderAndFooter(ws3, 12, 'BẢNG CHI TIẾT HỘI ĐỒNG CHẤM TỐT NGHIỆP');
 
     ws3.columns = [
-        { width: 5 },   // A: STT
-        { width: 12 },  // B: HỘI ĐỒNG SỐ
-        { width: 22 },  // C: Họ đệm
-        { width: 11 },  // D: Tên
-        { width: 14 },  // E: CHỨC DANH
-        { width: 18 },  // F: T.GIAN THAM GIA HĐ TỐT NGHIỆP
-        { width: 8 },   // G: SLSV
-        { width: 9 },   // H: HỆ SỐ
-        { width: 10 },  // I: Giờ QĐ
-        { width: 13 },  // J: ĐƠN GIÁ
-        { width: 16 },  // K: THÀNH TIỀN
-        { width: 14 }   // L: GHI CHÚ
+        { width: 5 }, { width: 12 }, { width: 22 }, { width: 11 }, { width: 14 },
+        { width: 20 }, { width: 8 }, { width: 9 }, { width: 10 }, { width: 13 }, { width: 16 }, { width: 14 }
     ];
 
     const hdrRow3 = ws3.getRow(6);
-    hdrRow3.height = 42; // Tăng chiều cao tiêu đề để chữ "T.GIAN THAM GIA HĐ TỐT NGHIỆP" hiển thị đủ 3 dòng, không bị cắt mép
+    hdrRow3.height = 42;
     const headers3 = ['STT', 'HỘI ĐỒNG SỐ', 'HỌ VÀ TÊN', '', 'CHỨC DANH', 'T.GIAN THAM GIA HĐ TỐT NGHIỆP', 'SLSV', 'HỆ SỐ', 'Giờ QĐ', 'ĐƠN GIÁ', 'THÀNH TIỀN', 'GHI CHÚ'];
     headers3.forEach((h, i) => {
         const cell = hdrRow3.getCell(i + 1);
@@ -805,69 +749,103 @@ async function buildStyledPaymentWorkbook(sourceData, config, computed) {
     ws3.mergeCells(6, 3, 6, 4);
 
     const startRow3 = 7;
+    const blocksToMerge = [];
+
     computed.rowsHoiDong.forEach((r, idx) => {
         const rowNum = startRow3 + idx;
         const row = ws3.getRow(rowNum);
         row.height = 22;
 
-        const vals = [
-            r.stt,
-            r.isFirstInBlock ? r.soHD : null,
-            r.hoDem,
-            r.ten,
-            r.chucDanh,
-            r.isFirstInBlock ? r.thoiGian : null,
-            r.slsv,
-            r.heSo,
-            { formula: `G${rowNum}*H${rowNum}`, result: r.gioQD },
-            r.donGia,
-            { formula: `I${rowNum}*J${rowNum}`, result: r.thanhTien },
-            ''
-        ];
+        // Điền trước các cột đơn lẻ (chừa cột 2 & 6 để merge riêng sau vòng lặp)
+        const cellStt = row.getCell(1);
+        cellStt.value = r.stt;
+        cellStt.font = FONT_BASE;
+        cellStt.border = THIN_BORDER;
+        cellStt.alignment = { horizontal: 'center', vertical: 'middle' };
 
-        vals.forEach((v, cIdx) => {
-            const colNum = cIdx + 1;
-            const cell = row.getCell(colNum);
-            cell.value = v;
-            cell.font = FONT_BASE;
+        const cellHoDem = row.getCell(3);
+        cellHoDem.value = r.hoDem;
+        cellHoDem.font = FONT_BASE;
+        cellHoDem.border = NAME_LEFT_BORDER;
+        cellHoDem.alignment = { horizontal: 'left', vertical: 'middle' };
 
-            if (colNum === 3) {
-                cell.border = NAME_LEFT_BORDER;
-                cell.alignment = { horizontal: 'left', vertical: 'middle' };
-            } else if (colNum === 4) {
-                cell.border = NAME_RIGHT_BORDER;
-                cell.alignment = { horizontal: 'left', vertical: 'middle' };
-            } else if (colNum === 10 || colNum === 11) {
-                cell.border = THIN_BORDER;
-                cell.numFmt = '#,##0';
-                cell.alignment = { horizontal: 'right', vertical: 'middle' };
-            } else if (colNum === 8 || colNum === 9) {
-                cell.border = THIN_BORDER;
-                cell.numFmt = '0.##';
-                cell.alignment = { horizontal: 'center', vertical: 'middle' };
-            } else if (colNum === 6) {
-                cell.border = THIN_BORDER;
-                cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-            } else {
-                cell.border = THIN_BORDER;
-                cell.alignment = { horizontal: 'center', vertical: 'middle' };
-            }
-        });
+        const cellTen = row.getCell(4);
+        cellTen.value = r.ten;
+        cellTen.font = FONT_BASE;
+        cellTen.border = NAME_RIGHT_BORDER;
+        cellTen.alignment = { horizontal: 'left', vertical: 'middle' };
 
-        // Gộp dọc 3 dòng và GÁN LẠI GIÁ TRỊ SAU KHI MERGE để ExcelJS không ghi đè thành rỗng
+        const cellChucDanh = row.getCell(5);
+        cellChucDanh.value = r.chucDanh;
+        cellChucDanh.font = FONT_BASE;
+        cellChucDanh.border = THIN_BORDER;
+        cellChucDanh.alignment = { horizontal: 'center', vertical: 'middle' };
+
+        const cellSlsv = row.getCell(7);
+        cellSlsv.value = r.slsv;
+        cellSlsv.font = FONT_BASE;
+        cellSlsv.border = THIN_BORDER;
+        cellSlsv.alignment = { horizontal: 'center', vertical: 'middle' };
+
+        const cellHeSo = row.getCell(8);
+        cellHeSo.value = r.heSo;
+        cellHeSo.font = FONT_BASE;
+        cellHeSo.border = THIN_BORDER;
+        cellHeSo.numFmt = '0.00';
+        cellHeSo.alignment = { horizontal: 'center', vertical: 'middle' };
+
+        const cellGioQD = row.getCell(9);
+        cellGioQD.value = { formula: `G${rowNum}*H${rowNum}`, result: r.gioQD };
+        cellGioQD.font = FONT_BASE;
+        cellGioQD.border = THIN_BORDER;
+        cellGioQD.numFmt = '0.00';
+        cellGioQD.alignment = { horizontal: 'center', vertical: 'middle' };
+
+        const cellDonGia = row.getCell(10);
+        cellDonGia.value = r.donGia;
+        cellDonGia.font = FONT_BASE;
+        cellDonGia.border = THIN_BORDER;
+        cellDonGia.numFmt = '#,##0';
+        cellDonGia.alignment = { horizontal: 'right', vertical: 'middle' };
+
+        const cellThanhTien = row.getCell(11);
+        cellThanhTien.value = { formula: `I${rowNum}*J${rowNum}`, result: r.thanhTien };
+        cellThanhTien.font = FONT_BASE;
+        cellThanhTien.border = THIN_BORDER;
+        cellThanhTien.numFmt = '#,##0';
+        cellThanhTien.alignment = { horizontal: 'right', vertical: 'middle' };
+
+        const cellGhiChu = row.getCell(12);
+        cellGhiChu.value = '';
+        cellGhiChu.font = FONT_BASE;
+        cellGhiChu.border = THIN_BORDER;
+        cellGhiChu.alignment = { horizontal: 'center', vertical: 'middle' };
+
         if (r.isFirstInBlock) {
-            ws3.mergeCells(rowNum, 2, rowNum + 2, 2);
-            const hdCell = ws3.getCell(rowNum, 2);
-            hdCell.value = r.soHD;
-            hdCell.font = FONT_BASE;
-            hdCell.alignment = { horizontal: 'center', vertical: 'middle' };
-
-            ws3.mergeCells(rowNum, 6, rowNum + 2, 6);
-            const timeCell = ws3.getCell(rowNum, 6);
-            timeCell.value = r.thoiGian;
-            timeCell.font = FONT_BASE;
-            timeCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+            blocksToMerge.push({
+                rowStart: rowNum,
+                rowEnd: rowNum + 2,
+                soHD: r.soHD,
+                thoiGian: r.thoiGian
+            });
         }
+    });
+
+    // Thực hiện gộp ô dọc 3 dòng và gán giá trị bằng địa chỉ B{row} / F{row} sau khi tất cả dòng đã dựng xong
+    blocksToMerge.forEach(b => {
+        ws3.mergeCells(`B${b.rowStart}:B${b.rowEnd}`);
+        const hdCell = ws3.getCell(`B${b.rowStart}`);
+        hdCell.value = b.soHD;
+        hdCell.font = FONT_BASE;
+        hdCell.border = THIN_BORDER;
+        hdCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+        ws3.mergeCells(`F${b.rowStart}:F${b.rowEnd}`);
+        const timeCell = ws3.getCell(`F${b.rowStart}`);
+        timeCell.value = b.thoiGian;
+        timeCell.font = FONT_BASE;
+        timeCell.border = THIN_BORDER;
+        timeCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     });
 
     const totalRowIdx3 = startRow3 + computed.rowsHoiDong.length;
@@ -887,7 +865,7 @@ async function buildStyledPaymentWorkbook(sourceData, config, computed) {
     totalRow3.getCell(9).value = computed.rowsHoiDong.length > 0
         ? { formula: `SUM(I${startRow3}:I${totalRowIdx3 - 1})`, result: computed.summary.tongGioQDHoiDong }
         : 0;
-    totalRow3.getCell(9).numFmt = '0.##';
+    totalRow3.getCell(9).numFmt = '0.00';
 
     totalRow3.getCell(11).value = computed.rowsHoiDong.length > 0
         ? { formula: `SUM(K${startRow3}:K${totalRowIdx3 - 1})`, result: computed.summary.tongTienHoiDong }
@@ -898,7 +876,7 @@ async function buildStyledPaymentWorkbook(sourceData, config, computed) {
     appendSignatureFooter(ws3, totalRowIdx3, 12);
 
     // =========================================================================
-    // SHEET 4 (ẨN): _META_DATA phục vụ ghép Tổng hợp liên ngành sau này
+    // SHEET 4 (ẨN): _META_DATA
     // =========================================================================
     const wsMeta = wb.addWorksheet('_META_DATA', { state: 'hidden' });
     wsMeta.getCell('A1').value = 'DATN_PAYMENT_META_V1';
@@ -930,9 +908,6 @@ function arrayBufferToBase64(buffer) {
     return btoa(binary);
 }
 
-/**
- * Lưu bản sao file Excel (.xlsx) lên đúng thư mục chứa file JSON Phiên làm việc trên Drive (lưu trữ 60 ngày)
- */
 async function uploadPaymentExcelToSessionFolder(xlsxBuffer, fileName, metadata) {
     const gasUrl =
         document.getElementById('cloud-gas-url')?.value.trim() ||
@@ -1079,9 +1054,6 @@ function ensurePaymentPreviewModal() {
     return document.getElementById('modalPreviewThanhToan');
 }
 
-/**
- * Mở Modal xem trước Bảng thanh toán 3 sheet trước khi xuất & lưu vào thư mục Phiên (60 ngày)
- */
 export function openPaymentPreviewModal(getMetaFn) {
     const meta = typeof getMetaFn === 'function' ? getMetaFn() : {};
     const sourceData = collectPaymentSourceFromDOM(meta);
@@ -1123,6 +1095,7 @@ export function openPaymentPreviewModal(getMetaFn) {
         const s = computed.summary;
         const tongTatCa = s.tongTienHuongDan + s.tongTienPhanBien + s.tongTienHoiDong;
         const stampText = getSetDtuSerialStamp();
+        const khoaCleanUpper = (cfg.khoa || '...').toUpperCase().replace(/^KHOA\s+/i, '');
 
         const headerBanner = `
             <div class="border rounded p-2 mb-2 bg-light" style="font-family: 'Times New Roman', serif; font-size: 13px;">
@@ -1130,11 +1103,11 @@ export function openPaymentPreviewModal(getMetaFn) {
                 <div class="row text-center fw-bold mt-1">
                     <div class="col-5">
                         <div>ĐẠI HỌC DUY TÂN</div>
-                        <div class="text-decoration-underline">KHOA ${escapeHtml((cfg.khoa || '...').toUpperCase())}</div>
+                        <div class="text-decoration-underline">KHOA ${escapeHtml(khoaCleanUpper)}</div>
                     </div>
                     <div class="col-7">
-                        <div>NGÀNH ${escapeHtml((cfg.nganh || '...').toUpperCase())}</div>
-                        <div>KHÓA ${escapeHtml((cfg.khoaHoc || '...').toUpperCase())}</div>
+                        <div>NGÀNH ${escapeHtml((cfg.nganh || '...').toUpperCase().replace(/^NGÀNH\s+/i, ''))}</div>
+                        <div>KHÓA ${escapeHtml((cfg.khoaHoc || '...').toUpperCase().replace(/^KHÓA\s+/i, ''))}</div>
                     </div>
                 </div>
             </div>
@@ -1281,7 +1254,6 @@ export function openPaymentPreviewModal(getMetaFn) {
             const khoaSlug = sanitizeFileSlug(cfg.khoaHoc || 'DATN');
             const fileName = `Thanh_Toan_DATN_${nganhSlug}_${khoaSlug}.xlsx`;
 
-            // 1. Tải file Excel về máy người dùng
             const blob = new Blob([xlsxBuffer], {
                 type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
             });
@@ -1294,7 +1266,6 @@ export function openPaymentPreviewModal(getMetaFn) {
             a.remove();
             setTimeout(() => URL.revokeObjectURL(url), 5000);
 
-            // 2. Tự động lưu bản sao vào thư mục Phiên làm việc trên Drive (lưu trữ 60 ngày)
             btnConfirm.innerHTML = '⏳ Đang lưu bản sao lên Phiên Cloud...';
             const cloudRes = await uploadPaymentExcelToSessionFolder(xlsxBuffer, fileName, {
                 khoa: cfg.khoa,
