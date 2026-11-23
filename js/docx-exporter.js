@@ -26,16 +26,6 @@ function extractOnlyHoiDongNumber(rawSoHD) {
     return m && m[1] ? m[1].trim() : s;
 }
 
-function formatDateVN(rawDate) {
-    const s = String(rawDate || '').trim();
-    if (!s) return '.../.../......';
-    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
-        const [y, m, d] = s.split('-');
-        return `${d}/${m}/${y}`;
-    }
-    return s;
-}
-
 /**
  * Chèn dòng đánh dấu lên đầu phần thân văn bản (word/document.xml) của file .docx
  */
@@ -97,8 +87,8 @@ export async function exportWordZIP(exportData, meta = {}) {
         sttCounterByHD.set(hdGroupKey, nextStt);
 
         const sttTrongHD = data.stt_hd ?? data.stt ?? nextStt;
-        const ngayBaoVeVN = formatDateVN(data.ngay);
-        const topMarkerLine = `HĐ số ${hdNumOnly || data.so_hd || ''} - STT ${sttTrongHD} - ngày ${ngayBaoVeVN}`;
+        
+        const topMarkerLine = `HĐ số ${hdNumOnly || data.so_hd || ''} - STT ${sttTrongHD}`;
 
         const baseContext = {
             KHOA: data.khoa || '',
