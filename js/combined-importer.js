@@ -99,9 +99,28 @@ function normalizeExcelTimeValue(raw) {
     return String(raw).trim();
 }
 
-async function readFirstSheetRowsFromFile(file) {
-    const buf = await file.arrayBuffer();
-    const wb = XLSX.read(buf, { type: 'array' });
+async function readFirstSheetRowsFromFile(file, inputElementToReset = null) {
+    let buffer;
+    try {
+        buffer = await file.arrayBuffer();
+    } catch (err) {
+        if (inputElementToReset) {
+            inputElementToReset.value = '';
+        }
+        const isLockOrModified =
+            err?.name === 'NotReadableError' ||
+            String(err?.message || '').includes('NotReadableError') ||
+            String(err?.message || '').includes('could not be read');
+
+        if (isLockOrModified) {
+            throw new Error(
+                `Không thể đọc file "${file.name}" do file vừa bị chỉnh sửa/lưu đè hoặc đang mở khóa quyền đọc trên Windows. Vui lòng chọn lại file "${file.name}" và bấm Nạp dữ liệu!`
+            );
+        }
+        throw new Error(`Lỗi đọc file "${file.name}": ${err?.message || err}`);
+    }
+
+    const wb = XLSX.read(buffer, { type: 'array', cellDates: true });
     const firstSheetName = wb.SheetNames[0];
     const ws = wb.Sheets[firstSheetName];
     return XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
