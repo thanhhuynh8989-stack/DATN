@@ -40,10 +40,19 @@
                     </div>
 
                     <div class="col-12 col-sm-6 col-md-3">
-                        <label class="fw-bold small mb-1 text-truncate d-block">Ngành / Chuyên ngành:</label>
-                        <select id="nganh-select" class="form-select form-select-sm">
-                            <option value="">-- Chọn Ngành --</option>
-                        </select>
+                        <label class="form-label fw-bold small mb-1">Ngành / Chuyên ngành (Chọn 1 hoặc nhiều):</label>
+                        <div class="dropdown w-100" id="nganh-multiselect-wrapper">
+                            <button class="btn btn-outline-secondary btn-sm w-100 text-start d-flex justify-content-between align-items-center bg-white text-dark"
+                                    type="button" id="btn-nganh-dropdown" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                                <span id="nganh-selected-label" class="text-truncate">-- Chọn Ngành --</span>
+                                <span class="ms-1 small">▼</span>
+                            </button>
+                            <div class="dropdown-menu w-100 p-2 shadow-sm" id="nganh-checkbox-menu" style="max-height: 220px; overflow-y: auto;">
+                                <!-- Danh sách checkbox ngành sẽ được render tự động theo Khoa -->
+                            </div>
+                        </div>
+                        <!-- Giữ input ẩn lưu danh sách ngành ngăn cách bởi dấu xuống dòng \n -->
+                        <input type="hidden" id="nganh-select" value="">
                     </div>
 
                     <div class="col-6 col-sm-3 col-md-1">
