@@ -56,6 +56,26 @@ function formatDecimalVN(num) {
     return val.toLocaleString('vi-VN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+// Chuẩn hóa danh sách nhiều ngành: tách theo dòng, loại trùng lặp, đảm bảo mỗi ngành 1 dòng
+function normalizeMultiNganhLines(rawNganh) {
+    const rawStr = String(rawNganh ?? '').trim();
+    if (!rawStr) return [];
+    const seen = new Set();
+    const lines = [];
+    rawStr
+        .split(/\r?\n/)
+        .map(s => s.trim())
+        .filter(Boolean)
+        .forEach(item => {
+            const key = item.toLowerCase();
+            if (!seen.has(key)) {
+                seen.add(key);
+                lines.push(item);
+            }
+        });
+    return lines;
+}
+
 /**
  * Tính giá trị số serial ngày theo chuẩn Excel (tương đương giá trị của DATEVALUE(TODAY()))
  * Trả về chuỗi giá trị tĩnh: "SET@DTU <serial>"
@@ -170,7 +190,8 @@ export function collectPaymentSourceFromDOM(meta = {}) {
     };
 
     const classSet = new Set();
-    const nganhSet = new Set();
+    const nganhList = [];
+    const nganhLowerSet = new Set();
     const hdGroupedMap = new Map();
     const assignedStudents = [];
 
@@ -277,7 +298,8 @@ export function collectPaymentSourceFromDOM(meta = {}) {
             return String(a.soHD).localeCompare(String(b.soHD), 'vi');
         });
 
-    const detectedNganh = (meta.nganh || '').trim() || Array.from(nganhSet).join(', ');
+    const metaNganhLines = normalizeMultiNganhLines(meta.nganh);
+    const detectedNganh = metaNganhLines.length > 0 ? metaNganhLines.join('\n') : nganhList.join('\n');
     const detectedKhoaHoc = Array.from(classSet).sort((a, b) => a.localeCompare(b, 'vi')).join(', ');
 
     return {
@@ -428,7 +450,8 @@ async function buildStyledPaymentWorkbook(sourceData, config, computed) {
 
     const stampText = getSetDtuSerialStamp();
     const khoaUpper = (config.khoa || sourceData.khoa || '').toUpperCase().replace(/^KHOA\s+/i, '');
-    const nganhUpper = (config.nganh || sourceData.nganh || '').toUpperCase().replace(/^NGÀNH\s+/i, '');
+    const nganhLinesUpper = normalizeMultiNganhLines(config.nganh || sourceData.nganh || '')
+        .map(s => s.toUpperCase().replace(/^NGÀNH\s+/i, ''));
     const khoaHocUpper = (config.khoaHoc || sourceData.khoaHoc || '').toUpperCase().replace(/^KHÓA\s+/i, '');
     const truongUpper = (config.truongThanhVien || 'TRƯỜNG CN&KT').toUpperCase();
 
@@ -494,16 +517,28 @@ async function buildStyledPaymentWorkbook(sourceData, config, computed) {
         ws.mergeCells(3, 1, 3, 4);
         ws.mergeCells(3, 5, 3, totalCols);
         const r3 = ws.getRow(3);
-        r3.height = 21;
+
+        // Tự động liệt kê từng ngành xuống dòng và căn chỉnh chiều cao dòng 3 (dòng NGÀNH)
+        let nganhCellText = '';
+        let visualLines = 1;
+        if (nganhLinesUpper.length === 1) {
+            nganhCellText = `NGÀNH ${nganhLinesUpper[0]}`;
+            visualLines = Math.max(1, Math.ceil(nganhCellText.length / 65));
+        } else if (nganhLinesUpper.length > 1) {
+            nganhCellText = `NGÀNH:\n${nganhLinesUpper.join('\n')}`;
+            visualLines = 1 + nganhLinesUpper.reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / 65)), 0);
+        }
+        r3.height = Math.max(21, visualLines * 18 + 4);
+
         const cKhoa = ws.getCell(3, 1);
         cKhoa.value = khoaUpper ? `KHOA ${khoaUpper}` : '';
         cKhoa.font = { ...FONT_BOLD, underline: true };
         cKhoa.alignment = { horizontal: 'center', vertical: 'middle' };
 
         const cNganh = ws.getCell(3, 5);
-        cNganh.value = nganhUpper ? `NGÀNH ${nganhUpper}` : '';
+        cNganh.value = nganhCellText;
         cNganh.font = FONT_BOLD;
-        cNganh.alignment = { horizontal: 'center', vertical: 'middle' };
+        cNganh.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
 
         ws.mergeCells(4, 5, 4, totalCols);
         const r4 = ws.getRow(4);
@@ -1009,7 +1044,7 @@ function ensurePaymentPreviewModal() {
                                 <div class="row g-2 small">
                                     <div class="col-12 col-md-4">
                                         <label class="form-label mb-0 fw-semibold">Ngành đào tạo:</label>
-                                        <input type="text" id="pay-cfg-nganh" class="form-control form-control-sm pay-cfg-input">
+                                        <textarea id="pay-cfg-nganh" rows="2" class="form-control form-control-sm pay-cfg-input"></textarea>
                                     </div>
                                     <div class="col-6 col-md-4">
                                         <label class="form-label mb-0 fw-semibold">Khóa (từ Lớp của SV):</label>
