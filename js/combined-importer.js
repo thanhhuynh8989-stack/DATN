@@ -110,6 +110,34 @@ function normalizeExcelTimeValue(raw) {
     return String(raw).trim();
 }
 
+function detectSessionPeriod(gioStr) {
+    const clean = String(gioStr || '').toLowerCase().replace('h', ':').trim();
+    const hour = parseInt(clean.split(':')[0], 10);
+    if (isNaN(hour)) return 'SANG';
+    if (hour < 12) return 'SANG';
+    if (hour < 17) return 'CHIEU';
+    return 'TOI';
+}
+
+function formatSessionLabel(sessionCode) {
+    if (sessionCode === 'SANG') return 'Buổi Sáng';
+    if (sessionCode === 'CHIEU') return 'Buổi Chiều';
+    return 'Buổi Tối';
+}
+
+function parseMinutesForSort(gioStr) {
+    const clean = String(gioStr || '').toLowerCase().replace('h', ':').trim();
+    const m = clean.match(/(\d{1,2})\s*:\s*(\d{1,2})?/);
+    if (!m) return 9999;
+    return parseInt(m[1], 10) * 60 + parseInt(m[2] || '0', 10);
+}
+
+function parseVNDateTimestamp(dateStr) {
+    const p = String(dateStr || '').split('/');
+    if (p.length !== 3) return Number.MAX_SAFE_INTEGER;
+    return new Date(Number(p[2]), Number(p[1]) - 1, Number(p[0])).getTime();
+}
+
 async function readFirstSheetRowsFromFile(file, inputElementToReset = null) {
     if (!file) {
         throw new Error('Không tìm thấy dữ liệu tệp tin đầu vào.');
@@ -211,8 +239,11 @@ export async function parseStrictTeacherMasterFile(file, inputElementToReset = n
 }
 
 /**
- * 2. Đọc & đối soát chặt chẽ File Phân công tổng hợp với lookupMap từ Danh sách GV
- * (Hỗ trợ truyền File hoặc mảng rows đã đọc sẵn từ RAM để tránh lỗi khóa file)
+ * 2. Đọc & đối soát chặt chẽ File Phân công tổng hợp:
+ * - Gộp thành 1 Hội đồng khi trùng đúng bộ 3 thành viên theo chức danh (CT + PB + TK), bất kể cột HỘI ĐỒNG ghi số gì.
+ * - Khi gộp nhiều số HĐ khác nhau về cùng 1 HĐ, ưu tiên giữ số HĐ nhỏ nhất / xuất hiện đầu tiên.
+ * - Khi 2 nhóm KHÁC thành viên bị ghi trùng số HĐ trong Excel: nhóm đầu giữ nguyên, nhóm sau tự động cấp số kế tiếp chưa dùng & ghi cảnh báo.
+ * - Tách thành từng khung chấm trên giao diện nếu 1 HĐ có nhiều suất (Buổi + Ngày + Phòng + Cơ sở) khác nhau, nhưng giữ nguyên cùng Số HĐ.
  */
 export async function parseAndValidateCombinedAssignment(fileOrRows, teacherLookupMap, inputElementToReset = null) {
     const rows = Array.isArray(fileOrRows)
@@ -237,10 +268,8 @@ export async function parseAndValidateCombinedAssignment(fileOrRows, teacherLook
             const idxLop = rUpper.findIndex(c => c === 'LỚP' || c.includes('LỚP SH'));
             const idxDeTai = rUpper.findIndex(c => c.includes('ĐỀ TÀI'));
 
-            // Kiểm tra xem cột Họ và Tên có bị tách làm 2 cột (Họ đệm + Tên) giống file Khoa Cơ khí không
             const isSplitNameCol = idxHoTen !== -1 && idxLop !== -1 && (idxLop - idxHoTen === 2) && !rUpper[idxHoTen + 1];
 
-            // Các cột ngay sau cột GVHD: Phản biện, Chủ tịch, Thư ký, Hội đồng, Ngày bảo vệ, Giờ bảo vệ, Phòng, Cơ sở
             const findColAfterGVHD = (keywords, fallbackOffset) => {
                 for (let c = idxGVHD + 1; c < rUpper.length; c++) {
                     if (keywords.some(kw => rUpper[c].includes(kw))) return c;
@@ -308,7 +337,6 @@ export async function parseAndValidateCombinedAssignment(fileOrRows, teacherLook
             return null;
         }
 
-        // Giữ nguyên Học hàm/Học vị + Tên + (A)/(B) như file tổng hợp upload
         return {
             maGV: found.maGV,
             hoTenGV: displayName,
@@ -317,7 +345,7 @@ export async function parseAndValidateCombinedAssignment(fileOrRows, teacherLook
     };
 
     const studentList = [];
-    const hdGroupMap = new Map();
+    const memberGroupMap = new Map(); // Key = "CT_ID|PB_ID|TK_ID"
     const usedTeachersMap = new Map();
     const detectedKhoaList = [];
     const detectedNganhList = [];
@@ -331,7 +359,6 @@ export async function parseAndValidateCombinedAssignment(fileOrRows, teacherLook
         }
     };
 
-    // Khởi tạo trước Kho GV từ toàn bộ file Danh sách GV
     teacherLookupMap.forEach(rec => {
         usedTeachersMap.set(rec.maGV.toUpperCase(), {
             maGV: rec.maGV,
@@ -380,7 +407,6 @@ export async function parseAndValidateCombinedAssignment(fileOrRows, teacherLook
             continue;
         }
 
-        // Đối soát bắt buộc 4 cột GV với Danh sách GV
         const gvhdObj = resolveTeacherStrict(rawGVHD, rowNum, mssv, 'GV Hướng dẫn');
         if (!cleanDisplayTeacherName(rawGVHD)) {
             blockingErrors.push(`• Dòng ${rowNum} (MSSV: ${mssv}): Bị trống tên GV Hướng dẫn.`);
@@ -395,7 +421,6 @@ export async function parseAndValidateCombinedAssignment(fileOrRows, teacherLook
         if (ctObj) registerTeacherToPool(ctObj);
         if (tkObj) registerTeacherToPool(tkObj);
 
-        // Tra cứu Khoa & Ngành chuẩn từ danh mục ngành theo Mã lớp (dự phòng detectNganhFromLop)
         const nganhInfo = typeof findNganhInfoByLop === 'function' ? findNganhInfoByLop(lop) : null;
         const nganh = (nganhInfo?.chuyenNganh || detectNganhFromLop(lop) || '').trim();
         const khoa = (nganhInfo?.khoa || '').trim();
@@ -407,68 +432,67 @@ export async function parseAndValidateCombinedAssignment(fileOrRows, teacherLook
             detectedNganhList.push(nganh);
         }
 
-        studentList.push({
+        const svRecord = {
             maSV: mssv,
             hoTenSV,
             lop,
             deTai,
             maGVHD: gvhdObj?.maGV || '',
             gvhd: gvhdObj?.hoTenGV || cleanDisplayTeacherName(rawGVHD),
-            nganh
-        });
+            nganh,
+            ngayBV,
+            gioBV,
+            phongBV,
+            diaDiemBV
+        };
+        studentList.push(svRecord);
 
-        // Gom nhóm vào Hội đồng nếu cột HỘI ĐỒNG hoặc thành viên HĐ có dữ liệu
+        // Gom nhóm thành 1 Hội đồng theo BỘ 3 THÀNH VIÊN + CHỨC DANH (CT + PB + TK)
         if (rawHD || ctObj || pbObj || tkObj) {
-            const hdNumClean = rawHD.replace(/^(?:hội\s*đồng|hoi\s*dong|hđ|hd)\s*(?:số|so|#|:|-|\.)?\s*/i, '').trim() || 'Chưa_Đánh_Số';
-            const groupKey = `${hdNumClean}__${ngayBV || 'NO_DATE'}`;
+            const hdNumClean = rawHD
+                .replace(/^(?:hội\s*đồng|hoi\s*dong|hđ|hd)\s*(?:số|so|#|:|-|\.)?\s*/i, '')
+                .trim();
 
-            if (!hdGroupMap.has(groupKey)) {
-                hdGroupMap.set(groupKey, {
-                    soHD: hdNumClean,
-                    ngayBV,
-                    gioBV,
-                    phongBV,
-                    diaDiemBV,
+            const ctKey = ctObj?.maGV?.toUpperCase() || '';
+            const pbKey = pbObj?.maGV?.toUpperCase() || '';
+            const tkKey = tkObj?.maGV?.toUpperCase() || '';
+            const hasAnyMember = Boolean(ctKey || pbKey || tkKey);
+
+            // Nếu hàng có đủ/có ít nhất 1 thành viên HĐ -> gom theo đúng tổ hợp (CT | PB | TK)
+            // Nếu hàng hoàn toàn trống cả 3 cột CT, PB, TK -> gom tạm theo số HĐ
+            const memberGroupKey = hasAnyMember
+                ? `MEM__${ctKey}|${pbKey}|${tkKey}`
+                : `NO_MEM__${hdNumClean || `ROW_${rowNum}`}`;
+
+            if (!memberGroupMap.has(memberGroupKey)) {
+                memberGroupMap.set(memberGroupKey, {
+                    memberGroupKey,
                     ct: ctObj,
                     pb: pbObj,
                     tk: tkObj,
-                    sinhViens: []
+                    rawSoHDs: [],
+                    firstRowNum: rowNum,
+                    rows: []
                 });
             }
 
-            const hdRec = hdGroupMap.get(groupKey);
-            if (!hdRec.gioBV && gioBV) hdRec.gioBV = gioBV;
-            if (!hdRec.phongBV && phongBV) hdRec.phongBV = phongBV;
-            if (!hdRec.diaDiemBV && diaDiemBV) hdRec.diaDiemBV = diaDiemBV;
+            const mGroup = memberGroupMap.get(memberGroupKey);
+            if (!mGroup.ct && ctObj) mGroup.ct = ctObj;
+            if (!mGroup.pb && pbObj) mGroup.pb = pbObj;
+            if (!mGroup.tk && tkObj) mGroup.tk = tkObj;
 
-            // Kiểm tra tính nhất quán thành viên giữa các dòng cùng 1 Hội đồng
-            const checkRoleConsistency = (roleName, existingMember, newMember) => {
-                if (!existingMember && newMember) return newMember;
-                if (existingMember && newMember && existingMember.maGV.toUpperCase() !== newMember.maGV.toUpperCase()) {
-                    consistencyWarnings.push(
-                        `• Dòng ${rowNum} (MSSV ${mssv}, HĐ ${hdNumClean}): Cột ${roleName} ghi "${newMember.hoTenGV}" khác với dòng đầu của HĐ (${existingMember.hoTenGV}). Hệ thống giữ theo dòng đầu tiên.`
-                    );
-                }
-                return existingMember;
-            };
+            if (hdNumClean && !mGroup.rawSoHDs.some(x => x.toUpperCase() === hdNumClean.toUpperCase())) {
+                mGroup.rawSoHDs.push(hdNumClean);
+            }
 
-            hdRec.ct = checkRoleConsistency('Chủ tịch', hdRec.ct, ctObj);
-            hdRec.pb = checkRoleConsistency('Phản biện', hdRec.pb, pbObj);
-            hdRec.tk = checkRoleConsistency('Thư ký', hdRec.tk, tkObj);
-
-            hdRec.sinhViens.push({
-                maSV: mssv,
-                hoTenSV,
-                lop,
-                deTai,
-                maGVHD: gvhdObj?.maGV || '',
-                gvhd: gvhdObj?.hoTenGV || cleanDisplayTeacherName(rawGVHD),
-                nganh
+            mGroup.rows.push({
+                rowNum,
+                hdNumRaw: hdNumClean,
+                sv: svRecord
             });
         }
     }
 
-    // Nếu có bất kỳ lỗi không khớp Mã GV / thiếu (A)/(B) nào -> CHẶN CỨNG, không dựng Hội đồng
     if (blockingErrors.length > 0) {
         return {
             ok: false,
@@ -482,36 +506,172 @@ export async function parseAndValidateCombinedAssignment(fileOrRows, teacherLook
         };
     }
 
-    // Sắp xếp danh sách Hội đồng theo số tăng dần và chuyển sang định dạng chuẩn của renderHoidongFromExcel
-    const sortedGroups = Array.from(hdGroupMap.values()).sort((a, b) => {
-        const na = parseInt(a.soHD, 10);
-        const nb = parseInt(b.soHD, 10);
+    // =========================================================================
+    // BƯỚC XỬ LÝ SỐ HỘI ĐỒNG CHO TỪNG NHÓM THÀNH VIÊN:
+    // 1. Trong cùng 1 nhóm thành viên: nếu có nhiều số HĐ khác nhau -> giữ số nhỏ nhất / xuất hiện đầu tiên.
+    // 2. Giữa các nhóm KHÁC thành viên: nếu trùng số HĐ đã chiếm trước đó -> giữ nguyên nhóm đầu,
+    //    cấp số HĐ kế tiếp chưa dùng cho nhóm sau & ghi thông báo rõ ràng.
+    // =========================================================================
+    const memberGroups = Array.from(memberGroupMap.values());
+
+    // Tìm số HĐ lớn nhất hiện có trong file để cấp số kế tiếp khi bị trùng (vd: max=20 -> cấp 21)
+    let maxNumericSoHD = 0;
+    memberGroups.forEach(g => {
+        g.rawSoHDs.forEach(s => {
+            const n = parseInt(s, 10);
+            if (!isNaN(n) && n > maxNumericSoHD) maxNumericSoHD = n;
+        });
+    });
+
+    const allocatedSoHDs = new Set();
+
+    memberGroups.forEach(g => {
+        const memberDesc = [
+            g.ct ? `CT: ${g.ct.hoTenGV}` : '',
+            g.pb ? `PB: ${g.pb.hoTenGV}` : '',
+            g.tk ? `TK: ${g.tk.hoTenGV}` : ''
+        ].filter(Boolean).join(', ');
+
+        // Chọn số HĐ đại diện cho nhóm này: ưu tiên số nhỏ nhất (nếu là số) hoặc số xuất hiện đầu tiên
+        let preferredSoHD = '';
+        if (g.rawSoHDs.length === 1) {
+            preferredSoHD = g.rawSoHDs[0];
+        } else if (g.rawSoHDs.length > 1) {
+            const sortedCandidates = [...g.rawSoHDs].sort((a, b) => {
+                const na = parseInt(a, 10);
+                const nb = parseInt(b, 10);
+                if (!isNaN(na) && !isNaN(nb)) return na - nb;
+                return 0; // Giữ thứ tự xuất hiện đầu tiên nếu không phải số
+            });
+            preferredSoHD = sortedCandidates[0];
+            consistencyWarnings.push(
+                `• Gộp Hội đồng (${memberDesc}): Trong Excel các dòng của bộ thành viên này đang ghi nhiều số HĐ khác nhau (${g.rawSoHDs.map(x => `HĐ ${x}`).join(', ')}) → Hệ thống đã gộp chung thành 1 Hội đồng và giữ số HĐ ${preferredSoHD}.`
+            );
+        }
+
+        // Kiểm tra xem preferredSoHD đã bị nhóm thành viên khác chiếm chưa
+        const normKey = preferredSoHD.toUpperCase();
+        if (preferredSoHD && !allocatedSoHDs.has(normKey)) {
+            g.finalSoHD = preferredSoHD;
+            allocatedSoHDs.add(normKey);
+        } else {
+            // Cấp số HĐ kế tiếp chưa dùng
+            let nextNum = Math.max(maxNumericSoHD + 1, allocatedSoHDs.size + 1);
+            while (allocatedSoHDs.has(String(nextNum))) {
+                nextNum++;
+            }
+            maxNumericSoHD = Math.max(maxNumericSoHD, nextNum);
+            g.finalSoHD = String(nextNum);
+            allocatedSoHDs.add(g.finalSoHD);
+
+            if (preferredSoHD) {
+                consistencyWarnings.push(
+                    `• Đổi số Hội đồng trùng (dòng ${g.firstRowNum}): Bộ thành viên (${memberDesc}) bị ghi trùng số "HĐ ${preferredSoHD}" với một Hội đồng khác thành viên đã có trước đó → Hệ thống tự động đổi nhóm này thành HĐ ${g.finalSoHD}.`
+                );
+            } else {
+                consistencyWarnings.push(
+                    `• Cấp số Hội đồng (dòng ${g.firstRowNum}): Bộ thành viên (${memberDesc}) chưa có số HĐ trong Excel → Hệ thống tự động gắn số HĐ ${g.finalSoHD}.`
+                );
+            }
+        }
+    });
+
+    // Sắp xếp các Hội đồng theo finalSoHD tăng dần
+    memberGroups.sort((a, b) => {
+        const na = parseInt(a.finalSoHD, 10);
+        const nb = parseInt(b.finalSoHD, 10);
         if (!isNaN(na) && !isNaN(nb)) return na - nb;
-        return String(a.soHD).localeCompare(String(b.soHD), 'vi');
+        return String(a.finalSoHD).localeCompare(String(b.finalSoHD), 'vi');
+    });
+
+    // =========================================================================
+    // TÁCH BOX HIỂN THỊ THEO SUẤT CHẤM (BUỔI + NGÀY + PHÒNG + CƠ SỞ)
+    // Giữ nguyên cùng finalSoHD cho các suất chấm thuộc cùng 1 Hội đồng
+    // =========================================================================
+    const renderedSlots = [];
+
+    memberGroups.forEach(g => {
+        const slotMap = new Map();
+
+        g.rows.forEach(({ sv }) => {
+            const sessionCode = detectSessionPeriod(sv.gioBV);
+            const dateNorm = (sv.ngayBV || '').trim();
+            const roomNorm = (sv.phongBV || '').trim().toUpperCase();
+            const campusNorm = (sv.diaDiemBV || '').trim().toUpperCase();
+
+            const slotKey = `${dateNorm}__${sessionCode}__${roomNorm}__${campusNorm}`;
+
+            if (!slotMap.has(slotKey)) {
+                slotMap.set(slotKey, {
+                    soHD: g.finalSoHD,
+                    ngayBV: sv.ngayBV,
+                    gioBV: sv.gioBV,
+                    sessionCode,
+                    phongBV: sv.phongBV,
+                    diaDiemBV: sv.diaDiemBV,
+                    ct: g.ct,
+                    pb: g.pb,
+                    tk: g.tk,
+                    sinhViens: []
+                });
+            }
+
+            const slotRec = slotMap.get(slotKey);
+            // Lấy giờ bắt đầu sớm nhất trong cùng buổi nếu có nhiều mốc giờ
+            if (sv.gioBV) {
+                if (!slotRec.gioBV || parseMinutesForSort(sv.gioBV) < parseMinutesForSort(slotRec.gioBV)) {
+                    slotRec.gioBV = sv.gioBV;
+                }
+            }
+            slotRec.sinhViens.push(sv);
+        });
+
+        // Sắp xếp các suất chấm của cùng 1 HĐ theo Ngày -> Buổi -> Phòng
+        const groupSlots = Array.from(slotMap.values()).sort((a, b) => {
+            const da = parseVNDateTimestamp(a.ngayBV);
+            const db = parseVNDateTimestamp(b.ngayBV);
+            if (da !== db) return da - db;
+            const ta = parseMinutesForSort(a.gioBV);
+            const tb = parseMinutesForSort(b.gioBV);
+            if (ta !== tb) return ta - tb;
+            return String(a.phongBV).localeCompare(String(b.phongBV), 'vi');
+        });
+
+        if (groupSlots.length > 1) {
+            const slotSummary = groupSlots
+                .map(s => `${formatSessionLabel(s.sessionCode)}${s.ngayBV ? ` ${s.ngayBV}` : ''}${s.phongBV ? ` (${s.phongBV})` : ''}: ${s.sinhViens.length} SV`)
+                .join('; ');
+            consistencyWarnings.push(
+                `• Tách suất chấm HĐ ${g.finalSoHD}: Hội đồng này chấm ở ${groupSlots.length} buổi/ngày/phòng khác nhau → Đã tách thành ${groupSlots.length} khung chấm cùng mang số HĐ ${g.finalSoHD} (${slotSummary}).`
+            );
+        }
+
+        renderedSlots.push(...groupSlots);
     });
 
     const parsedHoidongs = {
         __preserveExplicitNumbers: true,
+        __skipAutoMergeInRenderer: true, // Đã chuẩn hóa nhóm theo thành viên & tách theo suất chấm ở trên
         __mergeLogs: [],
         __missingCodeIssues: []
     };
 
-    sortedGroups.forEach((g, idx) => {
+    renderedSlots.forEach((slot, idx) => {
         const thanhVien = [];
-        if (g.ct) thanhVien.push({ ...g.ct, chucDanh: 'Chủ tịch' });
-        if (g.pb) thanhVien.push({ ...g.pb, chucDanh: 'Phản biện' });
-        if (g.tk) thanhVien.push({ ...g.tk, chucDanh: 'Thư ký' });
+        if (slot.ct) thanhVien.push({ ...slot.ct, chucDanh: 'Chủ tịch' });
+        if (slot.pb) thanhVien.push({ ...slot.pb, chucDanh: 'Phản biện' });
+        if (slot.tk) thanhVien.push({ ...slot.tk, chucDanh: 'Thư ký' });
 
         parsedHoidongs[`hd_${idx}`] = {
             rawIndex: String(idx + 1),
-            soHD: g.soHD,
+            soHD: slot.soHD,
             hasExplicitSoHD: true,
-            ngayBV: g.ngayBV,
-            gioBV: g.gioBV,
-            phongBV: g.phongBV,
-            diaDiemBV: g.diaDiemBV,
+            ngayBV: slot.ngayBV,
+            gioBV: slot.gioBV,
+            phongBV: slot.phongBV,
+            diaDiemBV: slot.diaDiemBV,
             thanhVien,
-            sinhViens: g.sinhViens
+            sinhViens: slot.sinhViens
         };
     });
 
@@ -585,7 +745,6 @@ export function initCombinedImportWorkflow() {
 
     if (!radioNo || !radioYes || !legacySection || !combinedSection) return;
 
-    // Lưu sẵn dữ liệu đã giải mã trong RAM để tránh lỗi NotReadableError nếu file bị Excel/OneDrive khóa sau đó
     let cachedTeacherMaster = null;
     let cachedCombinedRows = null;
 
@@ -688,7 +847,6 @@ export function initCombinedImportWorkflow() {
             return;
         }
 
-        // 100% khớp Mã GV -> Nạp Kho GV/SV, đồng bộ đa Khoa/Ngành và dựng Hội đồng
         renderPoolsForCombinedMode(result.teacherPoolList, result.studentList);
 
         if (typeof window.syncKhoaNganhFromLop === 'function') {
@@ -771,8 +929,6 @@ export function initCombinedImportWorkflow() {
             }
             await runCombinedPipeline();
         } catch (err) {
-            // Nếu file đang bị khóa do người dùng vừa chỉnh sửa/lưu trên Excel nhưng đã có bản cache trong RAM,
-            // thông báo rõ ràng và reset ô input để người dùng chọn lại file mới
             showStatusAlert('danger', `❌ ${err.message || err}`);
         }
     });
