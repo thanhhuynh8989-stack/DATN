@@ -2,6 +2,7 @@
 // Module độc lập xử lý luồng nhập 2 file: Danh sách GV + Danh sách Phân công tổng hợp (SV, GVHD, HĐ)
 
 import { renderHoidongFromExcel } from './hoidong-manager.js';
+import { findNganhInfoByLop } from './excel-reader.js';
 
 /**
  * Chuẩn hóa chuỗi khóa tra cứu Giảng viên:
@@ -246,7 +247,9 @@ export async function parseAndValidateCombinedAssignment(file, teacherLookupMap)
             consistencyWarnings: [],
             parsedHoidongs: {},
             studentList: [],
-            teacherPoolList: []
+            teacherPoolList: [],
+            detectedKhoas: [],
+            detectedNganhs: []
         };
     }
 
@@ -279,6 +282,8 @@ export async function parseAndValidateCombinedAssignment(file, teacherLookupMap)
     const studentList = [];
     const hdGroupMap = new Map();
     const usedTeachersMap = new Map(); // Lưu các GV tham gia kèm Học hàm/Học vị chuẩn để nạp Kho GV
+    const detectedKhoaList = [];
+    const detectedNganhList = [];
 
     const registerTeacherToPool = (tObj) => {
         if (!tObj || !tObj.maGV) return;
@@ -354,7 +359,17 @@ export async function parseAndValidateCombinedAssignment(file, teacherLookupMap)
         if (ctObj) registerTeacherToPool(ctObj);
         if (tkObj) registerTeacherToPool(tkObj);
 
-        const nganh = detectNganhFromLop(lop);
+        // Tra cứu Khoa & Ngành chuẩn từ danh mục ngành theo Mã lớp (dự phòng detectNganhFromLop)
+        const nganhInfo = typeof findNganhInfoByLop === 'function' ? findNganhInfoByLop(lop) : null;
+        const nganh = (nganhInfo?.chuyenNganh || detectNganhFromLop(lop) || '').trim();
+        const khoa = (nganhInfo?.khoa || '').trim();
+
+        if (khoa && !detectedKhoaList.includes(khoa)) {
+            detectedKhoaList.push(khoa);
+        }
+        if (nganh && !detectedNganhList.includes(nganh)) {
+            detectedNganhList.push(nganh);
+        }
 
         studentList.push({
             maSV: mssv,
@@ -426,7 +441,9 @@ export async function parseAndValidateCombinedAssignment(file, teacherLookupMap)
             consistencyWarnings,
             parsedHoidongs: {},
             studentList: [],
-            teacherPoolList: []
+            teacherPoolList: [],
+            detectedKhoas: [],
+            detectedNganhs: []
         };
     }
 
@@ -469,7 +486,9 @@ export async function parseAndValidateCombinedAssignment(file, teacherLookupMap)
         consistencyWarnings,
         parsedHoidongs,
         studentList,
-        teacherPoolList: Array.from(usedTeachersMap.values())
+        teacherPoolList: Array.from(usedTeachersMap.values()),
+        detectedKhoas: detectedKhoaList,
+        detectedNganhs: detectedNganhList
     };
 }
 
