@@ -63,6 +63,7 @@ function detectNganhFromLop(lop) {
     const u = String(lop || '').toUpperCase().replace(/\s+/g, '');
     if (u.includes('CKO') || u.includes('CK0')) return 'Công nghệ Kỹ thuật Ô tô';
     if (u.includes('CDO') || u.includes('CD0')) return 'Điện cơ Ô tô';
+    if (u.includes('CKM')) return 'Công nghệ Chế tạo máy';
     if (u.includes('CTP')) return 'Công nghệ Thực phẩm';
     if (u.includes('SHU')) return 'Công nghệ Sinh học';
     if (u.includes('KMT')) return 'Quản lý Tài nguyên & Môi trường';
@@ -71,8 +72,13 @@ function detectNganhFromLop(lop) {
 
 function normalizeExcelDateValue(raw) {
     if (raw === null || raw === undefined || raw === '') return '';
+    if (raw instanceof Date && !isNaN(raw.getTime())) {
+        const d = String(raw.getDate()).padStart(2, '0');
+        const m = String(raw.getMonth() + 1).padStart(2, '0');
+        const y = raw.getFullYear();
+        return `${d}/${m}/${y}`;
+    }
     if (typeof raw === 'number' && raw > 20000) {
-        // Excel serial date -> dd/mm/yyyy
         const utcDays = Math.floor(raw - 25569);
         const dt = new Date(utcDays * 86400 * 1000);
         const d = String(dt.getUTCDate()).padStart(2, '0');
@@ -90,6 +96,11 @@ function normalizeExcelDateValue(raw) {
 
 function normalizeExcelTimeValue(raw) {
     if (raw === null || raw === undefined || raw === '') return '';
+    if (raw instanceof Date && !isNaN(raw.getTime())) {
+        const hh = String(raw.getHours()).padStart(2, '0');
+        const mm = String(raw.getMinutes()).padStart(2, '0');
+        return `${hh}:${mm}`;
+    }
     if (typeof raw === 'number' && raw >= 0 && raw < 1) {
         const totalMins = Math.round(raw * 24 * 60);
         const hh = String(Math.floor(totalMins / 60)).padStart(2, '0');
@@ -100,12 +111,15 @@ function normalizeExcelTimeValue(raw) {
 }
 
 async function readFirstSheetRowsFromFile(file, inputElementToReset = null) {
+    if (!file) {
+        throw new Error('Không tìm thấy dữ liệu tệp tin đầu vào.');
+    }
     let buffer;
     try {
         buffer = await file.arrayBuffer();
     } catch (err) {
         if (inputElementToReset) {
-            inputElementToReset.value = '';
+            try { inputElementToReset.value = ''; } catch { /* ignore */ }
         }
         const isLockOrModified =
             err?.name === 'NotReadableError' ||
@@ -114,7 +128,7 @@ async function readFirstSheetRowsFromFile(file, inputElementToReset = null) {
 
         if (isLockOrModified) {
             throw new Error(
-                `Không thể đọc file "${file.name}" do file vừa bị chỉnh sửa/lưu đè hoặc đang mở khóa quyền đọc trên Windows. Vui lòng chọn lại file "${file.name}" và bấm Nạp dữ liệu!`
+                `Không thể đọc file "${file.name}" do file vừa bị chỉnh sửa/lưu đè hoặc đang bị khóa trên máy tính. Vui lòng chọn lại file "${file.name}" và thử lại!`
             );
         }
         throw new Error(`Lỗi đọc file "${file.name}": ${err?.message || err}`);
@@ -129,8 +143,8 @@ async function readFirstSheetRowsFromFile(file, inputElementToReset = null) {
 /**
  * 1. Đọc & kiểm tra nội bộ File Danh sách Giảng viên (Mã GV | Họ và Tên | Đơn vị Công tác)
  */
-export async function parseStrictTeacherMasterFile(file) {
-    const rows = await readFirstSheetRowsFromFile(file);
+export async function parseStrictTeacherMasterFile(file, inputElementToReset = null) {
+    const rows = await readFirstSheetRowsFromFile(file, inputElementToReset);
     const lookupMap = new Map();
     const internalErrors = [];
     const seenIds = new Map();
@@ -198,9 +212,13 @@ export async function parseStrictTeacherMasterFile(file) {
 
 /**
  * 2. Đọc & đối soát chặt chẽ File Phân công tổng hợp với lookupMap từ Danh sách GV
+ * (Hỗ trợ truyền File hoặc mảng rows đã đọc sẵn từ RAM để tránh lỗi khóa file)
  */
-export async function parseAndValidateCombinedAssignment(file, teacherLookupMap) {
-    const rows = await readFirstSheetRowsFromFile(file);
+export async function parseAndValidateCombinedAssignment(fileOrRows, teacherLookupMap, inputElementToReset = null) {
+    const rows = Array.isArray(fileOrRows)
+        ? fileOrRows
+        : await readFirstSheetRowsFromFile(fileOrRows, inputElementToReset);
+
     const blockingErrors = [];
     const consistencyWarnings = [];
 
@@ -300,7 +318,7 @@ export async function parseAndValidateCombinedAssignment(file, teacherLookupMap)
 
     const studentList = [];
     const hdGroupMap = new Map();
-    const usedTeachersMap = new Map(); // Lưu các GV tham gia kèm Học hàm/Học vị chuẩn để nạp Kho GV
+    const usedTeachersMap = new Map();
     const detectedKhoaList = [];
     const detectedNganhList = [];
 
@@ -308,13 +326,12 @@ export async function parseAndValidateCombinedAssignment(file, teacherLookupMap)
         if (!tObj || !tObj.maGV) return;
         const idKey = tObj.maGV.toUpperCase();
         const existing = usedTeachersMap.get(idKey);
-        // Ưu tiên bản ghi có học hàm/học vị đầy đủ hơn (chuỗi dài hơn)
         if (!existing || tObj.hoTenGV.length > existing.hoTenGV.length) {
             usedTeachersMap.set(idKey, { ...tObj });
         }
     };
 
-    // Khởi tạo trước Kho GV từ toàn bộ file Danh sách GV (để người dùng có thể gán thêm GV dự phòng nếu cần)
+    // Khởi tạo trước Kho GV từ toàn bộ file Danh sách GV
     teacherLookupMap.forEach(rec => {
         usedTeachersMap.set(rec.maGV.toUpperCase(), {
             maGV: rec.maGV,
@@ -403,7 +420,6 @@ export async function parseAndValidateCombinedAssignment(file, teacherLookupMap)
         // Gom nhóm vào Hội đồng nếu cột HỘI ĐỒNG hoặc thành viên HĐ có dữ liệu
         if (rawHD || ctObj || pbObj || tkObj) {
             const hdNumClean = rawHD.replace(/^(?:hội\s*đồng|hoi\s*dong|hđ|hd)\s*(?:số|so|#|:|-|\.)?\s*/i, '').trim() || 'Chưa_Đánh_Số';
-            // Tách theo (Số HĐ + Ngày bảo vệ) nếu cùng 1 HĐ bảo vệ nhiều ngày khác nhau
             const groupKey = `${hdNumClean}__${ngayBV || 'NO_DATE'}`;
 
             if (!hdGroupMap.has(groupKey)) {
@@ -569,8 +585,9 @@ export function initCombinedImportWorkflow() {
 
     if (!radioNo || !radioYes || !legacySection || !combinedSection) return;
 
+    // Lưu sẵn dữ liệu đã giải mã trong RAM để tránh lỗi NotReadableError nếu file bị Excel/OneDrive khóa sau đó
     let cachedTeacherMaster = null;
-    let cachedCombinedFile = null;
+    let cachedCombinedRows = null;
 
     const switchMode = (hasCombined) => {
         if (hasCombined) {
@@ -591,12 +608,39 @@ export function initCombinedImportWorkflow() {
 
     const showStatusAlert = (type, title, lines = []) => {
         if (!statusBox) return;
+        const hasLines = Array.isArray(lines) && lines.length > 0;
+        const toggleBtnHtml = hasLines
+            ? `<button type="button" id="btn-toggle-combined-status"
+                       class="btn btn-sm btn-outline-secondary bg-white py-0 px-2 fw-semibold"
+                       style="font-size: 12px; white-space: nowrap;">
+                   Thu gọn ▲
+               </button>`
+            : '';
+
         statusBox.className = `alert alert-${type} py-2 px-3 small mt-2 mb-0`;
         statusBox.innerHTML = `
-            <div class="fw-bold mb-1">${escapeHtml(title)}</div>
-            ${lines.length > 0 ? `<div style="max-height: 180px; overflow-y: auto; white-space: pre-line;">${escapeHtml(lines.join('\n'))}</div>` : ''}
+            <div class="d-flex justify-content-between align-items-center gap-2">
+                <div class="fw-bold">${escapeHtml(title)}</div>
+                ${toggleBtnHtml}
+            </div>
+            ${hasLines ? `<div id="combined-status-details" class="mt-2 pt-2 border-top" style="max-height: 180px; overflow-y: auto; white-space: pre-line;">${escapeHtml(lines.join('\n'))}</div>` : ''}
         `;
         statusBox.classList.remove('d-none');
+
+        const toggleBtn = document.getElementById('btn-toggle-combined-status');
+        const detailsEl = document.getElementById('combined-status-details');
+        if (toggleBtn && detailsEl) {
+            toggleBtn.addEventListener('click', () => {
+                const isHidden = detailsEl.classList.contains('d-none');
+                if (isHidden) {
+                    detailsEl.classList.remove('d-none');
+                    toggleBtn.textContent = 'Thu gọn ▲';
+                } else {
+                    detailsEl.classList.add('d-none');
+                    toggleBtn.textContent = `Mở rộng (${lines.length}) ▼`;
+                }
+            });
+        }
     };
 
     const clearRenderedWorkspace = () => {
@@ -607,7 +651,7 @@ export function initCombinedImportWorkflow() {
     };
 
     const runCombinedPipeline = async () => {
-        if (!cachedTeacherMaster && !cachedCombinedFile) return;
+        if (!cachedTeacherMaster && !cachedCombinedRows) return;
 
         if (!cachedTeacherMaster) {
             showStatusAlert('warning', '⏳ Đã nhận File Phân công tổng hợp. Vui lòng tải lên File Danh sách GV để đối soát Mã GV!');
@@ -615,7 +659,6 @@ export function initCombinedImportWorkflow() {
         }
 
         if (cachedTeacherMaster.internalErrors.length > 0) {
-            // Chặn render Hội đồng khi File Danh sách GV bị trùng tên chưa gắn (A)/(B) hoặc trùng Mã GV
             clearRenderedWorkspace();
             showStatusAlert(
                 'danger',
@@ -625,7 +668,7 @@ export function initCombinedImportWorkflow() {
             return;
         }
 
-        if (!cachedCombinedFile) {
+        if (!cachedCombinedRows) {
             showStatusAlert(
                 'info',
                 `✅ Đã nạp hợp lệ ${cachedTeacherMaster.rawList.length} Giảng viên. Vui lòng chọn tiếp File Phân công tổng hợp!`
@@ -633,10 +676,9 @@ export function initCombinedImportWorkflow() {
             return;
         }
 
-        const result = await parseAndValidateCombinedAssignment(cachedCombinedFile, cachedTeacherMaster.lookupMap);
+        const result = await parseAndValidateCombinedAssignment(cachedCombinedRows, cachedTeacherMaster.lookupMap);
 
         if (!result.ok) {
-            // Chặn cứng: xóa sạch khu vực Hội đồng để buộc người dùng cập nhật khớp dữ liệu
             clearRenderedWorkspace();
             showStatusAlert(
                 'danger',
@@ -646,8 +688,20 @@ export function initCombinedImportWorkflow() {
             return;
         }
 
-        // 100% khớp Mã GV -> Nạp Kho GV/SV và chạy toàn bộ bộ kiểm tra trùng lặp của renderHoidongFromExcel
+        // 100% khớp Mã GV -> Nạp Kho GV/SV, đồng bộ đa Khoa/Ngành và dựng Hội đồng
         renderPoolsForCombinedMode(result.teacherPoolList, result.studentList);
+
+        if (typeof window.syncKhoaNganhFromLop === 'function') {
+            if (result.detectedNganhs && result.detectedNganhs.length > 0) {
+                window.syncKhoaNganhFromLop({
+                    khoa: result.detectedKhoas?.[0] || '',
+                    nganhs: result.detectedNganhs
+                });
+            } else if (result.studentList[0]?.lop) {
+                window.syncKhoaNganhFromLop(result.studentList[0].lop);
+            }
+        }
+
         const checkLogs = renderHoidongFromExcel(result.parsedHoidongs);
 
         const allWarnings = [
@@ -660,13 +714,13 @@ export function initCombinedImportWorkflow() {
         if (allWarnings.length > 0) {
             showStatusAlert(
                 'warning',
-                `✅ Đã nạp thành công ${result.studentList.length} SV và dựng Hội đồng. Lưu ý rà soát ${allWarnings.length} cảnh báo nghiệp vụ bên dưới:`,
+                `✅ Đã nạp thành công ${result.studentList.length} SV (${result.detectedNganhs.length || 1} ngành) và dựng Hội đồng. Lưu ý rà soát ${allWarnings.length} cảnh báo nghiệp vụ bên dưới:`,
                 allWarnings
             );
         } else {
             showStatusAlert(
                 'success',
-                `✅ Đối soát hoàn tất: 100% Giảng viên khớp Mã GV (${result.studentList.length} Sinh viên đã được xếp vào các Hội đồng hợp lệ)!`
+                `✅ Đối soát hoàn tất: 100% Giảng viên khớp Mã GV (${result.studentList.length} Sinh viên — ${result.detectedNganhs.length || 1} ngành đã được xếp vào các Hội đồng hợp lệ)!`
             );
         }
     };
@@ -674,29 +728,52 @@ export function initCombinedImportWorkflow() {
     inputGVFile?.addEventListener('change', async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
-        cachedTeacherMaster = await parseStrictTeacherMasterFile(file);
-        await runCombinedPipeline();
+        try {
+            cachedTeacherMaster = await parseStrictTeacherMasterFile(file, inputGVFile);
+            await runCombinedPipeline();
+        } catch (err) {
+            cachedTeacherMaster = null;
+            showStatusAlert('danger', `❌ ${err.message || err}`);
+        }
     });
 
     inputAllFile?.addEventListener('change', async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
-        cachedCombinedFile = file;
-        await runCombinedPipeline();
+        try {
+            cachedCombinedRows = await readFirstSheetRowsFromFile(file, inputAllFile);
+            await runCombinedPipeline();
+        } catch (err) {
+            cachedCombinedRows = null;
+            showStatusAlert('danger', `❌ ${err.message || err}`);
+        }
     });
 
     btnReadCombined?.addEventListener('click', async () => {
         const gvFile = inputGVFile?.files?.[0];
         const allFile = inputAllFile?.files?.[0];
 
-        if (!gvFile || !allFile) {
-            showStatusAlert('warning', '⚠️ Vui lòng chọn đầy đủ cả 2 file: (1) Danh sách GV và (2) File Phân công tổng hợp!');
+        if (!gvFile && !cachedTeacherMaster) {
+            showStatusAlert('warning', '⚠️ Vui lòng chọn File (1) Danh sách GV!');
+            return;
+        }
+        if (!allFile && !cachedCombinedRows) {
+            showStatusAlert('warning', '⚠️ Vui lòng chọn File (2) Phân công tổng hợp!');
             return;
         }
 
-        // Đọc lại trực tiếp từ disk để lấy phiên bản file mới nhất nếu người dùng vừa sửa & lưu trên Excel
-        cachedTeacherMaster = await parseStrictTeacherMasterFile(gvFile);
-        cachedCombinedFile = allFile;
-        await runCombinedPipeline();
+        try {
+            if (gvFile) {
+                cachedTeacherMaster = await parseStrictTeacherMasterFile(gvFile, inputGVFile);
+            }
+            if (allFile) {
+                cachedCombinedRows = await readFirstSheetRowsFromFile(allFile, inputAllFile);
+            }
+            await runCombinedPipeline();
+        } catch (err) {
+            // Nếu file đang bị khóa do người dùng vừa chỉnh sửa/lưu trên Excel nhưng đã có bản cache trong RAM,
+            // thông báo rõ ràng và reset ô input để người dùng chọn lại file mới
+            showStatusAlert('danger', `❌ ${err.message || err}`);
+        }
     });
 }
