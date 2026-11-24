@@ -77,8 +77,8 @@ function normalizeMultiNganhLines(rawNganh) {
 }
 
 /**
- * Tính giá trị số serial ngày theo chuẩn Excel (tương đương giá trị của DATEVALUE(TODAY()))
- * Trả về chuỗi giá trị tĩnh: "SET@DTU <serial>"
+- Tính giá trị số serial ngày theo chuẩn Excel (tương đương giá trị của DATEVALUE(TODAY()))
+- Trả về chuỗi giá trị tĩnh: "SET@DTU <serial>"
  */
 function getSetDtuSerialStamp() {
     const now = new Date();
@@ -262,7 +262,10 @@ export function collectPaymentSourceFromDOM(meta = {}) {
             const lop = (svEl.getAttribute('data-lop') || '').trim();
             const nganhSV = (svEl.getAttribute('data-nganh') || '').trim();
             if (lop) classSet.add(lop);
-            if (nganhSV) nganhSet.add(nganhSV);
+            if (nganhSV && !nganhLowerSet.has(nganhSV.toLowerCase())) {
+                nganhLowerSet.add(nganhSV.toLowerCase());
+                nganhList.push(nganhSV);
+            }
 
             assignedStudents.push({
                 maSV: (svEl.getAttribute('data-id') || '').trim(),
@@ -1043,7 +1046,7 @@ function ensurePaymentPreviewModal() {
                             <div class="card-body p-2">
                                 <div class="row g-2 small">
                                     <div class="col-12 col-md-4">
-                                        <label class="form-label mb-0 fw-semibold">Ngành đào tạo:</label>
+                                        <label class="form-label mb-0 fw-semibold">Ngành đào tạo (mỗi ngành 1 dòng):</label>
                                         <textarea id="pay-cfg-nganh" rows="2" class="form-control form-control-sm pay-cfg-input"></textarea>
                                     </div>
                                     <div class="col-6 col-md-4">
@@ -1133,7 +1136,11 @@ export function openPaymentPreviewModal(getMetaFn) {
     const modalEl = ensurePaymentPreviewModal();
     const savedCfg = loadSavedPaymentConfig();
 
-    document.getElementById('pay-cfg-nganh').value = sourceData.nganh || '';
+    const nganhLinesInit = normalizeMultiNganhLines(sourceData.nganh);
+    const nganhTextarea = document.getElementById('pay-cfg-nganh');
+    nganhTextarea.value = nganhLinesInit.join('\n');
+    nganhTextarea.rows = Math.min(4, Math.max(1, nganhLinesInit.length));
+
     document.getElementById('pay-cfg-khoahoc').value = sourceData.khoaHoc || '';
     document.getElementById('pay-cfg-truong').value = savedCfg.truongThanhVien || 'TRƯỜNG CN&KT';
     document.getElementById('pay-cfg-dongia').value = savedCfg.donGia;
@@ -1145,7 +1152,7 @@ export function openPaymentPreviewModal(getMetaFn) {
 
     const readCurrentConfig = () => ({
         khoa: sourceData.khoa,
-        nganh: document.getElementById('pay-cfg-nganh').value.trim(),
+        nganh: normalizeMultiNganhLines(document.getElementById('pay-cfg-nganh').value).join('\n'),
         khoaHoc: document.getElementById('pay-cfg-khoahoc').value.trim(),
         truongThanhVien: document.getElementById('pay-cfg-truong').value.trim() || 'TRƯỜNG CN&KT',
         donGia: Number(document.getElementById('pay-cfg-dongia').value) || 0,
@@ -1164,16 +1171,24 @@ export function openPaymentPreviewModal(getMetaFn) {
         const stampText = getSetDtuSerialStamp();
         const khoaCleanUpper = (cfg.khoa || '...').toUpperCase().replace(/^KHOA\s+/i, '');
 
+        const previewNganhLines = normalizeMultiNganhLines(cfg.nganh)
+            .map(line => line.toUpperCase().replace(/^NGÀNH\s+/i, ''));
+        const previewNganhHtml = previewNganhLines.length === 0
+            ? 'NGÀNH ...'
+            : previewNganhLines.length === 1
+                ? `NGÀNH ${escapeHtml(previewNganhLines[0])}`
+                : `NGÀNH:<br>${previewNganhLines.map(escapeHtml).join('<br>')}`;
+
         const headerBanner = `
             <div class="border rounded p-2 mb-2 bg-light" style="font-family: 'Times New Roman', serif; font-size: 13px;">
                 <div class="text-end text-muted fst-italic" style="font-size: 11px;">${escapeHtml(stampText)}</div>
-                <div class="row text-center fw-bold mt-1">
+                <div class="row text-center fw-bold mt-1 align-items-center">
                     <div class="col-5">
                         <div>ĐẠI HỌC DUY TÂN</div>
                         <div class="text-decoration-underline">KHOA ${escapeHtml(khoaCleanUpper)}</div>
                     </div>
                     <div class="col-7">
-                        <div>NGÀNH ${escapeHtml((cfg.nganh || '...').toUpperCase().replace(/^NGÀNH\s+/i, ''))}</div>
+                        <div>${previewNganhHtml}</div>
                         <div>KHÓA ${escapeHtml((cfg.khoaHoc || '...').toUpperCase().replace(/^KHÓA\s+/i, ''))}</div>
                     </div>
                 </div>
@@ -1317,8 +1332,8 @@ export function openPaymentPreviewModal(getMetaFn) {
             const wb = await buildStyledPaymentWorkbook(sourceData, cfg, computed);
             const xlsxBuffer = await wb.xlsx.writeBuffer();
 
-            const nganhSlug = sanitizeFileSlug(cfg.nganh || 'Nganh');
-            const khoaSlug = sanitizeFileSlug(cfg.khoaHoc || 'DATN');
+            const nganhSlug = sanitizeFileSlug(cfg.nganh.replace(/\r?\n/g, '_') || 'Nganh').slice(0, 60);
+            const khoaSlug = sanitizeFileSlug(cfg.khoaHoc || 'DATN').slice(0, 40);
             const fileName = `Thanh_Toan_DATN_${nganhSlug}_${khoaSlug}.xlsx`;
 
             const blob = new Blob([xlsxBuffer], {
