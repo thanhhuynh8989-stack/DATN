@@ -1413,45 +1413,140 @@ function bindEvents() {
 
 function initKhoaNganhDropdowns() {
     const khoaSelect = document.getElementById('khoa-select');
-    const nganhSelect = document.getElementById('nganh-select');
-    if (!khoaSelect || !nganhSelect) return;
+    const hiddenNganhInput = document.getElementById('nganh-select');
+    const menuEl = document.getElementById('nganh-checkbox-menu');
+    const labelEl = document.getElementById('nganh-selected-label');
+    if (!khoaSelect || !hiddenNganhInput || !menuEl || !labelEl) return;
+
+    const escapeHtmlAttr = (str) => String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+
+    const syncSelectedNganhsToHidden = () => {
+        const checkedVals = Array.from(menuEl.querySelectorAll('.chk-nganh-item:checked'))
+            .map(chk => chk.value.trim())
+            .filter(Boolean);
+
+        // Mỗi ngành nằm trên 1 dòng riêng (\n) để Word/Excel tự xuống dòng và giãn chiều cao hàng
+        hiddenNganhInput.value = checkedVals.join('\n');
+
+        if (checkedVals.length === 0) {
+            labelEl.textContent = '-- Chọn Ngành --';
+            labelEl.title = '';
+        } else if (checkedVals.length === 1) {
+            labelEl.textContent = checkedVals[0];
+            labelEl.title = checkedVals[0];
+        } else {
+            labelEl.textContent = `${checkedVals.length} ngành: ${checkedVals.join('; ')}`;
+            labelEl.title = checkedVals.join('\n');
+        }
+    };
+
+    const updateNganhOptions = (selectedKhoa, preselectNganhs = []) => {
+        const targetList = Array.isArray(preselectNganhs)
+            ? preselectNganhs
+            : (preselectNganhs ? [preselectNganhs] : []);
+        const targetLower = targetList.map(s => String(s || '').toLowerCase().trim()).filter(Boolean);
+
+        const filteredNganhs = danhMucNganh.filter(item => item.khoa === selectedKhoa);
+
+        if (filteredNganhs.length === 0) {
+            menuEl.innerHTML = `<div class="text-muted small px-1">Không có chuyên ngành thuộc khoa này.</div>`;
+            syncSelectedNganhsToHidden();
+            return;
+        }
+
+        const quickActionsHtml = filteredNganhs.length > 1
+            ? `
+                <div class="d-flex justify-content-between align-items-center pb-1 mb-1 border-bottom">
+                    <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none fw-semibold" id="btn-nganh-select-all">Chọn tất cả</button>
+                    <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none text-secondary" id="btn-nganh-clear-all">Bỏ chọn</button>
+                </div>
+            `
+            : '';
+
+        const itemsHtml = filteredNganhs.map((n, idx) => {
+            const nameLower = String(n.chuyenNganh || '').toLowerCase().trim();
+            const codeLower = String(n.maChuyenNganh || '').toLowerCase().trim();
+            const isChecked = (targetLower.includes(nameLower) || (codeLower && targetLower.includes(codeLower)))
+                ? 'checked'
+                : '';
+            const chkId = `chk-nganh-${idx}`;
+            const safeName = escapeHtmlAttr(n.chuyenNganh);
+            const safeCode = escapeHtmlAttr(n.maChuyenNganh);
+
+            return `
+                <div class="form-check mb-1">
+                    <input class="form-check-input chk-nganh-item" type="checkbox" value="${safeName}" id="${chkId}" ${isChecked}>
+                    <label class="form-check-label small w-100" for="${chkId}" style="cursor:pointer;">
+                        ${safeName} <span class="text-muted">(${safeCode})</span>
+                    </label>
+                </div>
+            `;
+        }).join('');
+
+        menuEl.innerHTML = quickActionsHtml + itemsHtml;
+
+        menuEl.querySelectorAll('.chk-nganh-item').forEach(chk => {
+            chk.addEventListener('change', syncSelectedNganhsToHidden);
+        });
+
+        menuEl.querySelector('#btn-nganh-select-all')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            menuEl.querySelectorAll('.chk-nganh-item').forEach(chk => { chk.checked = true; });
+            syncSelectedNganhsToHidden();
+        });
+
+        menuEl.querySelector('#btn-nganh-clear-all')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            menuEl.querySelectorAll('.chk-nganh-item').forEach(chk => { chk.checked = false; });
+            syncSelectedNganhsToHidden();
+        });
+
+        // Nếu chưa truyền danh sách chọn sẵn (hoặc không khớp mục nào), mặc định chọn ngành đầu tiên
+        const anyChecked = menuEl.querySelector('.chk-nganh-item:checked');
+        if (!anyChecked) {
+            const firstChk = menuEl.querySelector('.chk-nganh-item');
+            if (firstChk) firstChk.checked = true;
+        }
+
+        syncSelectedNganhsToHidden();
+    };
 
     if (danhMucNganh.length === 0) {
         khoaSelect.innerHTML = `<option value="Khoa Công nghệ Thực phẩm">Khoa Công nghệ Thực phẩm</option>`;
-        nganhSelect.innerHTML = `<option value="Công nghệ Thực phẩm">Công nghệ Thực phẩm</option>`;
+        hiddenNganhInput.value = 'Công nghệ Thực phẩm';
+        labelEl.textContent = 'Công nghệ Thực phẩm';
         return;
     }
 
     const uniqueKhoas = [...new Set(danhMucNganh.map(item => item.khoa))];
-    khoaSelect.innerHTML = uniqueKhoas
-        .map(k => `<option value="${k}">${k}</option>`)
-        .join('');
-
-    const updateNganhOptions = (selectedKhoa, preselectNganh = '') => {
-        const filteredNganhs = danhMucNganh.filter(item => item.khoa === selectedKhoa);
-        nganhSelect.innerHTML = filteredNganhs
-            .map(n => `<option value="${n.chuyenNganh}">${n.chuyenNganh} (${n.maChuyenNganh})</option>`)
-            .join('');
-
-        if (preselectNganh) {
-            const matchOpt = Array.from(nganhSelect.options).find(
-                opt => opt.value.toLowerCase() === preselectNganh.toLowerCase()
-            );
-            if (matchOpt) nganhSelect.value = matchOpt.value;
-        }
-    };
-
+    khoaSelect.innerHTML = uniqueKhoas.map(k => `<option value="${escapeHtmlAttr(k)}">${escapeHtmlAttr(k)}</option>`).join('');
     updateNganhOptions(khoaSelect.value);
 
     khoaSelect.addEventListener('change', () => {
         updateNganhOptions(khoaSelect.value);
     });
 
-    window.syncKhoaNganhFromLop = (lopStr) => {
-        const info = findNganhInfoByLop(lopStr);
+    // Hỗ trợ nhận 1 mã lớp (luồng cũ) hoặc đối tượng { khoa, nganhs: [...] } (luồng mới)
+    window.syncKhoaNganhFromLop = (lopOrConfig) => {
+        if (lopOrConfig && typeof lopOrConfig === 'object' && Array.isArray(lopOrConfig.nganhs)) {
+            const targetKhoa = String(lopOrConfig.khoa || '').trim();
+            if (targetKhoa) {
+                const matchKhoa = Array.from(khoaSelect.options).find(
+                    opt => opt.value.toLowerCase().trim() === targetKhoa.toLowerCase()
+                );
+                if (matchKhoa) khoaSelect.value = matchKhoa.value;
+            }
+            updateNganhOptions(khoaSelect.value, lopOrConfig.nganhs);
+            return;
+        }
+        const info = findNganhInfoByLop(lopOrConfig);
         if (info) {
             khoaSelect.value = info.khoa;
-            updateNganhOptions(info.khoa, info.chuyenNganh);
+            updateNganhOptions(info.khoa, [info.chuyenNganh]);
         }
     };
 }
