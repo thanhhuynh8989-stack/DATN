@@ -1,4 +1,33 @@
     // js/excel-exporter.js
+// Helper chuẩn hóa danh sách nhiều ngành: tách theo dòng, loại trùng lặp, đảm bảo mỗi ngành nằm trên 1 dòng
+function normalizeMultiNganhLines(rawNganh, fallback = '') {
+    const rawStr = String(rawNganh ?? '').trim();
+    if (!rawStr) return fallback ? [fallback] : [];
+    const seen = new Set();
+    const lines = [];
+    rawStr
+        .split(/\r?\n/)
+        .map(s => s.trim())
+        .filter(Boolean)
+        .forEach(item => {
+            const key = item.toLowerCase();
+            if (!seen.has(key)) {
+                seen.add(key);
+                lines.push(item);
+            }
+        });
+    return lines.length > 0 ? lines : (fallback ? [fallback] : []);
+}
+
+// Helper tính chiều cao dòng phù hợp cho ô chứa nhiều ngành (tính cả trường hợp tên ngành dài tự wrap)
+function calcNganhRowHeight(lines, baseHeight = 20, lineHeight = 16, maxCharsPerLine = 68) {
+    if (!lines || lines.length === 0) return baseHeight;
+    let visualLines = 0;
+    lines.forEach(line => {
+        visualLines += Math.max(1, Math.ceil(line.length / maxCharsPerLine));
+    });
+    return Math.max(baseHeight, visualLines * lineHeight + 6);
+}
 
 export async function exportExcelReport(exportData, meta = {}) {
     if (typeof ExcelJS === 'undefined') {
@@ -52,7 +81,6 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
     };
 
     exportData.forEach(item => {
-        const nganh = (item.nganh || meta.nganh || DOTS).toUpperCase();
         const buoi = getBuoi(item.gio);
         const phong = item.phong || 'Phong';
         const coSo = item.dia_diem || 'CoSo';
@@ -62,7 +90,8 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
         if (!sheetsMap[sheetNameClean]) {
             sheetsMap[sheetNameClean] = {
                 sheetName: sheetNameClean,
-                nganh,
+                nganhSet: new Set(metaNganhLines.map(s => s.toUpperCase())),
+                nganhOrdered: metaNganhLines.map(s => s.toUpperCase()),
                 phong: item.phong,
                 ngay: item.ngay,
                 gio: item.gio,
@@ -70,6 +99,15 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
                 hoidongs: {}
             };
         }
+
+        // Bổ sung ngành của từng SV nếu chưa có trong danh sách ngành của sheet
+        normalizeMultiNganhLines(item.nganh, '').forEach(ng => {
+            const up = ng.toUpperCase();
+            if (!sheetsMap[sheetNameClean].nganhSet.has(up)) {
+                sheetsMap[sheetNameClean].nganhSet.add(up);
+                sheetsMap[sheetNameClean].nganhOrdered.push(up);
+            }
+        });
 
         const hdKey = item.so_hd || 'HĐ';
         if (!sheetsMap[sheetNameClean].hoidongs[hdKey]) {
@@ -117,8 +155,18 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
         ws.getCell(`D${currentRow}`).font = { name: 'Times New Roman', size: 13, bold: true };
         ws.getCell(`D${currentRow}`).alignment = { horizontal: 'left', vertical: 'middle' };
 
-        ws.getCell(`D${currentRow+1}`).value = `NGÀNH :   ${sheetData.nganh}`;
-        ws.getCell(`D${currentRow+1}`).font = { name: 'Times New Roman', size: 11, bold: true };
+        const nganhLines = sheetData.nganhOrdered.length > 0 ? sheetData.nganhOrdered : [DOTS];
+        const nganhFormattedText = nganhLines.length === 1
+            ? `NGÀNH :   ${nganhLines[0]}`
+            : `NGÀNH :   ${nganhLines.join('\n                 ')}`;
+
+        const nganhRowNum = currentRow + 1;
+        ws.mergeCells(`D${nganhRowNum}:O${nganhRowNum}`);
+        const cellNganh = ws.getCell(`D${nganhRowNum}`);
+        cellNganh.value = nganhFormattedText;
+        cellNganh.font = { name: 'Times New Roman', size: 11, bold: true };
+        cellNganh.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+        ws.getRow(nganhRowNum).height = calcNganhRowHeight(nganhLines, 20, 16, 75);
 
         const dotThangStr = (meta.dotThang || '').trim() || '......';
         const namChamStr = (meta.namCham || '').trim() || '........';
@@ -686,11 +734,38 @@ export async function buildPhanBienWorkbook(exportData, meta = {}) {
     ws.getCell('C3').font = { name: 'Times New Roman', size: 12, bold: true };
     ws.getCell('C3').alignment = { horizontal: 'center', vertical: 'middle' };
 
-    const nganhRaw = ((meta.nganh || '').trim() || exportData.find(s => s.nganh)?.nganh || DOTS).toUpperCase();
+    // Gom tất cả ngành từ meta.nganh hoặc từ danh sách sinh viên, liệt kê xuống dòng & tự giãn chiều cao dòng 4
+    let pbNganhLines = normalizeMultiNganhLines(meta.nganh, '');
+    if (pbNganhLines.length === 0) {
+        const seenNg = new Set();
+        exportData.forEach(s => {
+            normalizeMultiNganhLines(s.nganh, '').forEach(ng => {
+                const k = ng.toLowerCase();
+                if (!seenNg.has(k)) {
+                    seenNg.add(k);
+                    pbNganhLines.push(ng);
+                }
+            });
+        });
+    }
+    if (pbNganhLines.length === 0) pbNganhLines = [DOTS];
+
+    const pbNganhUpperLines = pbNganhLines.map(s => s.toUpperCase());
+    const pbNganhText = pbNganhUpperLines.length === 1
+        ? `NGÀNH: ${pbNganhUpperLines[0]}`
+        : `NGÀNH:\n${pbNganhUpperLines.join('\n')}`;
+
     ws.mergeCells('C4:H4');
-    ws.getCell('C4').value = `NGÀNH: ${nganhRaw}`;
-    ws.getCell('C4').font = { name: 'Times New Roman', size: 12, bold: true };
-    ws.getCell('C4').alignment = { horizontal: 'center', vertical: 'middle' };
+    const cellNganhPB = ws.getCell('C4');
+    cellNganhPB.value = pbNganhText;
+    cellNganhPB.font = { name: 'Times New Roman', size: 12, bold: true };
+    cellNganhPB.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    ws.getRow(4).height = calcNganhRowHeight(
+        pbNganhUpperLines.length > 1 ? ['NGÀNH:', ...pbNganhUpperLines] : pbNganhUpperLines,
+        22,
+        18,
+        55
+    );
 
     const soQD = (meta.soQD || '').trim() || DOTS;
     const ngayKy = (meta.ngayKyQD || '').trim() || DOTS;
