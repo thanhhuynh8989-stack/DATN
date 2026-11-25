@@ -54,14 +54,25 @@ function parseScoreNum(rawVal) {
 function scoreToVietnameseWords(scoreNum) {
     if (scoreNum === null || scoreNum === undefined || isNaN(Number(scoreNum))) return '';
     const digitWords = ['không', 'một', 'hai', 'ba', 'bốn', 'năm', 'sáu', 'bảy', 'tám', 'chín', 'mười'];
-    const fixedStr = Number(scoreNum).toFixed(1);
+    const clamped = Math.min(10, Math.max(0, Number(scoreNum)));
+    const fixedStr = clamped.toFixed(1);
     const [intPartStr, decPartStr] = fixedStr.split('.');
     const intPart = parseInt(intPartStr, 10);
     const decPart = parseInt(decPartStr, 10);
 
     const intWord = digitWords[intPart] ?? String(intPart);
     const decWord = digitWords[decPart] ?? String(decPart);
-    return `${intWord} phẩy ${decWord}`;
+    const sentence = `${intWord} phẩy ${decWord}`;
+    return sentence.charAt(0).toUpperCase() + sentence.slice(1);
+}
+
+// Sinh công thức Excel động chuyển giá trị ở cột SỐ (ví dụ L9) thành chữ tiếng Việt ngay trong Excel
+function buildExcelVietnameseScoreFormula(scoreCellRef) {
+    const wordsArr = '{"Không","Một","Hai","Ba","Bốn","Năm","Sáu","Bảy","Tám","Chín","Mười"}';
+    const decWordsArr = '{"không","một","hai","ba","bốn","năm","sáu","bảy","tám","chín"}';
+    const intPartExpr = `INT(ROUND(${scoreCellRef},1))`;
+    const decPartExpr = `MOD(ROUND(${scoreCellRef}*10,0),10)`;
+    return `IF(ISNUMBER(${scoreCellRef}), INDEX(${wordsArr}, ${intPartExpr}+1) & " phẩy " & INDEX(${decWordsArr}, ${decPartExpr}+1), "")`;
 }
 
 // 1. WORKBOOK BẢNG ĐIỂM TỔNG HỢP (TÁCH SHEET THEO BUỔI + PHÒNG + CƠ SỞ)
@@ -136,20 +147,11 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
         // =========================================================================
         // 1. VẼ HEADER CHUNG DUY NHẤT 1 LẦN Ở ĐẦU SHEET (DÒNG 1 -> 5)
         // =========================================================================
-        ws.mergeCells(`A${currentRow}:C${currentRow}`);
-        ws.getCell(`A${currentRow}`).value = 'BỘ GIÁO DỤC VÀ ĐÀO TẠO';
-        ws.getCell(`A${currentRow}`).font = { name: 'Times New Roman', size: 10, bold: true };
-        ws.getCell(`A${currentRow}`).alignment = { horizontal: 'center' };
-
-        ws.mergeCells(`A${currentRow+1}:C${currentRow+1}`);
-        ws.getCell(`A${currentRow+1}`).value = uniName;
-        ws.getCell(`A${currentRow+1}`).font = { name: 'Times New Roman', size: 10, bold: true };
-        ws.getCell(`A${currentRow+1}`).alignment = { horizontal: 'center' };
-
-        ws.mergeCells(`A${currentRow+2}:C${currentRow+2}`);
-        ws.getCell(`A${currentRow+2}`).value = schoolName;
-        ws.getCell(`A${currentRow+2}`).font = { name: 'Times New Roman', size: 10, bold: true };
-        ws.getCell(`A${currentRow+2}`).alignment = { horizontal: 'center' };
+        ws.mergeCells(`A${currentRow}:C${currentRow + 2}`);
+        const schoolHeaderCell = ws.getCell(`A${currentRow}`);
+        schoolHeaderCell.value = `BỘ GIÁO DỤC VÀ ĐÀO TẠO\n${uniName}\n${schoolName}`;
+        schoolHeaderCell.font = { name: 'Times New Roman', size: 10, bold: true };
+        schoolHeaderCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
 
         ws.mergeCells(`D${currentRow}:O${currentRow}`);
         ws.getCell(`D${currentRow}`).value = 'BẢNG ĐIỂM GHI KẾT QUẢ BẢO VỆ ĐỒ ÁN TỐT NGHIỆP';
@@ -322,9 +324,14 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
                 };
 
                 // Cột CHỮ (cột M): ghi ra chữ giá trị ở cột SỐ nếu cột SỐ có điểm, ngược lại để trống
-                ws.getCell(`M${startR}`).value = finalTongKet !== null
+                const precomputedWord = finalTongKet !== null
                     ? scoreToVietnameseWords(finalTongKet)
-                    : (sv.diem_chu || '');
+                    : (sv.diem_chu || undefined);
+                
+                ws.getCell(`M${startR}`).value = {
+                    formula: buildExcelVietnameseScoreFormula(`L${startR}`),
+                    result: precomputedWord
+                };
 
                 // Định dạng hiển thị 1 chữ số thập phân (0.0) cho các ô điểm số (F, G, H, J, K, L)
                 ['F', 'G', 'H', 'J', 'K', 'L'].forEach(colLetter => {
