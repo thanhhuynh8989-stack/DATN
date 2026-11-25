@@ -483,13 +483,38 @@ function bindExcelAndHoiDongEvents() {
                 if (!userConfirmedSV) return;
             }
 
-            // 7. Đã qua toàn bộ rà soát & xác nhận -> Render Kho SV, thu thập & hợp nhất Kho GV, và render Hội đồng
+            // 7. Đã qua toàn bộ rà soát & xác nhận -> Render Kho SV, đồng bộ đa Khoa/Ngành, hợp nhất Kho GV và render Hội đồng
             if (fileSV) {
                 renderSinhVienPool(svList);
+            }
 
-                const firstSVWithLop = svList.find(s => s.lop);
-                if (firstSVWithLop && typeof window.syncKhoaNganhFromLop === 'function') {
-                    window.syncKhoaNganhFromLop(firstSVWithLop.lop);
+            // Quét toàn bộ mã lớp từ file SV, file HĐ và các thẻ SV hiện có trên DOM để tự động chọn nhiều ngành
+            const allCollectedLops = [
+                ...svList.map(s => s.lop),
+                ...Object.keys(parsedHoidongs || {})
+                    .filter(k => !k.startsWith('__'))
+                    .flatMap(k => (parsedHoidongs[k].sinhViens || []).map(sv => sv.lop)),
+                ...Array.from(document.querySelectorAll('#pool-sv .card-item, .dropzone-sv .card-item'))
+                    .map(el => el.getAttribute('data-lop'))
+            ].filter(Boolean);
+
+            if (allCollectedLops.length > 0 && typeof window.syncKhoaNganhFromLop === 'function') {
+                let detectedKhoa = '';
+                const detectedNganhSet = new Set();
+
+                allCollectedLops.forEach(lop => {
+                    const info = findNganhInfoByLop(lop);
+                    if (info) {
+                        if (!detectedKhoa && info.khoa) detectedKhoa = info.khoa;
+                        if (info.chuyenNganh) detectedNganhSet.add(info.chuyenNganh);
+                    }
+                });
+
+                if (detectedNganhSet.size > 0) {
+                    window.syncKhoaNganhFromLop({
+                        khoa: detectedKhoa,
+                        nganhs: Array.from(detectedNganhSet)
+                    });
                 }
             }
 
@@ -564,7 +589,7 @@ function bindExcelAndHoiDongEvents() {
         createHoiDongBox();
     });
 
-        document.addEventListener('click', (e) => {
+    document.addEventListener('click', (e) => {
         // 1. Nút ✕ trả Sinh viên từ Hội đồng về lại Kho chờ (#pool-sv)
         const btnReturnSV = e.target.closest('.btn-remove-sv-from-hd');
         if (btnReturnSV) {
