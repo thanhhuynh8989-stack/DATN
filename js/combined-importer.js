@@ -20,10 +20,10 @@ export function buildStrictTeacherLookupKey(rawName) {
         ''
     );
 
-    // Chuẩn hóa khoảng trắng quanh dấu ngoặc đơn: "Nguyễn Đức Hoàng  ( B )" -> "nguyễn đức hoàng (b)"
+    // Loại bỏ dấu ngoặc đơn (nếu có) và chuẩn hóa khoảng trắng:
+    // "Nguyễn Đức Hoàng (A)" hoặc "Nguyễn Đức Hoàng A" -> "nguyễn đức hoàng a"
     s = s
-        .replace(/\s*\(\s*/g, ' (')
-        .replace(/\s*\)\s*/g, ')')
+        .replace(/[()]/g, ' ')
         .replace(/\s+/g, ' ')
         .trim()
         .toLowerCase();
