@@ -150,7 +150,7 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
         ws.mergeCells(`A${currentRow}:C${currentRow + 2}`);
         const schoolHeaderCell = ws.getCell(`A${currentRow}`);
         schoolHeaderCell.value = `BỘ GIÁO DỤC VÀ ĐÀO TẠO\n${uniName}\n${schoolName}`;
-        schoolHeaderCell.font = { name: 'Times New Roman', size: 10, bold: true };
+        schoolHeaderCell.font = { name: 'Times New Roman', size: 13, bold: true };
         schoolHeaderCell.alignment = { horizontal: 'center', vertical: 'top', wrapText: true };
 
         ws.mergeCells(`D${currentRow}:O${currentRow}`);
