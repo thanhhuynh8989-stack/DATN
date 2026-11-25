@@ -749,14 +749,27 @@ export function initCombinedImportWorkflow() {
     let cachedCombinedRows = null;
 
     const switchMode = (hasCombined) => {
-        if (hasCombined) {
+        if (hasCombined === true) {
             legacySection.classList.add('d-none');
             combinedSection.classList.remove('d-none');
-        } else {
+        } else if (hasCombined === false) {
             combinedSection.classList.add('d-none');
             legacySection.classList.remove('d-none');
+        } else {
+            // Mặc định khi chưa chọn radio nào: ẩn cả 2 khu vực upload
+            legacySection.classList.add('d-none');
+            combinedSection.classList.add('d-none');
         }
     };
+
+    // Khởi tạo trạng thái hiển thị ban đầu theo radio đang được chọn (nếu có)
+    if (radioYes.checked) {
+        switchMode(true);
+    } else if (radioNo.checked) {
+        switchMode(false);
+    } else {
+        switchMode(null);
+    }
 
     radioNo.addEventListener('change', () => {
         if (radioNo.checked) switchMode(false);
