@@ -80,6 +80,7 @@ export async function buildExcelReportWorkbook(exportData, meta = {}) {
         return "Tối";
     };
 
+    const metaNganhLines = normalizeMultiNganhLines(meta.nganh, '');
     exportData.forEach(item => {
         const buoi = getBuoi(item.gio);
         const phong = item.phong || 'Phong';
