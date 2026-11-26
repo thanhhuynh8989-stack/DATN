@@ -454,7 +454,10 @@ export function renderHoidongFromExcel(parsedHoidongs) {
     });
 
     // SAU KHI RENDER XONG: Gộp ca trùng và đánh số HĐ nhất quán
-    const mergeLogs = finalizeAndRenumberHoiDongs(preserveExplicitNumbers);
+    // SAU KHI RENDER XONG: Chỉ chạy gộp/đánh số tự động nếu chưa được chuẩn hóa trước đó
+    const mergeLogs = safeParsed.__skipAutoMergeInRenderer
+        ? []
+        : finalizeAndRenumberHoiDongs(preserveExplicitNumbers);
 
     return { mergeLogs, conflictLogs, duplicateSVLogs };
 }
