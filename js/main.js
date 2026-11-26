@@ -31,6 +31,7 @@ import {
 } from './session-sync.js';
 import { syncCollectedGiangVienToPool } from './gv-collector.js';
 import { openPaymentPreviewModal } from './payment-exporter.js?v=20261123';
+import { validateStudentsAgainstSchoolMaster } from './student-master-validator.js';
 
 window.studentScores = window.studentScores || {};
 
@@ -370,7 +371,7 @@ function bindExcelAndHoiDongEvents() {
                 return;
             }
 
-            // 4. ƯU TIÊN RÀ SOÁT TRÙNG MÃ SV (trong file SV hoặc file HĐ) — Chặn & yêu cầu sửa file
+            // 4A. ƯU TIÊN RÀ SOÁT TRÙNG MÃ SV (trong file SV hoặc file HĐ) — Chặn & yêu cầu sửa file
             const dupStudentIdList = detectDuplicateStudentId({ svList, parsedHoidongs });
             if (dupStudentIdList.length > 0) {
                 const dupIdHtml = dupStudentIdList.map((c, idx) => {
@@ -402,6 +403,52 @@ function bindExcelAndHoiDongEvents() {
                     ]
                 });
                 return;
+            }
+
+            // 4B. ĐỐI SOÁT MÃ SV & HỌ TÊN SV VỚI DANH_SACH_SV_TOAN_TRUONG.xlsx (CẢ FILE SV VÀ FILE HỘI ĐỒNG)
+            let schoolMasterSkipWarning = '';
+            const studentEntriesToCheck = [
+                ...svList.map(sv => ({
+                    maSV: sv.maSV,
+                    hoTen: sv.hoTenSV,
+                    location: `File Danh sách SV`
+                })),
+                ...Object.keys(parsedHoidongs || {})
+                    .filter(k => !k.startsWith('__'))
+                    .flatMap(k => {
+                        const hd = parsedHoidongs[k];
+                        const hdLabel = `File Hội đồng (HĐ ${hd.soHD || k})`;
+                        return (hd.sinhViens || []).map(sv => ({
+                            maSV: sv.maSV,
+                            hoTen: sv.hoTenSV || sv.hoTen || '',
+                            location: hdLabel
+                        }));
+                    })
+            ];
+
+            if (studentEntriesToCheck.length > 0) {
+                const schoolSVCheck = await validateStudentsAgainstSchoolMaster(studentEntriesToCheck);
+                if (!schoolSVCheck.ok) {
+                    const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    const schoolSVHtml = `
+                        <div class="alert alert-danger py-2 px-3 mb-2 small">
+                            <div class="fw-bold mb-1">⛔ Phát hiện ${schoolSVCheck.errors.length} sai lệch Mã SV hoặc Họ tên SV so với <code>DANH_SACH_SV_TOAN_TRUONG.xlsx</code>:</div>
+                            <ul class="mb-0 ps-3" style="max-height: 260px; overflow-y: auto;">
+                                ${schoolSVCheck.errors.map(err => `<li class="mb-1">${esc(err.replace(/^•\s*/, ''))}</li>`).join('')}
+                            </ul>
+                            <div class="mt-2 fw-semibold">Vui lòng kiểm tra và chỉnh sửa lại đúng Mã SV / Họ tên trong file Excel trước khi nạp!</div>
+                        </div>
+                    `;
+
+                    await showExcelReviewModal({
+                        title: '❌ LỖI SAI MÃ HOẶC HỌ TÊN SINH VIÊN SO VỚI DANH SÁCH TOÀN TRƯỜNG',
+                        requireConfirm: false,
+                        htmlSections: [schoolSVHtml]
+                    });
+                    return;
+                } else if (schoolSVCheck.skipped && schoolSVCheck.warning) {
+                    schoolMasterSkipWarning = schoolSVCheck.warning;
+                }
             }
 
             // 5. Xác nhận nếu GV trùng tên nhưng khác Mã GV (cảnh báo đặc biệt nếu trùng ngay trong cùng 1 HĐ)
@@ -526,11 +573,23 @@ function bindExcelAndHoiDongEvents() {
                 includeExistingPool: true
             });
 
+            const schoolCheckNote = schoolMasterSkipWarning
+                ? ''
+                : (studentEntriesToCheck.length > 0 ? ' — Đã đối soát khớp Mã & Họ tên SV toàn trường' : '');
+
             const reportSections = [
                 `<div class="alert alert-success py-2 small mb-2 fw-bold">
-                    ✅ Đã nạp dữ liệu Excel thành công! (Kho Giảng viên hiện có: <strong>${gvSyncResult.totalCount}</strong> giảng viên)
+                    ✅ Đã nạp dữ liệu Excel thành công${schoolCheckNote}! (Kho Giảng viên hiện có: <strong>${gvSyncResult.totalCount}</strong> giảng viên)
                 </div>`
             ];
+
+            if (schoolMasterSkipWarning) {
+                reportSections.push(`
+                    <div class="alert alert-warning py-2 small mb-2">
+                        ${schoolMasterSkipWarning}
+                    </div>
+                `);
+            }
 
             if (fileHD) {
                 const hdKeys = Object.keys(parsedHoidongs || {}).filter(k => !k.startsWith('__'));
