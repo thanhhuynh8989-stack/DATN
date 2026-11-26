@@ -3,6 +3,7 @@
 
 import { renderHoidongFromExcel } from './hoidong-manager.js';
 import { findNganhInfoByLop } from './excel-reader.js';
+import { validateStudentsAgainstSchoolMaster } from './student-master-validator.js';
 
 /**
  * Chuẩn hóa chuỗi khóa tra cứu Giảng viên:
@@ -580,6 +581,21 @@ export async function parseAndValidateCombinedAssignment(fileOrRows, teacherLook
                 sv: svRecord
             });
         }
+    }
+
+    // Đối soát toàn bộ Mã SV & Họ tên SV với DANH_SACH_SV_TOAN_TRUONG.xlsx
+    const schoolCheck = await validateStudentsAgainstSchoolMaster(
+        studentList.map((sv, idx) => ({
+            maSV: sv.maSV,
+            hoTen: sv.hoTenSV,
+            location: `MSSV ${sv.maSV}`
+        }))
+    );
+
+    if (!schoolCheck.ok) {
+        blockingErrors.push(...schoolCheck.errors);
+    } else if (schoolCheck.skipped && schoolCheck.warning) {
+        consistencyWarnings.unshift(`• ${schoolCheck.warning}`);
     }
 
     if (blockingErrors.length > 0) {
