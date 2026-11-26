@@ -1,5 +1,5 @@
 // js/combined-importer.js
-// Module độc lập xử lý luồng nhập 2 file: Danh sách GV + Danh sách Phân công tổng hợp (SV, GVHD, HĐ)
+// Module độc lập xử lý luồng nhập 2 file: Danh sách GV (tùy chọn) + Danh sách Phân công tổng hợp (SV, GVHD, HĐ)
 
 import { renderHoidongFromExcel } from './hoidong-manager.js';
 import { findNganhInfoByLop } from './excel-reader.js';
@@ -8,20 +8,18 @@ import { findNganhInfoByLop } from './excel-reader.js';
  * Chuẩn hóa chuỗi khóa tra cứu Giảng viên:
  * - Đưa về Unicode NFC, chữ thường, rút gọn khoảng trắng
  * - Loại bỏ học hàm / học vị ở đầu (PGS, GS, TSKH, TS, ThS, Th.S, GVC, GV, KS, CN...)
- * - GIỮ NGUYÊN ký hiệu phân biệt trong ngoặc như (a), (b)
+ * - Bỏ dấu ngoặc đơn (nếu có) nhưng GIỮ NGUYÊN ký hiệu phân biệt như A, B
+ *   VD: "ThS. Nguyễn Đức Hoàng (A)" hoặc "Nguyễn Đức Hoàng A" -> "nguyễn đức hoàng a"
  */
 export function buildStrictTeacherLookupKey(rawName) {
     let s = String(rawName || '').normalize('NFC').trim();
     if (!s) return '';
 
-    // Loại bỏ học hàm / học vị ở đầu chuỗi
     s = s.replace(
         /^(?:PGS\.?\s*TSKH\.?|PGS\.?\s*TS\.?|GS\.?\s*TSKH\.?|GS\.?\s*TS\.?|TSKH\.?|TS\.?|Th\.?\s*S\.?|GVC\.?|GV\.?|KS\.?|CN\.?|BS\.?|Dr\.?|Prof\.?)+\s*/i,
         ''
     );
 
-    // Loại bỏ dấu ngoặc đơn (nếu có) và chuẩn hóa khoảng trắng:
-    // "Nguyễn Đức Hoàng (A)" hoặc "Nguyễn Đức Hoàng A" -> "nguyễn đức hoàng a"
     s = s
         .replace(/[()]/g, ' ')
         .replace(/\s+/g, ' ')
@@ -29,6 +27,20 @@ export function buildStrictTeacherLookupKey(rawName) {
         .toLowerCase();
 
     return s;
+}
+
+/**
+ * Tách tên gốc (không kèm ký hiệu phân biệt A/B/(A)/(B)/(1)/(2) ở cuối) và phần ký hiệu phân biệt
+ * Dùng để phát hiện trường hợp cùng 1 họ tên nhưng lúc có ký hiệu lúc không có ký hiệu
+ */
+function splitTeacherBaseAndTag(rawName) {
+    const key = buildStrictTeacherLookupKey(rawName);
+    if (!key) return { baseKey: '', tag: '' };
+    const m = key.match(/^(.*?)\s+([a-z0-9]{1,3})$/i);
+    if (m && m[1].trim().includes(' ')) {
+        return { baseKey: m[1].trim(), tag: m[2].toLowerCase() };
+    }
+    return { baseKey: key, tag: '' };
 }
 
 /**
@@ -63,7 +75,8 @@ function detectNganhFromLop(lop) {
     const u = String(lop || '').toUpperCase().replace(/\s+/g, '');
     if (u.includes('CKO') || u.includes('CK0')) return 'Công nghệ Kỹ thuật Ô tô';
     if (u.includes('CDO') || u.includes('CD0')) return 'Điện cơ Ô tô';
-    if (u.includes('CKM')) return 'Công nghệ Chế tạo máy';
+    if (u.includes('CCM') || u.includes('CKM')) return 'Công nghệ Chế tạo máy';
+    if (u.includes('COD')) return 'Công nghệ ô tô điện';
     if (u.includes('CTP')) return 'Công nghệ Thực phẩm';
     if (u.includes('SHU')) return 'Công nghệ Sinh học';
     if (u.includes('KMT')) return 'Quản lý Tài nguyên & Môi trường';
@@ -239,17 +252,18 @@ export async function parseStrictTeacherMasterFile(file, inputElementToReset = n
 }
 
 /**
- * 2. Đọc & đối soát chặt chẽ File Phân công tổng hợp:
- * - Gộp thành 1 Hội đồng khi trùng đúng bộ 3 thành viên theo chức danh (CT + PB + TK), bất kể cột HỘI ĐỒNG ghi số gì.
- * - Khi gộp nhiều số HĐ khác nhau về cùng 1 HĐ, ưu tiên giữ số HĐ nhỏ nhất / xuất hiện đầu tiên.
- * - Khi 2 nhóm KHÁC thành viên bị ghi trùng số HĐ trong Excel: nhóm đầu giữ nguyên, nhóm sau tự động cấp số kế tiếp chưa dùng & ghi cảnh báo.
- * - Tách thành từng khung chấm trên giao diện nếu 1 HĐ có nhiều suất (Buổi + Ngày + Phòng + Cơ sở) khác nhau, nhưng giữ nguyên cùng Số HĐ.
+ * 2. Đọc & đối soát File Phân công tổng hợp:
+ * - Hỗ trợ 2 chế độ:
+ *   (A) Có teacherLookupMap (đã tải File Danh sách GV): đối soát chặt chẽ Mã GV & Đơn vị.
+ *   (B) Không có teacherLookupMap (bỏ qua File Danh sách GV): tự trích xuất GV từ tên + ký hiệu phân biệt,
+ *       kiểm tra mâu thuẫn ký hiệu (có (A)/(B) nhưng nơi khác lại thiếu ký hiệu) và phát hiện nghi vấn trùng tên chấm cùng ca.
  */
-export async function parseAndValidateCombinedAssignment(fileOrRows, teacherLookupMap, inputElementToReset = null) {
+export async function parseAndValidateCombinedAssignment(fileOrRows, teacherLookupMap = null, inputElementToReset = null) {
     const rows = Array.isArray(fileOrRows)
         ? fileOrRows
         : await readFirstSheetRowsFromFile(fileOrRows, inputElementToReset);
 
+    const hasMasterList = teacherLookupMap instanceof Map && teacherLookupMap.size > 0;
     const blockingErrors = [];
     const consistencyWarnings = [];
 
@@ -309,6 +323,7 @@ export async function parseAndValidateCombinedAssignment(fileOrRows, teacherLook
     if (!colMap) {
         return {
             ok: false,
+            hasMasterList,
             blockingErrors: ['• Không tìm thấy dòng tiêu đề hợp lệ (cần có cột MSSV / Mã SV và cột GV HƯỚNG DẪN) trong file Phân công tổng hợp!'],
             consistencyWarnings: [],
             parsedHoidongs: {},
@@ -319,33 +334,107 @@ export async function parseAndValidateCombinedAssignment(fileOrRows, teacherLook
         };
     }
 
-    const resolveTeacherStrict = (rawCellVal, rowNumber, mssv, roleLabel) => {
+    // Nếu chạy chế độ không có File Danh sách GV: tiền quét toàn bộ tên GV để phát hiện mâu thuẫn ký hiệu
+    // VD: dòng 3 ghi "Nguyễn Đức Hoàng (A)" nhưng dòng 15 ghi "Nguyễn Đức Hoàng" (thiếu ký hiệu)
+    const autoTeacherMap = new Map(); // lookupKey -> { maGV, hoTenGV, donVi }
+    let autoTeacherSeq = 1;
+
+    if (!hasMasterList) {
+        const baseNameStats = new Map(); // baseKey -> { taggedNames: Set, untaggedRows: Array }
+        for (let r = headerIdx + 1; r < rows.length; r++) {
+            const row = rows[r] || [];
+            const mssv = String(row[colMap.idxMSSV] || '').trim();
+            const upperLine = row.map(normalizeHeaderCell).join(' ');
+            if (
+                upperLine.includes('HIỆU TRƯỞNG') ||
+                upperLine.includes('TRƯỞNG KHOA') ||
+                upperLine.includes('BAN ĐÀO TẠO') ||
+                upperLine.includes('GIÁM ĐỐC ĐẠI HỌC')
+            ) {
+                break;
+            }
+            if (!mssv && !String(row[colMap.idxHoTen] || '').trim()) continue;
+
+            const roleCols = [
+                { col: colMap.idxGVHD, label: 'GV Hướng dẫn' },
+                { col: colMap.idxPB, label: 'Phản biện' },
+                { col: colMap.idxCT, label: 'Chủ tịch' },
+                { col: colMap.idxTK, label: 'Thư ký' }
+            ];
+
+            roleCols.forEach(({ col, label }) => {
+                const disp = cleanDisplayTeacherName(row[col]);
+                if (!disp) return;
+                const { baseKey, tag } = splitTeacherBaseAndTag(disp);
+                if (!baseKey) return;
+                if (!baseNameStats.has(baseKey)) {
+                    baseNameStats.set(baseKey, { taggedExamples: new Set(), untaggedLocations: [] });
+                }
+                const st = baseNameStats.get(baseKey);
+                if (tag) {
+                    st.taggedExamples.add(disp);
+                } else {
+                    st.untaggedLocations.push(`Dòng ${r + 1} (MSSV ${mssv || 'N/A'} — ${label}): "${disp}"`);
+                }
+            });
+        }
+
+        baseNameStats.forEach((st) => {
+            if (st.taggedExamples.size > 0 && st.untaggedLocations.length > 0) {
+                const examples = Array.from(st.taggedExamples).join(', ');
+                st.untaggedLocations.forEach(loc => {
+                    blockingErrors.push(
+                        `• ${loc} → Tên giảng viên này có phân biệt ký hiệu ở dòng khác (${examples}) nhưng tại đây lại thiếu ký hiệu phân biệt!`
+                    );
+                });
+            }
+        });
+    }
+
+    const resolveTeacher = (rawCellVal, rowNumber, mssv, roleLabel) => {
         const displayName = cleanDisplayTeacherName(rawCellVal);
         if (!displayName) return null;
 
         const key = buildStrictTeacherLookupKey(displayName);
-        const found = teacherLookupMap.get(key);
 
-        if (!found) {
-            const hasSuffix = /\([a-z0-9]+\)/i.test(displayName);
-            const hint = hasSuffix
-                ? `Không tìm thấy giảng viên mang ký hiệu phân biệt này trong Danh sách GV (cần khớp cả ký hiệu (A)/(B)).`
-                : `Tên giảng viên chưa có trong file Danh sách GV hoặc thiếu ký hiệu phân biệt (A)/(B).`;
-            blockingErrors.push(
-                `• Dòng ${rowNumber} (MSSV: ${mssv || 'N/A'} — ${roleLabel}): "${displayName}" → ${hint}`
-            );
-            return null;
+        if (hasMasterList) {
+            const found = teacherLookupMap.get(key);
+            if (!found) {
+                const { tag } = splitTeacherBaseAndTag(displayName);
+                const hint = tag
+                    ? `Không tìm thấy giảng viên mang ký hiệu phân biệt này trong Danh sách GV (cần khớp cả ký hiệu (A)/(B)).`
+                    : `Tên giảng viên chưa có trong file Danh sách GV hoặc thiếu ký hiệu phân biệt (A)/(B).`;
+                blockingErrors.push(
+                    `• Dòng ${rowNumber} (MSSV: ${mssv || 'N/A'} — ${roleLabel}): "${displayName}" → ${hint}`
+                );
+                return null;
+            }
+            return {
+                maGV: found.maGV,
+                hoTenGV: displayName,
+                donVi: found.donVi
+            };
         }
 
-        return {
-            maGV: found.maGV,
-            hoTenGV: displayName,
-            donVi: found.donVi
-        };
+        // Chế độ không có File Danh sách GV: cấp mã tạm nội bộ AUTO_GV_xx theo khóa chuẩn hóa tên + ký hiệu
+        if (!autoTeacherMap.has(key)) {
+            const tempId = `AUTO_GV_${String(autoTeacherSeq++).padStart(3, '0')}`;
+            autoTeacherMap.set(key, {
+                maGV: tempId,
+                hoTenGV: displayName,
+                donVi: 'Đại học Duy Tân'
+            });
+        } else {
+            const existing = autoTeacherMap.get(key);
+            if (displayName.length > existing.hoTenGV.length) {
+                existing.hoTenGV = displayName;
+            }
+        }
+        return { ...autoTeacherMap.get(key) };
     };
 
     const studentList = [];
-    const memberGroupMap = new Map(); // Key = "CT_ID|PB_ID|TK_ID"
+    const memberGroupMap = new Map();
     const usedTeachersMap = new Map();
     const detectedKhoaList = [];
     const detectedNganhList = [];
@@ -359,13 +448,15 @@ export async function parseAndValidateCombinedAssignment(fileOrRows, teacherLook
         }
     };
 
-    teacherLookupMap.forEach(rec => {
-        usedTeachersMap.set(rec.maGV.toUpperCase(), {
-            maGV: rec.maGV,
-            hoTenGV: rec.hoTenGoc,
-            donVi: rec.donVi
+    if (hasMasterList) {
+        teacherLookupMap.forEach(rec => {
+            usedTeachersMap.set(rec.maGV.toUpperCase(), {
+                maGV: rec.maGV,
+                hoTenGV: rec.hoTenGoc,
+                donVi: rec.donVi
+            });
         });
-    });
+    }
 
     for (let r = headerIdx + 1; r < rows.length; r++) {
         const row = rows[r] || [];
@@ -407,14 +498,14 @@ export async function parseAndValidateCombinedAssignment(fileOrRows, teacherLook
             continue;
         }
 
-        const gvhdObj = resolveTeacherStrict(rawGVHD, rowNum, mssv, 'GV Hướng dẫn');
+        const gvhdObj = resolveTeacher(rawGVHD, rowNum, mssv, 'GV Hướng dẫn');
         if (!cleanDisplayTeacherName(rawGVHD)) {
             blockingErrors.push(`• Dòng ${rowNum} (MSSV: ${mssv}): Bị trống tên GV Hướng dẫn.`);
         }
 
-        const pbObj = resolveTeacherStrict(rawPB, rowNum, mssv, 'Phản biện');
-        const ctObj = resolveTeacherStrict(rawCT, rowNum, mssv, 'Chủ tịch');
-        const tkObj = resolveTeacherStrict(rawTK, rowNum, mssv, 'Thư ký');
+        const pbObj = resolveTeacher(rawPB, rowNum, mssv, 'Phản biện');
+        const ctObj = resolveTeacher(rawCT, rowNum, mssv, 'Chủ tịch');
+        const tkObj = resolveTeacher(rawTK, rowNum, mssv, 'Thư ký');
 
         if (gvhdObj) registerTeacherToPool(gvhdObj);
         if (pbObj) registerTeacherToPool(pbObj);
@@ -458,8 +549,6 @@ export async function parseAndValidateCombinedAssignment(fileOrRows, teacherLook
             const tkKey = tkObj?.maGV?.toUpperCase() || '';
             const hasAnyMember = Boolean(ctKey || pbKey || tkKey);
 
-            // Nếu hàng có đủ/có ít nhất 1 thành viên HĐ -> gom theo đúng tổ hợp (CT | PB | TK)
-            // Nếu hàng hoàn toàn trống cả 3 cột CT, PB, TK -> gom tạm theo số HĐ
             const memberGroupKey = hasAnyMember
                 ? `MEM__${ctKey}|${pbKey}|${tkKey}`
                 : `NO_MEM__${hdNumClean || `ROW_${rowNum}`}`;
@@ -496,6 +585,7 @@ export async function parseAndValidateCombinedAssignment(fileOrRows, teacherLook
     if (blockingErrors.length > 0) {
         return {
             ok: false,
+            hasMasterList,
             blockingErrors,
             consistencyWarnings,
             parsedHoidongs: {},
@@ -506,15 +596,8 @@ export async function parseAndValidateCombinedAssignment(fileOrRows, teacherLook
         };
     }
 
-    // =========================================================================
-    // BƯỚC XỬ LÝ SỐ HỘI ĐỒNG CHO TỪNG NHÓM THÀNH VIÊN:
-    // 1. Trong cùng 1 nhóm thành viên: nếu có nhiều số HĐ khác nhau -> giữ số nhỏ nhất / xuất hiện đầu tiên.
-    // 2. Giữa các nhóm KHÁC thành viên: nếu trùng số HĐ đã chiếm trước đó -> giữ nguyên nhóm đầu,
-    //    cấp số HĐ kế tiếp chưa dùng cho nhóm sau & ghi thông báo rõ ràng.
-    // =========================================================================
     const memberGroups = Array.from(memberGroupMap.values());
 
-    // Tìm số HĐ lớn nhất hiện có trong file để cấp số kế tiếp khi bị trùng (vd: max=20 -> cấp 21)
     let maxNumericSoHD = 0;
     memberGroups.forEach(g => {
         g.rawSoHDs.forEach(s => {
@@ -532,7 +615,6 @@ export async function parseAndValidateCombinedAssignment(fileOrRows, teacherLook
             g.tk ? `TK: ${g.tk.hoTenGV}` : ''
         ].filter(Boolean).join(', ');
 
-        // Chọn số HĐ đại diện cho nhóm này: ưu tiên số nhỏ nhất (nếu là số) hoặc số xuất hiện đầu tiên
         let preferredSoHD = '';
         if (g.rawSoHDs.length === 1) {
             preferredSoHD = g.rawSoHDs[0];
@@ -541,7 +623,7 @@ export async function parseAndValidateCombinedAssignment(fileOrRows, teacherLook
                 const na = parseInt(a, 10);
                 const nb = parseInt(b, 10);
                 if (!isNaN(na) && !isNaN(nb)) return na - nb;
-                return 0; // Giữ thứ tự xuất hiện đầu tiên nếu không phải số
+                return 0;
             });
             preferredSoHD = sortedCandidates[0];
             consistencyWarnings.push(
@@ -549,13 +631,11 @@ export async function parseAndValidateCombinedAssignment(fileOrRows, teacherLook
             );
         }
 
-        // Kiểm tra xem preferredSoHD đã bị nhóm thành viên khác chiếm chưa
         const normKey = preferredSoHD.toUpperCase();
         if (preferredSoHD && !allocatedSoHDs.has(normKey)) {
             g.finalSoHD = preferredSoHD;
             allocatedSoHDs.add(normKey);
         } else {
-            // Cấp số HĐ kế tiếp chưa dùng
             let nextNum = Math.max(maxNumericSoHD + 1, allocatedSoHDs.size + 1);
             while (allocatedSoHDs.has(String(nextNum))) {
                 nextNum++;
@@ -576,7 +656,6 @@ export async function parseAndValidateCombinedAssignment(fileOrRows, teacherLook
         }
     });
 
-    // Sắp xếp các Hội đồng theo finalSoHD tăng dần
     memberGroups.sort((a, b) => {
         const na = parseInt(a.finalSoHD, 10);
         const nb = parseInt(b.finalSoHD, 10);
@@ -584,10 +663,7 @@ export async function parseAndValidateCombinedAssignment(fileOrRows, teacherLook
         return String(a.finalSoHD).localeCompare(String(b.finalSoHD), 'vi');
     });
 
-    // =========================================================================
-    // TÁCH BOX HIỂN THỊ THEO SUẤT CHẤM (BUỔI + NGÀY + PHÒNG + CƠ SỞ)
-    // Giữ nguyên cùng finalSoHD cho các suất chấm thuộc cùng 1 Hội đồng
-    // =========================================================================
+    // Tách box hiển thị theo suất chấm (Buổi + Ngày + Phòng + Cơ sở) và giữ nguyên cùng finalSoHD
     const renderedSlots = [];
 
     memberGroups.forEach(g => {
@@ -617,7 +693,6 @@ export async function parseAndValidateCombinedAssignment(fileOrRows, teacherLook
             }
 
             const slotRec = slotMap.get(slotKey);
-            // Lấy giờ bắt đầu sớm nhất trong cùng buổi nếu có nhiều mốc giờ
             if (sv.gioBV) {
                 if (!slotRec.gioBV || parseMinutesForSort(sv.gioBV) < parseMinutesForSort(slotRec.gioBV)) {
                     slotRec.gioBV = sv.gioBV;
@@ -626,7 +701,6 @@ export async function parseAndValidateCombinedAssignment(fileOrRows, teacherLook
             slotRec.sinhViens.push(sv);
         });
 
-        // Sắp xếp các suất chấm của cùng 1 HĐ theo Ngày -> Buổi -> Phòng
         const groupSlots = Array.from(slotMap.values()).sort((a, b) => {
             const da = parseVNDateTimestamp(a.ngayBV);
             const db = parseVNDateTimestamp(b.ngayBV);
@@ -649,9 +723,50 @@ export async function parseAndValidateCombinedAssignment(fileOrRows, teacherLook
         renderedSlots.push(...groupSlots);
     });
 
+    // Kiểm tra cảnh báo trùng lịch chấm cùng ca (Ngày + Buổi) giữa các Hội đồng khác nhau
+    // Đặc biệt hữu ích khi không có Danh sách GV để phát hiện 2 người trùng tên nhưng quên gắn (A)/(B)
+    const scheduleClashMap = new Map(); // "ngay|session|maGV" -> Array<{ soHD, phongBV, hoTenGV, role }>
+    renderedSlots.forEach(slot => {
+        if (!slot.ngayBV) return;
+        const members = [
+            slot.ct ? { ...slot.ct, role: 'Chủ tịch' } : null,
+            slot.pb ? { ...slot.pb, role: 'Phản biện' } : null,
+            slot.tk ? { ...slot.tk, role: 'Thư ký' } : null
+        ].filter(Boolean);
+
+        members.forEach(m => {
+            const clashKey = `${slot.ngayBV}__${slot.sessionCode}__${m.maGV.toUpperCase()}`;
+            if (!scheduleClashMap.has(clashKey)) {
+                scheduleClashMap.set(clashKey, []);
+            }
+            scheduleClashMap.get(clashKey).push({
+                soHD: slot.soHD,
+                phongBV: slot.phongBV,
+                hoTenGV: m.hoTenGV,
+                role: m.role,
+                ngayBV: slot.ngayBV,
+                sessionLabel: formatSessionLabel(slot.sessionCode)
+            });
+        });
+    });
+
+    scheduleClashMap.forEach((entries) => {
+        const distinctHDs = new Set(entries.map(e => `${e.soHD}_${e.phongBV}`));
+        if (distinctHDs.size > 1) {
+            const first = entries[0];
+            const places = entries.map(e => `HĐ ${e.soHD} (${e.role}${e.phongBV ? `, Phòng ${e.phongBV}` : ''})`).join(' và ');
+            const extraHint = !hasMasterList
+                ? ' (Nếu đây là 2 giảng viên khác nhau trùng họ tên, hãy thêm ký hiệu (A)/(B) hoặc tải kèm File Danh sách GV!)'
+                : '';
+            consistencyWarnings.unshift(
+                `• ⚠️ Trùng lịch chấm cùng ca: GV "${first.hoTenGV}" xuất hiện tại ${places} vào ${first.sessionLabel} ngày ${first.ngayBV}${extraHint}`
+            );
+        }
+    });
+
     const parsedHoidongs = {
         __preserveExplicitNumbers: true,
-        __skipAutoMergeInRenderer: true, // Đã chuẩn hóa nhóm theo thành viên & tách theo suất chấm ở trên
+        __skipAutoMergeInRenderer: true,
         __mergeLogs: [],
         __missingCodeIssues: []
     };
@@ -677,6 +792,7 @@ export async function parseAndValidateCombinedAssignment(fileOrRows, teacherLook
 
     return {
         ok: true,
+        hasMasterList,
         blockingErrors: [],
         consistencyWarnings,
         parsedHoidongs,
@@ -695,21 +811,29 @@ function renderPoolsForCombinedMode(teacherPoolList, studentList) {
     const poolSV = document.getElementById('pool-sv');
 
     if (poolGV) {
-        poolGV.innerHTML = teacherPoolList.map(gv => `
-            <div class="card-item position-relative mb-2 p-2 pe-4 border rounded bg-white shadow-sm"
-                 data-id="${escapeHtml(gv.maGV)}"
-                 data-name="${escapeHtml(gv.hoTenGV)}"
-                 data-donvi="${escapeHtml(gv.donVi)}">
-                <button type="button" class="btn btn-sm btn-link text-danger text-decoration-none fw-bold position-absolute top-0 end-0 px-2 py-1 btn-remove-card" title="Xóa giảng viên này">✕</button>
-                <div class="fw-bold text-dark">${escapeHtml(gv.hoTenGV)}</div>
-                <div class="text-muted small">${escapeHtml(gv.donVi)} - Mã: ${escapeHtml(gv.maGV)}</div>
-            </div>
-        `).join('');
+        poolGV.innerHTML = teacherPoolList.map(gv => {
+            const isTempId = /^AUTO_GV_/i.test(String(gv.maGV || ''));
+            const subLine = isTempId
+                ? `${escapeHtml(gv.donVi)} <span class="text-warning-emphasis">(Chưa có Mã GV)</span>`
+                : `${escapeHtml(gv.donVi)} - Mã: ${escapeHtml(gv.maGV)}`;
+
+            return `
+                <div class="card-item position-relative mb-2 p-2 pe-4 border rounded bg-white shadow-sm"
+                     data-id="${escapeHtml(gv.maGV)}"
+                     data-name="${escapeHtml(gv.hoTenGV)}"
+                     data-donvi="${escapeHtml(gv.donVi)}">
+                    <button type="button" class="btn btn-sm btn-link text-danger text-decoration-none fw-bold position-absolute top-0 end-0 px-2 py-1 btn-remove-card" title="Xóa giảng viên này">✕</button>
+                    <div class="fw-bold text-dark">${escapeHtml(gv.hoTenGV)}</div>
+                    <div class="text-muted small">${subLine}</div>
+                </div>
+            `;
+        }).join('');
     }
 
     if (poolSV) {
         poolSV.innerHTML = studentList.map(sv => {
-            const maGVDisplay = sv.maGVHD ? ` [${sv.maGVHD}]` : '';
+            const isTempId = /^AUTO_GV_/i.test(String(sv.maGVHD || ''));
+            const maGVDisplay = (sv.maGVHD && !isTempId) ? ` [${sv.maGVHD}]` : '';
             return `
                 <div class="card-item position-relative mb-2 p-2 pe-4 border rounded bg-white shadow-sm"
                      data-id="${escapeHtml(sv.maSV)}"
@@ -756,13 +880,11 @@ export function initCombinedImportWorkflow() {
             combinedSection.classList.add('d-none');
             legacySection.classList.remove('d-none');
         } else {
-            // Mặc định khi chưa chọn radio nào: ẩn cả 2 khu vực upload
             legacySection.classList.add('d-none');
             combinedSection.classList.add('d-none');
         }
     };
 
-    // Khởi tạo trạng thái hiển thị ban đầu theo radio đang được chọn (nếu có)
     if (radioYes.checked) {
         switchMode(true);
     } else if (radioNo.checked) {
@@ -825,12 +947,8 @@ export function initCombinedImportWorkflow() {
     const runCombinedPipeline = async () => {
         if (!cachedTeacherMaster && !cachedCombinedRows) return;
 
-        if (!cachedTeacherMaster) {
-            showStatusAlert('warning', '⏳ Đã nhận File Phân công tổng hợp. Vui lòng tải lên File Danh sách GV để đối soát Mã GV!');
-            return;
-        }
-
-        if (cachedTeacherMaster.internalErrors.length > 0) {
+        // Nếu người dùng CÓ chọn File Danh sách GV và file đó có lỗi nội bộ -> chặn trước
+        if (cachedTeacherMaster && cachedTeacherMaster.internalErrors.length > 0) {
             clearRenderedWorkspace();
             showStatusAlert(
                 'danger',
@@ -840,7 +958,8 @@ export function initCombinedImportWorkflow() {
             return;
         }
 
-        if (!cachedCombinedRows) {
+        // Nếu mới chỉ chọn File Danh sách GV mà chưa chọn File Phân công tổng hợp
+        if (cachedTeacherMaster && !cachedCombinedRows) {
             showStatusAlert(
                 'info',
                 `✅ Đã nạp hợp lệ ${cachedTeacherMaster.rawList.length} Giảng viên. Vui lòng chọn tiếp File Phân công tổng hợp!`
@@ -848,15 +967,17 @@ export function initCombinedImportWorkflow() {
             return;
         }
 
-        const result = await parseAndValidateCombinedAssignment(cachedCombinedRows, cachedTeacherMaster.lookupMap);
+        // Chạy đối soát File Phân công tổng hợp (có hoặc không có teacherLookupMap)
+        const lookupMap = cachedTeacherMaster ? cachedTeacherMaster.lookupMap : null;
+        const result = await parseAndValidateCombinedAssignment(cachedCombinedRows, lookupMap);
 
         if (!result.ok) {
             clearRenderedWorkspace();
-            showStatusAlert(
-                'danger',
-                `⛔ TẠM CHẶN RENDER HỘI ĐỒNG: Phát hiện ${result.blockingErrors.length} giảng viên chưa khớp với File Danh sách GV (thiếu ký hiệu (A)/(B) hoặc sai tên). Vui lòng cập nhật lại file Excel và tải lại:`,
-                result.blockingErrors
-            );
+            const failTitle = result.hasMasterList
+                ? `⛔ TẠM CHẶN RENDER HỘI ĐỒNG: Phát hiện ${result.blockingErrors.length} giảng viên chưa khớp với File Danh sách GV (thiếu ký hiệu (A)/(B) hoặc sai tên):`
+                : `⛔ TẠM CHẶN RENDER HỘI ĐỒNG: Phát hiện ${result.blockingErrors.length} lỗi dữ liệu / thiếu ký hiệu phân biệt tên Giảng viên trong File Phân công tổng hợp:`;
+
+            showStatusAlert('danger', failTitle, result.blockingErrors);
             return;
         }
 
@@ -875,7 +996,24 @@ export function initCombinedImportWorkflow() {
 
         const checkLogs = renderHoidongFromExcel(result.parsedHoidongs);
 
+        // Ẩn mã tạm AUTO_GV_xxx trong thẻ GV vừa vẽ trong các khung Hội đồng
+        document.querySelectorAll('.box-hoidong .dropzone-gv .card-item').forEach(cardEl => {
+            const id = cardEl.getAttribute('data-id') || '';
+            if (/^AUTO_GV_/i.test(id)) {
+                cardEl.querySelectorAll('.text-muted, small, div').forEach(sub => {
+                    if (sub.textContent.includes(id)) {
+                        sub.textContent = sub.textContent.replace(new RegExp(`\\s*-?\\s*Mã:\\s*${id}`, 'gi'), '').trim();
+                    }
+                });
+            }
+        });
+
+        const modeNotice = !result.hasMasterList
+            ? ['• ℹ️ Đang chạy ở chế độ KHÔNG có File Danh sách GV: Hệ thống tự nhận diện GV theo tên & ký hiệu phân biệt (chưa có Mã GV chuẩn và Đơn vị công tác khi xuất Bảng thanh toán).']
+            : [];
+
         const allWarnings = [
+            ...modeNotice,
             ...result.consistencyWarnings,
             ...(checkLogs.duplicateSVLogs || []),
             ...(checkLogs.conflictLogs || []),
@@ -885,7 +1023,7 @@ export function initCombinedImportWorkflow() {
         if (allWarnings.length > 0) {
             showStatusAlert(
                 'warning',
-                `✅ Đã nạp thành công ${result.studentList.length} SV (${result.detectedNganhs.length || 1} ngành) và dựng Hội đồng. Lưu ý rà soát ${allWarnings.length} cảnh báo nghiệp vụ bên dưới:`,
+                `✅ Đã nạp thành công ${result.studentList.length} SV (${result.detectedNganhs.length || 1} ngành) và dựng Hội đồng. Lưu ý rà soát ${allWarnings.length} ghi chú/cảnh báo bên dưới:`,
                 allWarnings
             );
         } else {
@@ -898,7 +1036,10 @@ export function initCombinedImportWorkflow() {
 
     inputGVFile?.addEventListener('change', async (e) => {
         const file = e.target.files?.[0];
-        if (!file) return;
+        if (!file) {
+            cachedTeacherMaster = null;
+            return;
+        }
         try {
             cachedTeacherMaster = await parseStrictTeacherMasterFile(file, inputGVFile);
             await runCombinedPipeline();
@@ -924,18 +1065,16 @@ export function initCombinedImportWorkflow() {
         const gvFile = inputGVFile?.files?.[0];
         const allFile = inputAllFile?.files?.[0];
 
-        if (!gvFile && !cachedTeacherMaster) {
-            showStatusAlert('warning', '⚠️ Vui lòng chọn File (1) Danh sách GV!');
-            return;
-        }
         if (!allFile && !cachedCombinedRows) {
-            showStatusAlert('warning', '⚠️ Vui lòng chọn File (2) Phân công tổng hợp!');
+            showStatusAlert('warning', '⚠️ Vui lòng chọn File (2) Phân công tổng hợp trước khi bấm Nạp dữ liệu!');
             return;
         }
 
         try {
             if (gvFile) {
                 cachedTeacherMaster = await parseStrictTeacherMasterFile(gvFile, inputGVFile);
+            } else if (!inputGVFile?.value) {
+                cachedTeacherMaster = null;
             }
             if (allFile) {
                 cachedCombinedRows = await readFirstSheetRowsFromFile(allFile, inputAllFile);
