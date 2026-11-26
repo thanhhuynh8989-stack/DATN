@@ -1691,7 +1691,7 @@ function collectExportData(meta, includeEmptyHD = false) {
             const el = box.querySelector(`.dropzone-gv[data-role="${role}"] .card-item`);
             return {
                 name: el ? (el.getAttribute('data-name') || '') : '',
-                id: el ? (el.getAttribute('data-id') || '') : '',
+                id: el ? cleanExportTeacherId(el.getAttribute('data-id')) : '',
                 donVi: el ? (el.getAttribute('data-donvi') || 'Đại học Duy Tân') : 'Đại học Duy Tân'
             };
         };
@@ -1738,6 +1738,7 @@ function collectExportData(meta, includeEmptyHD = false) {
                     lop: svEl.getAttribute('data-lop') || '',
                     de_tai: svEl.getAttribute('data-detai') || '',
                     gvhd: svEl.getAttribute('data-gvhd') || '',
+                    ma_gvhd: cleanExportTeacherId(svEl.getAttribute('data-magvhd')),
                     diem_gvhd: scoreObj.gvhd ?? svEl.getAttribute('data-diem-gvhd') ?? '',
                     diem_ct: scoreObj.ct ?? svEl.getAttribute('data-diem-ct') ?? '',
                     diem_pb: scoreObj.pb ?? svEl.getAttribute('data-diem-pb') ?? '',
@@ -1753,6 +1754,7 @@ function collectExportData(meta, includeEmptyHD = false) {
                 lop: '',
                 de_tai: '',
                 gvhd: '',
+                ma_gvhd: '',
                 isEmptyHD: true
             });
         }
