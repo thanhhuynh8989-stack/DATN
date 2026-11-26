@@ -402,7 +402,7 @@ export function renderHoidongFromExcel(parsedHoidongs) {
             const maGVHD = poolItem ? (poolItem.getAttribute('data-magvhd') || '') : (sv.maGVHD || '');
             const gvhd = poolItem ? (poolItem.getAttribute('data-gvhd') || '') : (sv.gvhd || '');
             const nganh = poolItem ? (poolItem.getAttribute('data-nganh') || '') : (sv.nganh || '');
-            const maGVDisplay = maGVHD ? ` [${maGVHD}]` : '';
+            const maGVDisplay = (maGVHD && !/^AUTO_GV_/i.test(maGVHD)) ? ` [${maGVHD}]` : '';
 
             let violatedMember = null;
             for (const member of thanhVien) {
