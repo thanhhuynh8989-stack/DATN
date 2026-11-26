@@ -1659,6 +1659,11 @@ function extractHoiDongNumberOnly(rawTitle, fallbackIndex = '') {
     return numMatch ? numMatch[0] : String(fallbackIndex || '');
 }
 
+function cleanExportTeacherId(rawId) {
+    const id = String(rawId || '').trim();
+    return /^AUTO_GV_/i.test(id) ? '' : id;
+}
+
 function collectExportData(meta, includeEmptyHD = false) {
     const exportData = [];
 
