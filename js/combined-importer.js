@@ -983,15 +983,15 @@ export function initCombinedImportWorkflow() {
             return;
         }
 
-        // Chạy đối soát File Phân công tổng hợp (có hoặc không có teacherLookupMap)
+        // Chạy đối soát File Phân công tổng hợp (gồm cả đối soát SV toàn trường & GV có/không có Danh sách GV)
         const lookupMap = cachedTeacherMaster ? cachedTeacherMaster.lookupMap : null;
         const result = await parseAndValidateCombinedAssignment(cachedCombinedRows, lookupMap);
 
         if (!result.ok) {
             clearRenderedWorkspace();
             const failTitle = result.hasMasterList
-                ? `⛔ TẠM CHẶN RENDER HỘI ĐỒNG: Phát hiện ${result.blockingErrors.length} giảng viên chưa khớp với File Danh sách GV (thiếu ký hiệu (A)/(B) hoặc sai tên):`
-                : `⛔ TẠM CHẶN RENDER HỘI ĐỒNG: Phát hiện ${result.blockingErrors.length} lỗi dữ liệu / thiếu ký hiệu phân biệt tên Giảng viên trong File Phân công tổng hợp:`;
+                ? `⛔ TẠM CHẶN RENDER HỘI ĐỒNG: Phát hiện ${result.blockingErrors.length} lỗi đối soát Giảng viên (so với Danh sách GV) hoặc Sinh viên (so với DANH_SACH_SV_TOAN_TRUONG.xlsx):`
+                : `⛔ TẠM CHẶN RENDER HỘI ĐỒNG: Phát hiện ${result.blockingErrors.length} lỗi đối soát Sinh viên (so với DANH_SACH_SV_TOAN_TRUONG.xlsx) hoặc thiếu ký hiệu phân biệt tên Giảng viên:`;
 
             showStatusAlert('danger', failTitle, result.blockingErrors);
             return;
@@ -1039,13 +1039,13 @@ export function initCombinedImportWorkflow() {
         if (allWarnings.length > 0) {
             showStatusAlert(
                 'warning',
-                `✅ Đã nạp thành công ${result.studentList.length} SV (${result.detectedNganhs.length || 1} ngành) và dựng Hội đồng. Lưu ý rà soát ${allWarnings.length} ghi chú/cảnh báo bên dưới:`,
+                `✅ Đã nạp thành công ${result.studentList.length} SV (${result.detectedNganhs.length || 1} ngành — đã khớp Danh sách SV toàn trường) và dựng Hội đồng. Lưu ý rà soát ${allWarnings.length} ghi chú/cảnh báo bên dưới:`,
                 allWarnings
             );
         } else {
             showStatusAlert(
                 'success',
-                `✅ Đối soát hoàn tất: 100% Giảng viên khớp Mã GV (${result.studentList.length} Sinh viên — ${result.detectedNganhs.length || 1} ngành đã được xếp vào các Hội đồng hợp lệ)!`
+                `✅ Đối soát hoàn tất: 100% Sinh viên khớp Danh sách toàn trường & Giảng viên khớp Mã GV (${result.studentList.length} SV — ${result.detectedNganhs.length || 1} ngành đã được xếp vào các Hội đồng hợp lệ)!`
             );
         }
     };
